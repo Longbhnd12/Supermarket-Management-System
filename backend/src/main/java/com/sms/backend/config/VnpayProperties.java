@@ -1,3 +1,4 @@
+// VnpayProperties - binds application.yml vnpay properties
 package com.sms.backend.config;
 
 import lombok.Getter;
