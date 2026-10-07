@@ -1,3 +1,4 @@
+// CreatePaymentRequest - payload DTO for initiating payment transactions
 package com.sms.backend.dto.payment;
 
 import com.sms.backend.enums.PaymentMethod;
