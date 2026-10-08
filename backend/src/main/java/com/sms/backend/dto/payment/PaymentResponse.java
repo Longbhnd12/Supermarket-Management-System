@@ -1,3 +1,4 @@
+// PaymentResponse - returns checkout transaction status and payment URL
 package com.sms.backend.dto.payment;
 
 import com.sms.backend.entity.Payment;
