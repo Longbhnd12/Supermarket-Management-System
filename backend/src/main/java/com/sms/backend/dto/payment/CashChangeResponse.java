@@ -1,3 +1,4 @@
+// CashChangeResponse - calculates required change and bill breakdown
 package com.sms.backend.dto.payment;
 
 import java.math.BigDecimal;
