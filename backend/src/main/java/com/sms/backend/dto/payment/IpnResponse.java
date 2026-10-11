@@ -1,3 +1,4 @@
+// IpnResponse - acknowledges VNPay asynchronous webhook notifications
 package com.sms.backend.dto.payment;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
