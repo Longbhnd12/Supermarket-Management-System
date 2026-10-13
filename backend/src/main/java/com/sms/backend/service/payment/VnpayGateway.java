@@ -1,3 +1,4 @@
+// VnpayGateway - implementation of VNPay sandbox and production gateway
 package com.sms.backend.service.payment;
 
 import com.sms.backend.config.VnpayProperties;
