@@ -1,3 +1,4 @@
+// SaleService - service interface managing sales lifecycle and checkout
 package com.sms.backend.service;
 
 import com.sms.backend.dto.response.PageResponse;
