@@ -1,3 +1,4 @@
+// PaymentService - service interface handling payments and settlement
 package com.sms.backend.service;
 
 import com.sms.backend.dto.payment.*;
