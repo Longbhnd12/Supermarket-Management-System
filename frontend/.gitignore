@@ -1,0 +1,35 @@
+# =====================
+# FRONTEND
+# =====================
+**/node_modules/
+**/dist/
+**/coverage/
+
+# =====================
+# BACKEND
+# =====================
+**/target/
+*.class
+
+# =====================
+# IDE
+# =====================
+**/.idea/
+**/.vscode/
+*.iml
+
+# =====================
+# ENV
+# =====================
+.env
+.env.*
+!.env.example
+**/application-local.properties
+**/application-secret.properties
+
+# =====================
+# OTHER
+# =====================
+*.log
+.DS_Store
+Thumbs.db
