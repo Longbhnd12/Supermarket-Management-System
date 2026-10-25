@@ -1,3 +1,4 @@
+// InvoiceSearchController - search and filter historical sales invoices
 package com.sms.backend.controller;
 
 import com.sms.backend.dto.ApiResponse;
