@@ -1,3 +1,4 @@
+// saleService - frontend API client for creating sales and cart updates
 import API from './api';
 
 const saleService = {
