@@ -1,3 +1,4 @@
+// invoiceService - frontend client for invoice queries and PDF export
 import API from './api';
 
 export default {
