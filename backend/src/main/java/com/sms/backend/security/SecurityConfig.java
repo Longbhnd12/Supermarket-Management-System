@@ -24,10 +24,8 @@ public class SecurityConfig {
                 .cors(cors -> {
                 })
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/api/v1/health",
-                                "/api/v1/test-error"
-                        ).permitAll()
+                        // TODO (SDD): Replace with role-based access rules once auth design is confirmed
+                        .requestMatchers("/api/v1/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .formLogin(AbstractHttpConfigurer::disable)

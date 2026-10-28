@@ -34,23 +34,28 @@ const menuGroups = [
         items: [
             {
                 label: 'Product Management',
-                icon: Package
+                icon: Package,
+                path: '/products'
             },
             {
                 label: 'Purchase & Inventory',
-                icon: Warehouse
+                icon: Warehouse,
+                path: '/inventory'
             },
             {
                 label: 'Sales & POS',
-                icon: ShoppingCart
+                icon: ShoppingCart,
+                path: '/sales'
             },
             {
                 label: 'Supplier Management',
-                icon: Truck
+                icon: Truck,
+                path: '/suppliers'
             },
             {
                 label: 'Promotion Management',
-                icon: Tags
+                icon: Tags,
+                path: '/promotions'
             }
         ]
     },
@@ -59,23 +64,28 @@ const menuGroups = [
         items: [
             {
                 label: 'Employee Management',
-                icon: Users
+                icon: Users,
+                path: '/employees'
             },
             {
                 label: 'User Management',
-                icon: UserCog
+                icon: UserCog,
+                path: '/users'
             },
             {
                 label: 'Reports',
                 icon: BarChart3
+                // TODO (SDD): Add path once Reports module is designed
             },
             {
                 label: 'System Settings',
                 icon: Settings
+                // TODO (SDD): Add path once System Settings module is designed
             },
             {
                 label: 'System Logs',
                 icon: ClipboardList
+                // TODO (SDD): Add path once System Logs module is designed
             }
         ]
     }

@@ -8,6 +8,33 @@ import MainLayout from './layouts/MainLayout';
 import HomePage from './pages/HomePage';
 import NotFoundPage from './pages/NotFoundPage';
 
+// Product
+import ProductListPage from './pages/product/ProductListPage';
+import ProductDetailPage from './pages/product/ProductDetailPage';
+
+// Sales
+import SaleListPage from './pages/sales/SaleListPage';
+import POSPage from './pages/sales/POSPage';
+
+// Purchase Orders
+import PurchaseOrderListPage from './pages/purchaseOrder/PurchaseOrderListPage';
+import PurchaseOrderDetailPage from './pages/purchaseOrder/PurchaseOrderDetailPage';
+
+// Inventory
+import InventoryPage from './pages/inventory/InventoryPage';
+
+// Supplier
+import SupplierListPage from './pages/supplier/SupplierListPage';
+
+// Promotion
+import PromotionListPage from './pages/promotion/PromotionListPage';
+
+// Employee
+import EmployeeListPage from './pages/employee/EmployeeListPage';
+
+// User
+import UserListPage from './pages/user/UserListPage';
+
 import './App.css';
 
 export default function App() {
@@ -16,6 +43,32 @@ export default function App() {
             <Routes>
                 <Route element={<MainLayout />}>
                     <Route path="/" element={<HomePage />} />
+
+                    {/* Product Management */}
+                    <Route path="/products" element={<ProductListPage />} />
+                    <Route path="/products/:id" element={<ProductDetailPage />} />
+
+                    {/* Sales & POS */}
+                    <Route path="/sales" element={<SaleListPage />} />
+                    <Route path="/sales/pos" element={<POSPage />} />
+
+                    {/* Purchase Orders */}
+                    <Route path="/purchase-orders" element={<PurchaseOrderListPage />} />
+                    <Route path="/purchase-orders/:id" element={<PurchaseOrderDetailPage />} />
+
+                    {/* Inventory */}
+                    <Route path="/inventory" element={<InventoryPage />} />
+
+                    {/* Suppliers */}
+                    <Route path="/suppliers" element={<SupplierListPage />} />
+
+                    {/* Promotions */}
+                    <Route path="/promotions" element={<PromotionListPage />} />
+
+                    {/* Administration */}
+                    <Route path="/employees" element={<EmployeeListPage />} />
+                    <Route path="/users" element={<UserListPage />} />
+
                     <Route path="*" element={<NotFoundPage />} />
                 </Route>
             </Routes>
