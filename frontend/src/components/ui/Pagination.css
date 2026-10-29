@@ -1,0 +1,141 @@
+/* =============================================================================
+   Pagination.css — Reusable Pagination Component Styles
+   ============================================================================= */
+
+.sms-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 14px 20px;
+    background: #ffffff;
+    border-top: 1px solid var(--sms-border, #e5e9f3);
+    border-bottom-left-radius: inherit;
+    border-bottom-right-radius: inherit;
+}
+
+.sms-pagination-left {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 18px;
+}
+
+.sms-pagination-info {
+    font-size: 13px;
+    color: var(--sms-text-secondary, #69748c);
+    font-feature-settings: 'tnum';
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.sms-page-size-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--sms-text-secondary, #69748c);
+}
+
+.sms-page-size-label {
+    white-space: nowrap;
+    font-size: 12.5px;
+}
+
+.sms-page-size-select {
+    height: 32px;
+    padding: 0 28px 0 10px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--sms-text, #19233b);
+    background: #ffffff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2369748c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 8px center;
+    appearance: none;
+    border: 1px solid var(--sms-border, #e5e9f3);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.sms-page-size-select:hover:not(:disabled) {
+    border-color: #cbd5e1;
+}
+
+.sms-page-size-select:focus {
+    outline: none;
+    border-color: var(--sms-primary, #2458dc);
+    box-shadow: 0 0 0 3px rgba(36, 88, 220, 0.12);
+}
+
+.sms-page-size-select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: #f8fafc;
+}
+
+.sms-pagination-right {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.sms-page-count {
+    font-size: 13px;
+    color: var(--sms-text-secondary, #69748c);
+    font-feature-settings: 'tnum';
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.sms-pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.sms-page-btn {
+    min-width: 32px;
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 500;
+    border: 1px solid var(--sms-border, #e5e9f3);
+    background: #ffffff;
+    color: var(--sms-text, #19233b);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.sms-page-btn:hover:not(:disabled) {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: var(--sms-primary, #2458dc);
+}
+
+.sms-page-btn--active {
+    background: var(--sms-primary, #2458dc) !important;
+    color: #ffffff !important;
+    border-color: var(--sms-primary, #2458dc) !important;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(36, 88, 220, 0.3);
+}
+
+.sms-page-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: #f8fafc;
+    border-color: var(--sms-border, #e5e9f3);
+}
+
+.sms-page-ellipsis {
+    padding: 0 6px;
+    color: #94a3b8;
+    font-size: 13px;
+    user-select: none;
+}

@@ -5,6 +5,9 @@ import com.sms.backend.dto.inventory.InventoryPageResponse;
 import com.sms.backend.dto.inventory.InventoryResponse;
 import com.sms.backend.dto.inventory.StockCheckResponse;
 import com.sms.backend.dto.inventory.StockMovementResponse;
+import com.sms.backend.dto.inventory.StockReceiptFilter;
+import com.sms.backend.dto.inventory.StockReceiptListItem;
+import com.sms.backend.dto.inventory.StockReceiptPageResponse;
 import com.sms.backend.dto.inventory.StockReceiptResponse;
 import com.sms.backend.entity.Product;
 import com.sms.backend.entity.StockCheck;
@@ -180,7 +183,39 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     // =========================================================================
-    // StockReceipt
+    // UC37 - Stock Receipt List
+    // =========================================================================
+
+    @Override
+    public StockReceiptPageResponse getStockReceiptList(StockReceiptFilter filter) {
+        int size = filter.clampedSize();
+        int page = Math.max(filter.page(), 0);
+
+        Page<StockReceipt> receiptPage = stockReceiptRepository.findAllByFilter(
+                filter.normalizedKeyword(),
+                filter.normalizedProductSku(),
+                filter.supplierId(),
+                filter.status(),
+                filter.effectiveDateFrom(),
+                filter.effectiveDateTo(),
+                PageRequest.of(page, size)
+        );
+
+        List<StockReceiptListItem> rows = receiptPage.getContent().stream()
+                .map(this::toReceiptListItem)
+                .collect(Collectors.toList());
+
+        return new StockReceiptPageResponse(
+                rows,
+                receiptPage.getNumber(),
+                receiptPage.getSize(),
+                receiptPage.getTotalElements(),
+                receiptPage.getTotalPages()
+        );
+    }
+
+    // =========================================================================
+    // StockReceipt (legacy / detail)
     // =========================================================================
 
     @Override
@@ -259,6 +294,20 @@ public class InventoryServiceImpl implements InventoryService {
     private StockCheck findCheckById(Long id) {
         return stockCheckRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("StockCheck not found: " + id));
+    }
+
+    private StockReceiptListItem toReceiptListItem(StockReceipt sr) {
+        return new StockReceiptListItem(
+                sr.getStockReceiptId(),
+                sr.getReceiptNumber(),
+                sr.getSupplier().getSupplierId(),
+                sr.getSupplier().getSupplierName(),
+                sr.getTotalCost(),
+                sr.getStatus(),
+                sr.getReceivedAt(),
+                sr.getCreatedAt(),
+                sr.getCreatedBy().getUsername()
+        );
     }
 
     private StockReceiptResponse toReceiptResponse(StockReceipt sr) {

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import InventoryService from '../../services/inventoryService';
 import CategoryService from '../../services/categoryService';
+import Pagination from '../../components/ui/Pagination';
 import './InventoryPage.css';
 
 // ─── Status badge helpers ────────────────────────────────────────────────────
@@ -140,29 +141,6 @@ export default function InventoryPage() {
         setStockStatus('');
         setPage(0);
     };
-
-    const getPageNumbers = () => {
-        if (totalPages <= 1) return [0];
-        const maxButtons = 5;
-        if (totalPages <= maxButtons) {
-            return Array.from({ length: totalPages }, (_, i) => i);
-        }
-        let start = Math.max(0, page - 2);
-        let end = Math.min(totalPages - 1, start + maxButtons - 1);
-        if (end - start < maxButtons - 1) {
-            start = Math.max(0, end - maxButtons + 1);
-        }
-        const nums = [];
-        for (let i = start; i <= end; i++) {
-            nums.push(i);
-        }
-        return nums;
-    };
-
-    const pageNumbers = getPageNumbers();
-    const from = totalElements === 0 ? 0 : page * size + 1;
-    const to = Math.min((page + 1) * size, totalElements);
-    const displayTotalPages = Math.max(totalPages, 1);
 
     return (
         <div className="inv-page">
@@ -362,89 +340,20 @@ export default function InventoryPage() {
 
                 {/* Pagination */}
                 {!loading && !error && (
-                    <div className="inv-pagination" id="inv-pagination">
-                        <div className="inv-pagination-left">
-                            <span className="inv-pagination-info" id="inv-pagination-info">
-                                {totalElements === 0
-                                    ? 'Showing 0 products'
-                                    : `Showing ${from}–${to} of ${totalElements.toLocaleString()} products`}
-                            </span>
-                            <div className="inv-page-size-wrap">
-                                <label htmlFor="inv-page-size-select" className="inv-page-size-label">
-                                    Rows per page:
-                                </label>
-                                <select
-                                    id="inv-page-size-select"
-                                    className="inv-page-size-select"
-                                    value={size}
-                                    onChange={e => {
-                                        const newSize = parseInt(e.target.value, 10);
-                                        setSize(newSize);
-                                        setPage(0);
-                                    }}
-                                >
-                                    <option value={5}>5</option>
-                                    <option value={10}>10</option>
-                                    <option value={20}>20</option>
-                                    <option value={50}>50</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="inv-pagination-right">
-                            <span className="inv-page-count">
-                                Page {page + 1} of {displayTotalPages}
-                            </span>
-                            <div className="inv-pagination-controls">
-                                <button
-                                    id="inv-first-page-btn"
-                                    className="inv-page-btn"
-                                    onClick={() => setPage(0)}
-                                    disabled={page === 0}
-                                    title="First page"
-                                    aria-label="First page"
-                                >«</button>
-                                <button
-                                    id="inv-prev-page-btn"
-                                    className="inv-page-btn"
-                                    onClick={() => setPage(p => Math.max(0, p - 1))}
-                                    disabled={page === 0}
-                                    title="Previous page"
-                                    aria-label="Previous page"
-                                >‹ Prev</button>
-                                {totalElements > 0 && pageNumbers.map(n => (
-                                    <button
-                                        key={n}
-                                        className={`inv-page-btn${n === page ? ' inv-page-btn--active' : ''}`}
-                                        onClick={() => setPage(n)}
-                                        aria-label={`Page ${n + 1}`}
-                                        aria-current={n === page ? 'page' : undefined}
-                                    >
-                                        {n + 1}
-                                    </button>
-                                ))}
-                                {totalPages > 5 && page < totalPages - 3 && (
-                                    <span className="inv-page-ellipsis">…</span>
-                                )}
-                                <button
-                                    id="inv-next-page-btn"
-                                    className="inv-page-btn"
-                                    onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-                                    disabled={page >= totalPages - 1 || totalPages <= 1}
-                                    title="Next page"
-                                    aria-label="Next page"
-                                >Next ›</button>
-                                <button
-                                    id="inv-last-page-btn"
-                                    className="inv-page-btn"
-                                    onClick={() => setPage(totalPages - 1)}
-                                    disabled={page >= totalPages - 1 || totalPages <= 1}
-                                    title="Last page"
-                                    aria-label="Last page"
-                                >»</button>
-                            </div>
-                        </div>
-                    </div>
+                    <Pagination
+                        idPrefix="inv"
+                        page={page}
+                        size={size}
+                        totalElements={totalElements}
+                        totalPages={totalPages}
+                        pageSizeOptions={[5, 10, 20, 50]}
+                        onPageChange={setPage}
+                        onSizeChange={(newSize) => {
+                            setSize(newSize);
+                            setPage(0);
+                        }}
+                        itemLabel="products"
+                    />
                 )}
             </div>
 
