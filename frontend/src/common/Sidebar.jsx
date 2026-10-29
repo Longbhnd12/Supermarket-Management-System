@@ -15,6 +15,7 @@ import {
     Store,
     PanelLeftClose,
     PanelLeftOpen,
+    FileInput,
     X
 } from 'lucide-react';
 
@@ -40,7 +41,13 @@ const menuGroups = [
             {
                 label: 'Purchase & Inventory',
                 icon: Warehouse,
-                path: '/inventory'
+                path: '/inventory',
+                end: true
+            },
+            {
+                label: 'Stock Receipts',
+                icon: FileInput,
+                path: '/inventory/stock-receipts'
             },
             {
                 label: 'Sales & POS',
@@ -181,13 +188,11 @@ export default function Sidebar({
                                     <NavLink
                                         key={item.label}
                                         to={item.path}
-                                        end={item.path === '/'}
+                                        end={item.end ?? item.path === '/'}
                                         title={item.label}
                                         onClick={() => setMobileOpen(false)}
                                         className={({ isActive }) =>
-                                            `sms-menu-item ${
-                                                isActive ? 'active' : ''
-                                            }`
+                                            `sms-menu-item ${isActive ? 'active' : ''}`
                                         }
                                     >
                                         <Icon size={19} />
