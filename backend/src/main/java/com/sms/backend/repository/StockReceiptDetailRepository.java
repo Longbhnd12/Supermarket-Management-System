@@ -1,5 +1,6 @@
 package com.sms.backend.repository;
 
+import com.sms.backend.entity.Product;
 import com.sms.backend.entity.StockReceipt;
 import com.sms.backend.entity.StockReceiptDetail;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,4 +12,7 @@ import java.util.List;
 public interface StockReceiptDetailRepository extends JpaRepository<StockReceiptDetail, Long> {
 
     List<StockReceiptDetail> findByStockReceipt(StockReceipt stockReceipt);
+
+    /** UC31 NEAR_EXPIRY: fetch all batch rows for a given product. */
+    List<StockReceiptDetail> findByProduct(Product product);
 }
