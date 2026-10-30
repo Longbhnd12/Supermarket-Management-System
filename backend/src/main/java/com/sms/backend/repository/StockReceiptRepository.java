@@ -13,6 +13,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface StockReceiptRepository extends JpaRepository<StockReceipt, Long> {
@@ -22,6 +23,24 @@ public interface StockReceiptRepository extends JpaRepository<StockReceipt, Long
     List<StockReceipt> findByPurchaseOrder(PurchaseOrder purchaseOrder);
 
     List<StockReceipt> findByStatus(StockReceiptStatus status);
+
+    // =========================================================================
+    // UC37 Details — fetch single receipt with supplier, createdBy, and optional PO
+    // =========================================================================
+
+    /**
+     * Loads a StockReceipt by ID with FETCH joins on supplier, createdBy,
+     * and the optional purchaseOrder so no lazy-loading exceptions occur.
+     */
+    @Query("""
+            SELECT sr
+            FROM StockReceipt sr
+            JOIN FETCH sr.supplier
+            JOIN FETCH sr.createdBy
+            LEFT JOIN FETCH sr.purchaseOrder
+            WHERE sr.stockReceiptId = :id
+            """)
+    Optional<StockReceipt> findByIdWithDetails(@Param("id") Long id);
 
     // =========================================================================
     // UC37 — Stock Receipt List (filtered + paginated)
@@ -88,3 +107,4 @@ public interface StockReceiptRepository extends JpaRepository<StockReceipt, Long
             Pageable pageable
     );
 }
+
