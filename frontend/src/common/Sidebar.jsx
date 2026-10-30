@@ -81,8 +81,8 @@ const menuGroups = [
             },
             {
                 label: 'Reports',
-                icon: BarChart3
-                // TODO (SDD): Add path once Reports module is designed
+                icon: BarChart3,
+                path: '/reports/sales'
             },
             {
                 label: 'System Settings',

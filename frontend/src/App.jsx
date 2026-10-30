@@ -9,6 +9,7 @@ import HomePage from './pages/HomePage';
 import NotFoundPage from './pages/NotFoundPage';
 import SystemSettingsPage from './pages/system/SystemSettingsPage';
 import SystemLogsPage from './pages/system/SystemLogsPage';
+import SalesReportPage from './pages/reports/SalesReportPage';
 
 // Product
 import ProductListPage from './pages/product/ProductListPage';
@@ -75,6 +76,7 @@ export default function App() {
 
                     <Route path="/system-settings" element={<SystemSettingsPage />} />
                     <Route path="/system-logs" element={<SystemLogsPage />} />
+                    <Route path="/reports/sales" element={<SalesReportPage />} />
                     <Route path="*" element={<NotFoundPage />} />
                 </Route>
             </Routes>
