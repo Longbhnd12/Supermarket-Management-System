@@ -42,7 +42,8 @@ const menuGroups = [
             },
             {
                 label: 'Sales & POS',
-                icon: ShoppingCart
+                icon: ShoppingCart,
+                path: '/sales'
             },
             {
                 label: 'Supplier Management',
@@ -67,7 +68,8 @@ const menuGroups = [
             },
             {
                 label: 'Reports',
-                icon: BarChart3
+                icon: BarChart3,
+                path: '/reports/sales'
             },
             {
                 label: 'System Settings',

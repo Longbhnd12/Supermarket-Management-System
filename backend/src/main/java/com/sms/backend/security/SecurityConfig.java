@@ -28,7 +28,9 @@ public class SecurityConfig {
                                 "/api/v1/health",
                                 "/api/v1/test-error",
                                 "/api/v1/system-settings/**",
-                                "/api/v1/system-logs/**"
+                                "/api/v1/system-logs/**",
+                                "/api/v1/sales/**",
+                                "/api/v1/reports/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
