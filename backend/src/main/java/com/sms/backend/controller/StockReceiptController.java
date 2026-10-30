@@ -1,13 +1,16 @@
 package com.sms.backend.controller;
 
 import com.sms.backend.dto.ApiResponse;
+import com.sms.backend.dto.inventory.CreateStockReceiptRequest;
 import com.sms.backend.dto.inventory.StockReceiptFilter;
 import com.sms.backend.dto.inventory.StockReceiptPageResponse;
 import com.sms.backend.dto.inventory.StockReceiptResponse;
 import com.sms.backend.enums.StockReceiptStatus;
 import com.sms.backend.service.InventoryService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -82,5 +85,44 @@ public class StockReceiptController {
             @PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success("Stock receipt retrieved",
                 inventoryService.getStockReceiptById(id)));
+    }
+
+    // =========================================================================
+    // UC36 — Create Stock Receipt (Import Stock)
+    // =========================================================================
+
+    /**
+     * GET /api/v1/stock-receipts/next-number
+     * Returns the next auto-generated unique stock receipt identifier (e.g. SR0004).
+     */
+    @GetMapping("/next-number")
+    public ResponseEntity<ApiResponse<String>> getNextReceiptNumber() {
+        return ResponseEntity.ok(ApiResponse.success("Next receipt number generated",
+                inventoryService.getNextReceiptNumber()));
+    }
+
+    /**
+     * POST /api/v1/stock-receipts
+     * Creates a new stock receipt with supplier and imported product batch lines.
+     * If status is CONFIRMED (default), updates inventory and logs StockMovement records.
+     */
+    @PostMapping
+    public ResponseEntity<ApiResponse<StockReceiptResponse>> createStockReceipt(
+            @Valid @RequestBody CreateStockReceiptRequest request) {
+        StockReceiptResponse response = inventoryService.createStockReceipt(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Stock receipt created successfully", response));
+    }
+
+    /**
+     * POST /api/v1/stock-receipts/{id}/confirm
+     * Confirms an existing DRAFT stock receipt, updates inventory stock,
+     * sets remainingQuantity on details, and logs StockMovement records.
+     */
+    @PostMapping("/{id}/confirm")
+    public ResponseEntity<ApiResponse<StockReceiptResponse>> confirmStockReceipt(
+            @PathVariable Long id) {
+        StockReceiptResponse response = inventoryService.confirmStockReceipt(id);
+        return ResponseEntity.ok(ApiResponse.success("Stock receipt confirmed successfully", response));
     }
 }
