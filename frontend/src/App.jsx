@@ -11,6 +11,9 @@ import SystemSettingsPage from './pages/system/SystemSettingsPage';
 import SystemLogsPage from './pages/system/SystemLogsPage';
 import SaleListPage from './pages/sales/SaleListPage';
 import SalesReportPage from './pages/reports/SalesReportPage';
+import InventoryReportPage from './pages/reports/InventoryReportPage';
+import RevenueReportPage from './pages/reports/RevenueReportPage';
+import ProductSalesReportPage from './pages/reports/ProductSalesReportPage';
 
 import './App.css';
 
@@ -24,6 +27,9 @@ export default function App() {
                     <Route path="/system-logs" element={<SystemLogsPage />} />
                     <Route path="/sales" element={<SaleListPage />} />
                     <Route path="/reports/sales" element={<SalesReportPage />} />
+                    <Route path="/reports/inventory" element={<InventoryReportPage />} />
+                    <Route path="/reports/revenue" element={<RevenueReportPage />} />
+                    <Route path="/reports/product-sales" element={<ProductSalesReportPage />} />
                     <Route path="*" element={<NotFoundPage />} />
                 </Route>
             </Routes>
