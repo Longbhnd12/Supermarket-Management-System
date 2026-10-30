@@ -6,13 +6,15 @@ import com.sms.backend.entity.StockReceiptDetail;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 @Repository
 public interface StockReceiptDetailRepository extends JpaRepository<StockReceiptDetail, Long> {
-
     List<StockReceiptDetail> findByStockReceipt(StockReceipt stockReceipt);
-
-    /** UC31 NEAR_EXPIRY: fetch all batch rows for a given product. */
     List<StockReceiptDetail> findByProduct(Product product);
+    List<StockReceiptDetail> findByExpirationDateBetweenAndRemainingQuantityGreaterThan(
+            LocalDate fromDate, LocalDate toDate, BigDecimal remainingQuantity
+    );
 }
