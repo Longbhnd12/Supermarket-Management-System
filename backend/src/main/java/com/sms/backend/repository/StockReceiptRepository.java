@@ -24,6 +24,12 @@ public interface StockReceiptRepository extends JpaRepository<StockReceipt, Long
 
     List<StockReceipt> findByStatus(StockReceiptStatus status);
 
+    boolean existsByReceiptNumber(String receiptNumber);
+
+    Optional<StockReceipt> findByReceiptNumber(String receiptNumber);
+
+    Optional<StockReceipt> findTopByOrderByStockReceiptIdDesc();
+
     // =========================================================================
     // UC37 Details — fetch single receipt with supplier, createdBy, and optional PO
     // =========================================================================

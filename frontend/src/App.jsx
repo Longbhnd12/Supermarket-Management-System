@@ -31,6 +31,7 @@ import PurchaseOrderDetailPage from './pages/purchaseOrder/PurchaseOrderDetailPa
 import InventoryPage from './pages/inventory/InventoryPage';
 import StockReceiptListPage from './pages/inventory/StockReceiptListPage';
 import StockReceiptDetailPage from './pages/inventory/StockReceiptDetailPage';
+import CreateStockReceiptPage from './pages/inventory/CreateStockReceiptPage';
 
 // Supplier
 import SupplierListPage from './pages/supplier/SupplierListPage';
@@ -68,6 +69,7 @@ export default function App() {
                     {/* Inventory */}
                     <Route path="/inventory" element={<InventoryPage />} />
                     <Route path="/inventory/stock-receipts" element={<StockReceiptListPage />} />
+                    <Route path="/inventory/stock-receipts/create" element={<CreateStockReceiptPage />} />
                     <Route path="/inventory/stock-receipts/:id" element={<StockReceiptDetailPage />} />
 
                     {/* Suppliers */}

@@ -1,0 +1,742 @@
+/* =============================================================================
+   CreateStockReceiptPage.css — SMS UC36 Create Stock Receipt (Import Stock)
+   Design tokens mirror StockReceiptListPage.css and StockReceiptDetailPage.css.
+   ============================================================================= */
+
+/* ─── 1. Page Container ─────────────────────────────────────────────────────── */
+
+.csr-page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+    color: var(--sms-text, #19233b);
+}
+
+/* ─── 2. Header ─────────────────────────────────────────────────────────────── */
+
+.csr-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.csr-header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.csr-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--sms-text-secondary, #69748c);
+}
+
+.csr-breadcrumb__sep {
+    color: var(--sms-border, #c8cedf);
+}
+
+.csr-breadcrumb__link {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--sms-primary, #2458dc);
+    font-weight: 500;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.csr-breadcrumb__link:hover {
+    color: var(--sms-primary-dark, #1746bb);
+}
+
+.csr-breadcrumb__item--active {
+    color: var(--sms-primary, #2458dc);
+    font-weight: 500;
+}
+
+.csr-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.csr-title {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--sms-text, #19233b);
+    letter-spacing: -0.02em;
+}
+
+.csr-subtitle {
+    margin: 0;
+    font-size: 13px;
+    color: var(--sms-text-secondary, #69748c);
+}
+
+.csr-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* ─── 3. Buttons ────────────────────────────────────────────────────────────── */
+
+.csr-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 38px;
+    padding: 0 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: nowrap;
+    border: none;
+}
+
+.csr-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(36, 88, 220, 0.25);
+}
+
+.csr-btn--primary {
+    background: var(--sms-primary, #2458dc);
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(36, 88, 220, 0.24);
+}
+
+.csr-btn--primary:hover:not(:disabled) {
+    background: var(--sms-primary-dark, #1746bb);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(36, 88, 220, 0.32);
+}
+
+.csr-btn--primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.csr-btn--secondary {
+    background: #fff;
+    color: var(--sms-text, #19233b);
+    border: 1px solid var(--sms-border, #e5e9f3);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.csr-btn--secondary:hover:not(:disabled) {
+    background: var(--sms-bg-hover, #f4f6fc);
+    border-color: #c8cedf;
+}
+
+.csr-btn--ghost {
+    background: transparent;
+    color: var(--sms-text-secondary, #69748c);
+    border: 1px solid transparent;
+}
+
+.csr-btn--ghost:hover:not(:disabled) {
+    background: var(--sms-bg-hover, #f4f6fc);
+    color: var(--sms-text, #19233b);
+    border-color: var(--sms-border, #e5e9f3);
+}
+
+/* ─── 4. Alert Banner ───────────────────────────────────────────────────────── */
+
+.csr-alert {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.csr-alert--error {
+    background: #fff5f5;
+    color: #c53030;
+    border: 1px solid #feb2b2;
+}
+
+/* ─── 5. Cards & Layout ─────────────────────────────────────────────────────── */
+
+.csr-card {
+    background: #fff;
+    border: 1px solid var(--sms-border, #e5e9f3);
+    border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    overflow: visible;
+}
+
+.csr-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--sms-border, #e5e9f3);
+    background: var(--sms-bg-subtle, #fafbfd);
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+}
+
+.csr-card__title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--sms-text, #19233b);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.csr-card__hint {
+    font-size: 12px;
+    color: var(--sms-text-secondary, #69748c);
+}
+
+.csr-card__count {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--sms-text-secondary, #69748c);
+    background: var(--sms-border, #e5e9f3);
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.csr-card__body {
+    padding: 20px;
+}
+
+/* ─── 6. Metadata Grid ──────────────────────────────────────────────────────── */
+
+.csr-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+}
+
+@media (max-width: 1100px) {
+    .csr-meta-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+    .csr-meta-grid { grid-template-columns: 1fr; }
+}
+
+.csr-field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.csr-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--sms-text-secondary, #69748c);
+}
+
+.csr-required {
+    color: #e53e3e;
+}
+
+.csr-help-text {
+    font-size: 11px;
+    color: var(--sms-text-secondary, #69748c);
+}
+
+.csr-error-msg {
+    font-size: 11px;
+    color: #e53e3e;
+    font-weight: 500;
+}
+
+/* ─── 7. Inputs ─────────────────────────────────────────────────────────────── */
+
+.csr-input,
+.csr-select {
+    height: 38px;
+    padding: 0 12px;
+    border: 1px solid var(--sms-border, #e5e9f3);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--sms-text, #19233b);
+    background: #fff;
+    transition: border-color 0.18s, box-shadow 0.18s;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.csr-input:focus,
+.csr-select:focus {
+    outline: none;
+    border-color: var(--sms-primary, #2458dc);
+    box-shadow: 0 0 0 3px rgba(36, 88, 220, 0.12);
+}
+
+.csr-input--error,
+.csr-select.csr-input--error {
+    border-color: #e53e3e;
+    background: #fff5f5;
+}
+
+.csr-input--mono {
+    font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
+    font-weight: 600;
+    color: var(--sms-primary, #2458dc);
+}
+
+.csr-input--readonly {
+    background: var(--sms-bg-subtle, #fafbfd);
+    color: var(--sms-text-secondary, #69748c);
+    cursor: default;
+}
+
+.csr-input--num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.csr-input-icon-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.csr-input-icon {
+    position: absolute;
+    left: 11px;
+    color: var(--sms-text-secondary, #69748c);
+    pointer-events: none;
+    flex-shrink: 0;
+}
+
+.csr-input--with-icon {
+    padding-left: 36px;
+}
+
+/* ─── 8. Barcode & Search Section ───────────────────────────────────────────── */
+
+.csr-add-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+@media (max-width: 800px) {
+    .csr-add-grid { grid-template-columns: 1fr; }
+}
+
+.csr-barcode-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.csr-barcode-input-group {
+    display: flex;
+    gap: 8px;
+}
+
+.csr-search-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.csr-search-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid var(--sms-border, #e5e9f3);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    max-height: 280px;
+    overflow-y: auto;
+    z-index: 100;
+}
+
+.csr-search-dropdown__empty {
+    padding: 16px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--sms-text-secondary, #69748c);
+}
+
+.csr-search-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--sms-border, #e5e9f3);
+    transition: background 0.15s;
+}
+
+.csr-search-item:last-child {
+    border-bottom: none;
+}
+
+.csr-search-item:hover {
+    background: var(--sms-bg-hover, #f4f6fc);
+}
+
+.csr-search-item__main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.csr-search-item__name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sms-text, #19233b);
+}
+
+.csr-search-item__meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--sms-text-secondary, #69748c);
+}
+
+.csr-search-item__sku {
+    font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
+    color: var(--sms-primary, #2458dc);
+}
+
+.csr-search-item__tags {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.csr-search-item__price {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--sms-text, #19233b);
+}
+
+/* ─── 9. Badges & Chips ─────────────────────────────────────────────────────── */
+
+.csr-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.csr-badge--active {
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+}
+
+.csr-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.csr-tag--perishable {
+    background: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+.csr-tag--standard {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+}
+
+.csr-sku-chip {
+    font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
+    font-size: 11px;
+    color: var(--sms-primary, #2458dc);
+    background: rgba(36, 88, 220, 0.07);
+    border-radius: 4px;
+    padding: 1px 6px;
+}
+
+.csr-barcode-chip {
+    font-size: 11px;
+    color: var(--sms-text-secondary, #69748c);
+}
+
+.csr-unit-badge {
+    font-size: 10px;
+    text-transform: uppercase;
+    background: #e2e8f0;
+    color: #334155;
+    padding: 1px 5px;
+    border-radius: 3px;
+}
+
+.csr-na-text {
+    font-size: 12px;
+    color: var(--sms-text-secondary, #69748c);
+    font-style: italic;
+}
+
+/* ─── 10. Table ─────────────────────────────────────────────────────────────── */
+
+.csr-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.csr-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.csr-table th {
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--sms-text-secondary, #69748c);
+    background: var(--sms-bg-subtle, #fafbfd);
+    border-bottom: 1px solid var(--sms-border, #e5e9f3);
+    white-space: nowrap;
+}
+
+.csr-th-seq { width: 44px; text-align: center; }
+.csr-th-qty { width: 130px; text-align: right; }
+.csr-th-cost { width: 130px; text-align: right; }
+.csr-th-batch { width: 140px; }
+.csr-th-expiry { width: 160px; }
+.csr-th-subtotal { width: 130px; text-align: right; }
+.csr-th-action { width: 60px; text-align: center; }
+
+.csr-tr {
+    transition: background 0.15s;
+}
+
+.csr-tr:not(:last-child) {
+    border-bottom: 1px solid var(--sms-border, #e5e9f3);
+}
+
+.csr-tr:hover {
+    background: var(--sms-bg-hover, #f4f6fc);
+}
+
+.csr-td {
+    padding: 10px 12px;
+    vertical-align: middle;
+}
+
+.csr-td--seq {
+    text-align: center;
+    color: var(--sms-text-secondary, #69748c);
+    font-size: 12px;
+}
+
+.csr-td--product {
+    min-width: 180px;
+}
+
+.csr-prod-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.csr-prod-name {
+    font-weight: 600;
+    color: var(--sms-text, #19233b);
+}
+
+.csr-prod-sub {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.csr-td--qty,
+.csr-td--cost {
+    text-align: right;
+}
+
+.csr-td--subtotal {
+    text-align: right;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--sms-text, #19233b);
+}
+
+.csr-td--action {
+    text-align: center;
+}
+
+.csr-btn-del {
+    background: none;
+    border: none;
+    color: #e53e3e;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+}
+
+.csr-btn-del:hover {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.csr-cell-error {
+    display: block;
+    font-size: 10px;
+    color: #e53e3e;
+    margin-top: 3px;
+    text-align: left;
+}
+
+/* ─── 11. Table Footer ──────────────────────────────────────────────────────── */
+
+.csr-tfoot-row {
+    background: var(--sms-bg-subtle, #fafbfd);
+    border-top: 2px solid var(--sms-border, #e5e9f3);
+}
+
+.csr-tfoot-label {
+    padding: 12px 14px;
+    font-size: 12px;
+    color: var(--sms-text-secondary, #69748c);
+}
+
+.csr-tfoot-label--right {
+    padding: 12px 14px;
+    text-align: right;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--sms-text-secondary, #69748c);
+}
+
+.csr-tfoot-total {
+    padding: 12px 14px;
+    text-align: right;
+    font-size: 16px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--sms-primary, #2458dc);
+}
+
+/* ─── 12. Empty State ───────────────────────────────────────────────────────── */
+
+.csr-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--sms-text-secondary, #69748c);
+}
+
+.csr-empty-state__title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--sms-text, #19233b);
+}
+
+.csr-empty-state__msg {
+    margin: 0;
+    font-size: 13px;
+    max-width: 400px;
+    line-height: 1.5;
+}
+
+/* ─── 13. Bottom Action Bar ─────────────────────────────────────────────────── */
+
+.csr-bottom-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background: #fff;
+    border: 1px solid var(--sms-border, #e5e9f3);
+    border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.csr-bottom-bar__right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* ─── 14. Loading Spinner ───────────────────────────────────────────────────── */
+
+.csr-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 80px 24px;
+    color: var(--sms-text-secondary, #69748c);
+}
+
+.csr-spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid var(--sms-border, #e5e9f3);
+    border-top-color: var(--sms-primary, #2458dc);
+    border-radius: 50%;
+    animation: csr-spin 0.8s linear infinite;
+    flex-shrink: 0;
+}
+
+.csr-spinner--sm {
+    width: 14px;
+    height: 14px;
+    border-width: 2px;
+}
+
+@keyframes csr-spin {
+    to { transform: rotate(360deg); }
+}
+
+.csr-loading__text {
+    font-size: 13px;
+    font-weight: 500;
+}
+

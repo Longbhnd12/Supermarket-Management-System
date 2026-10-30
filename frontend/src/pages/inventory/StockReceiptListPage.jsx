@@ -192,12 +192,10 @@ export default function StockReceiptListPage() {
                     <p className="sr-subtitle">View and track all inbound stock receipts</p>
                 </div>
                 <div className="sr-header-actions">
-                    {/* Create is unavailable until UC36 is implemented */}
                     <button
                         className="sr-btn sr-btn--primary"
-                        disabled
-                        title="Create Stock Receipt — not yet available"
-                        aria-disabled="true"
+                        onClick={() => navigate('/inventory/stock-receipts/create')}
+                        title="Create Stock Receipt"
                     >
                         <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                             <path d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"/>

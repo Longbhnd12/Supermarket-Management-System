@@ -1,5 +1,6 @@
 package com.sms.backend.service;
 
+import com.sms.backend.dto.inventory.CreateStockReceiptRequest;
 import com.sms.backend.dto.inventory.InventoryFilter;
 import com.sms.backend.dto.inventory.InventoryPageResponse;
 import com.sms.backend.dto.inventory.StockCheckResponse;
@@ -27,11 +28,15 @@ public interface InventoryService {
     // UC37 - Stock Receipt List
     StockReceiptPageResponse getStockReceiptList(StockReceiptFilter filter);
 
-    // StockReceipt (legacy/detail)
+    // UC37: StockReceipt (legacy/detail)
     List<StockReceiptResponse> getAllStockReceipts();
     List<StockReceiptResponse> getStockReceiptsByStatus(StockReceiptStatus status);
     StockReceiptResponse getStockReceiptById(Long id);
     StockReceiptResponse confirmStockReceipt(Long id);
+
+    // UC36: Create Stock Receipt
+    StockReceiptResponse createStockReceipt(CreateStockReceiptRequest request);
+    String getNextReceiptNumber();
 
     // StockMovement
     List<StockMovementResponse> getMovementsByProduct(Long productId);
