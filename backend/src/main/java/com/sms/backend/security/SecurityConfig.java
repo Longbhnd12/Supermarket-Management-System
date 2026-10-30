@@ -30,7 +30,9 @@ public class SecurityConfig {
                                 "/api/v1/system-settings/**",
                                 "/api/v1/system-logs/**",
                                 "/api/v1/sales/**",
-                                "/api/v1/reports/**"
+                                "/api/v1/reports/**",
+                                "/api/v1/dashboard/**",
+                                "/api/v1/notifications/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

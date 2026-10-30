@@ -14,6 +14,7 @@ import SalesReportPage from './pages/reports/SalesReportPage';
 import InventoryReportPage from './pages/reports/InventoryReportPage';
 import RevenueReportPage from './pages/reports/RevenueReportPage';
 import ProductSalesReportPage from './pages/reports/ProductSalesReportPage';
+import NotificationsPage from './pages/notifications/NotificationsPage';
 
 import './App.css';
 
@@ -30,6 +31,7 @@ export default function App() {
                     <Route path="/reports/inventory" element={<InventoryReportPage />} />
                     <Route path="/reports/revenue" element={<RevenueReportPage />} />
                     <Route path="/reports/product-sales" element={<ProductSalesReportPage />} />
+                    <Route path="/notifications" element={<NotificationsPage />} />
                     <Route path="*" element={<NotFoundPage />} />
                 </Route>
             </Routes>
