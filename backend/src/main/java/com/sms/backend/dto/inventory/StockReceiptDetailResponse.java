@@ -5,6 +5,7 @@ import java.time.LocalDate;
 
 /**
  * Response DTO for a single StockReceiptDetail line.
+ * UC37 Details — includes all fields shown in the detail screen.
  */
 public record StockReceiptDetailResponse(
         Long receiptDetailId,
@@ -12,8 +13,10 @@ public record StockReceiptDetailResponse(
         String productName,
         String productCode,
         BigDecimal receivedQuantity,
+        BigDecimal remainingQuantity,
         BigDecimal unitCost,
-        BigDecimal subtotal,
-        LocalDate expiryDate
+        String batchNumber,
+        LocalDate expirationDate,
+        BigDecimal subtotal
 ) {
 }

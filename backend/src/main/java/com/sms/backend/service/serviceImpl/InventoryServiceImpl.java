@@ -5,6 +5,7 @@ import com.sms.backend.dto.inventory.InventoryPageResponse;
 import com.sms.backend.dto.inventory.InventoryResponse;
 import com.sms.backend.dto.inventory.StockCheckResponse;
 import com.sms.backend.dto.inventory.StockMovementResponse;
+import com.sms.backend.dto.inventory.StockReceiptDetailResponse;
 import com.sms.backend.dto.inventory.StockReceiptFilter;
 import com.sms.backend.dto.inventory.StockReceiptListItem;
 import com.sms.backend.dto.inventory.StockReceiptPageResponse;
@@ -13,6 +14,7 @@ import com.sms.backend.entity.Product;
 import com.sms.backend.entity.StockCheck;
 import com.sms.backend.entity.StockMovement;
 import com.sms.backend.entity.StockReceipt;
+import com.sms.backend.entity.StockReceiptDetail;
 import com.sms.backend.enums.StockMovementType;
 import com.sms.backend.enums.StockReceiptStatus;
 import com.sms.backend.enums.StockReferenceType;
@@ -287,7 +289,7 @@ public class InventoryServiceImpl implements InventoryService {
     // =========================================================================
 
     private StockReceipt findReceiptById(Long id) {
-        return stockReceiptRepository.findById(id)
+        return stockReceiptRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException("StockReceipt not found: " + id));
     }
 
@@ -311,6 +313,11 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     private StockReceiptResponse toReceiptResponse(StockReceipt sr) {
+        List<StockReceiptDetailResponse> detailItems =
+                stockReceiptDetailRepository.findByStockReceipt(sr).stream()
+                        .map(this::toReceiptDetailResponse)
+                        .collect(Collectors.toList());
+
         return new StockReceiptResponse(
                 sr.getStockReceiptId(),
                 sr.getReceiptNumber(),
@@ -324,7 +331,22 @@ public class InventoryServiceImpl implements InventoryService {
                 sr.getStatus(),
                 sr.getReceivedAt(),
                 sr.getCreatedAt(),
-                List.of()
+                detailItems
+        );
+    }
+
+    private StockReceiptDetailResponse toReceiptDetailResponse(StockReceiptDetail d) {
+        return new StockReceiptDetailResponse(
+                d.getStockReceiptItemId(),
+                d.getProduct().getProductId(),
+                d.getProduct().getProductName(),
+                d.getProduct().getProductCode(),
+                d.getQuantity(),
+                d.getRemainingQuantity(),
+                d.getUnitCost(),
+                d.getBatchNumber(),
+                d.getExpirationDate(),
+                d.getSubtotal()
         );
     }
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import StockReceiptService from '../../services/stockReceiptService';
 import SupplierService from '../../services/supplierService';
 import Pagination from '../../components/ui/Pagination';
@@ -58,6 +59,7 @@ function formatCurrency(amount) {
 
 export default function StockReceiptListPage() {
     // Search / filter state
+    const navigate = useNavigate();
     const [keyword, setKeyword]       = useState('');
     const [productSku, setProductSku] = useState('');
     const [supplierId, setSupplierId] = useState('');
@@ -415,12 +417,12 @@ export default function StockReceiptListPage() {
                                             {receipt.createdByUsername || '—'}
                                         </td>
                                         <td className="sr-td sr-td--actions">
-                                            {/* View Details — route wired once UC37 Details is implemented */}
+                                            {/* View Details — UC37 Details */}
                                             <button
                                                 className="sr-action-btn sr-action-btn--view"
-                                                title="View Details — coming soon"
-                                                disabled
+                                                title={`View details for receipt ${receipt.receiptNumber}`}
                                                 aria-label={`View details for receipt ${receipt.receiptNumber}`}
+                                                onClick={() => navigate(`/inventory/stock-receipts/${receipt.stockReceiptId}`)}
                                             >
                                                 <svg width="15" height="15" viewBox="0 0 20 20" fill="none"
                                                      stroke="currentColor" strokeWidth="2" aria-hidden="true">
