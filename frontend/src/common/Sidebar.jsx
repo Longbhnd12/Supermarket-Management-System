@@ -71,11 +71,13 @@ const menuGroups = [
             },
             {
                 label: 'System Settings',
-                icon: Settings
+                icon: Settings,
+                path: '/system-settings'
             },
             {
                 label: 'System Logs',
-                icon: ClipboardList
+                icon: ClipboardList,
+                path: '/system-logs'
             }
         ]
     }
