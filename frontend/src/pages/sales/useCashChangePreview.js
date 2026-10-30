@@ -1,3 +1,4 @@
+// useCashChangePreview - React hook for real-time change calculation preview
 import { useEffect, useState } from 'react';
 import PaymentService from '../../services/paymentService';
 import { getPOSErrorMessage as getErrorMessage } from './posErrorMessage';
