@@ -86,13 +86,13 @@ const menuGroups = [
             },
             {
                 label: 'System Settings',
-                icon: Settings
-                // TODO (SDD): Add path once System Settings module is designed
+                icon: Settings,
+                path: '/system-settings'
             },
             {
                 label: 'System Logs',
-                icon: ClipboardList
-                // TODO (SDD): Add path once System Logs module is designed
+                icon: ClipboardList,
+                path: '/system-logs'
             }
         ]
     }
