@@ -5,6 +5,7 @@ import {
     Menu,
     UserRound
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export default function Header({ onMenuClick }) {
     return (
@@ -34,12 +35,13 @@ export default function Header({ onMenuClick }) {
             </div>
 
             <div className="sms-header-right">
-                <div
+                <Link
+                    to="/notifications"
                     className="sms-header-notification"
-                    title="Notifications will be available after authentication"
+                    title="Notifications"
                 >
                     <Bell size={20} />
-                </div>
+                </Link>
 
                 <div className="sms-header-divider" />
 

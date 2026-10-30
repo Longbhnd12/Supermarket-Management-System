@@ -81,18 +81,18 @@ const menuGroups = [
             },
             {
                 label: 'Reports',
-                icon: BarChart3
-                // TODO (SDD): Add path once Reports module is designed
+                icon: BarChart3,
+                path: '/reports/sales'
             },
             {
                 label: 'System Settings',
-                icon: Settings
-                // TODO (SDD): Add path once System Settings module is designed
+                icon: Settings,
+                path: '/system-settings'
             },
             {
                 label: 'System Logs',
-                icon: ClipboardList
-                // TODO (SDD): Add path once System Logs module is designed
+                icon: ClipboardList,
+                path: '/system-logs'
             }
         ]
     }
