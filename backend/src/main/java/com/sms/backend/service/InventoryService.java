@@ -3,6 +3,8 @@ package com.sms.backend.service;
 import com.sms.backend.dto.inventory.CreateStockReceiptRequest;
 import com.sms.backend.dto.inventory.InventoryFilter;
 import com.sms.backend.dto.inventory.InventoryPageResponse;
+import com.sms.backend.dto.inventory.StockAdjustmentRequest;
+import com.sms.backend.dto.inventory.StockAdjustmentResponse;
 import com.sms.backend.dto.inventory.StockCheckResponse;
 import com.sms.backend.dto.inventory.StockMovementResponse;
 import com.sms.backend.dto.inventory.StockReceiptFilter;
@@ -17,13 +19,18 @@ import java.util.List;
 /**
  * Service interface for inventory operations.
  * UC31: getInventoryList, exportInventoryCsv
- * UC37: getStockReceiptList
+ * UC33: adjustStock
+ * UC36: createStockReceipt, getNextReceiptNumber
+ * UC37: getStockReceiptList, getStockReceiptById, confirmStockReceipt
  */
 public interface InventoryService {
 
     // UC31 - Inventory List
     InventoryPageResponse getInventoryList(InventoryFilter filter);
     byte[] exportInventoryCsv(InventoryFilter filter);
+
+    // UC33 - Adjust Stock
+    StockAdjustmentResponse adjustStock(StockAdjustmentRequest request);
 
     // UC37 - Stock Receipt List
     StockReceiptPageResponse getStockReceiptList(StockReceiptFilter filter);

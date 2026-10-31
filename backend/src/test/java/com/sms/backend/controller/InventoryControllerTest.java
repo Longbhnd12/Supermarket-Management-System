@@ -1,5 +1,6 @@
 package com.sms.backend.controller;
 
+import com.sms.backend.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -8,12 +9,15 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
+@Transactional
 class InventoryControllerTest {
 
     @Autowired
@@ -23,7 +27,9 @@ class InventoryControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(inventoryController).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(inventoryController)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
     }
 
     @Test
@@ -64,5 +70,48 @@ class InventoryControllerTest {
                 .andExpect(header().string("Content-Type", containsString("text/csv")))
                 .andExpect(header().string("Content-Disposition", containsString("attachment; filename=\"inventory.csv\"")))
                 .andExpect(content().string(containsString("SKU,Barcode,Product Name,Category,On Hand,Safety Min,Status")));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/inventory/adjust - Successfully adjusts stock and returns 200")
+    void testAdjustStockEndpointSuccess() throws Exception {
+        String jsonPayload = """
+                {
+                    "productId": 6,
+                    "adjustmentType": "INCREASE",
+                    "adjustmentQuantity": 10,
+                    "reason": "Routine shelf adjustment"
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/inventory/adjust")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Stock adjusted successfully"))
+                .andExpect(jsonPath("$.data.productId").value(6))
+                .andExpect(jsonPath("$.data.adjustmentType").value("INCREASE"))
+                .andExpect(jsonPath("$.data.adjustmentQuantity").value(10))
+                .andExpect(jsonPath("$.data.reason").value("Routine shelf adjustment"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/inventory/adjust - Fails 400 when reason is missing")
+    void testAdjustStockEndpointMissingReason() throws Exception {
+        String jsonPayload = """
+                {
+                    "productId": 6,
+                    "adjustmentType": "INCREASE",
+                    "adjustmentQuantity": 10,
+                    "reason": ""
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/inventory/adjust")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
     }
 }

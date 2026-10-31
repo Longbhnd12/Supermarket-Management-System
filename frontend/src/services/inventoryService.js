@@ -1,4 +1,4 @@
-﻿import API from './api';
+import API from './api';
 
 /**
  * Inventory API service.
@@ -18,6 +18,13 @@ const InventoryService = {
      */
     exportInventoryCsv: (params) =>
         API.get('/inventory/export', { params, responseType: 'blob' }),
+
+    // UC33 - Adjust Stock
+    /**
+     * Submits a stock adjustment request.
+     * @param {Object} data - { productId, adjustmentType, adjustmentQuantity, reason, stockCheckId }
+     */
+    adjustStock: (data) => API.post('/inventory/adjust', data),
 
     // Stock Receipts
     getAllReceipts: (params) => API.get('/inventory/receipts', { params }),

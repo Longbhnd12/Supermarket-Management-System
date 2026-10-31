@@ -17,4 +17,6 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, Lo
     List<StockMovement> findByMovementType(StockMovementType movementType);
 
     List<StockMovement> findByReferenceTypeAndReferenceId(StockReferenceType referenceType, Long referenceId);
+
+    boolean existsByReferenceTypeAndReferenceId(StockReferenceType referenceType, Long referenceId);
 }
