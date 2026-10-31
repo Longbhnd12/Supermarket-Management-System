@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import InventoryService from '../../services/inventoryService';
 import CategoryService from '../../services/categoryService';
 import Pagination from '../../components/ui/Pagination';
@@ -32,6 +32,8 @@ function StatusBadge({ status }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function InventoryPage() {
+    const navigate = useNavigate();
+
     // Filters
     const [keyword, setKeyword] = useState('');
     const [categoryId, setCategoryId] = useState('');
@@ -167,6 +169,18 @@ export default function InventoryPage() {
                         ) : (
                             <><DownloadIcon /> Export CSV</>
                         )}
+                    </button>
+                    {/* UC33 – Adjust Stock */}
+                    <button
+                        id="inv-adjust-stock-btn"
+                        className="inv-btn inv-btn--secondary"
+                        onClick={() => navigate('/inventory/adjust')}
+                        title="Adjust stock quantities (UC33)"
+                    >
+                        <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style={{ marginRight: '6px' }}>
+                            <path fillRule="evenodd" d="M4 2a2 2 0 00-2 2v11a3 3 0 106 0V4a2 2 0 00-2-2H4zm1 14a1 1 0 100-2 1 1 0 000 2zm5-1.757l4.9-4.9a2 2 0 000-2.828L13.485 5.1a2 2 0 00-2.828 0L10 5.757v8.486zM16 18H9.071l6-6H16a2 2 0 012 2v2a2 2 0 01-2 2z" clipRule="evenodd" />
+                        </svg>
+                        Adjust Stock
                     </button>
                     {/* UC32 – Stock Check: route not yet implemented */}
                     <button
@@ -321,6 +335,14 @@ export default function InventoryPage() {
                                         <td><StatusBadge status={item.stockStatus} /></td>
                                         <td>
                                             <div className="inv-row-actions">
+                                                {/* UC33 – Adjust Stock */}
+                                                <button
+                                                    className="inv-action-btn inv-action-btn--primary"
+                                                    title={`Adjust stock for ${item.productName}`}
+                                                    onClick={() => navigate(`/inventory/adjust?productId=${item.productId}`)}
+                                                >
+                                                    Adjust
+                                                </button>
                                                 {/* UC34 – Stock History: route not yet implemented */}
                                                 <button
                                                     className="inv-action-btn inv-action-btn--ghost"

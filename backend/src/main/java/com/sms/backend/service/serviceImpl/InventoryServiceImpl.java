@@ -5,6 +5,8 @@ import com.sms.backend.dto.inventory.CreateStockReceiptRequest;
 import com.sms.backend.dto.inventory.InventoryFilter;
 import com.sms.backend.dto.inventory.InventoryPageResponse;
 import com.sms.backend.dto.inventory.InventoryResponse;
+import com.sms.backend.dto.inventory.StockAdjustmentRequest;
+import com.sms.backend.dto.inventory.StockAdjustmentResponse;
 import com.sms.backend.dto.inventory.StockCheckResponse;
 import com.sms.backend.dto.inventory.StockMovementResponse;
 import com.sms.backend.dto.inventory.StockReceiptDetailResponse;
@@ -234,6 +236,122 @@ public class InventoryServiceImpl implements InventoryService {
                 receiptPage.getSize(),
                 receiptPage.getTotalElements(),
                 receiptPage.getTotalPages()
+        );
+    }
+
+    // =========================================================================
+    // UC33 - Adjust Stock
+    // =========================================================================
+
+    @Override
+    @Transactional
+    public StockAdjustmentResponse adjustStock(StockAdjustmentRequest request) {
+        if (request == null) {
+            throw new BadRequestException("Request body cannot be null");
+        }
+        if (request.productId() == null) {
+            throw new BadRequestException("Product ID is required");
+        }
+
+        // 1. Validate Adjustment Type
+        String typeStr = request.adjustmentType() != null ? request.adjustmentType().trim().toUpperCase() : "";
+        if (!"INCREASE".equals(typeStr) && !"DECREASE".equals(typeStr)) {
+            throw new BadRequestException("Invalid adjustment type: " + request.adjustmentType() + ". Must be INCREASE or DECREASE.");
+        }
+
+        // 2. Validate Adjustment Quantity (Positive Integer)
+        BigDecimal qty = request.adjustmentQuantity();
+        if (qty == null || qty.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestException("Adjustment quantity must be greater than 0");
+        }
+        if (qty.remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) != 0) {
+            throw new BadRequestException("Adjustment quantity must be a positive integer");
+        }
+
+        // 3. Validate Reason (Mandatory, max 255 chars)
+        String reason = request.reason() != null ? request.reason().trim() : "";
+        if (reason.isEmpty()) {
+            throw new BadRequestException("Adjustment reason is mandatory");
+        }
+        if (reason.length() > 255) {
+            throw new BadRequestException("Adjustment reason must not exceed 255 characters");
+        }
+
+        // 4. Validate Stock Check reference if provided (prevent duplicate update for same discrepancy)
+        if (request.stockCheckId() != null) {
+            if (stockMovementRepository.existsByReferenceTypeAndReferenceId(StockReferenceType.STOCK_CHECK, request.stockCheckId())) {
+                throw new BusinessException("Stock adjustment has already been applied for stock check session: " + request.stockCheckId());
+            }
+            Optional<StockCheck> scOpt = stockCheckRepository.findById(request.stockCheckId());
+            if (scOpt.isPresent()) {
+                StockCheck sc = scOpt.get();
+                if (!sc.getProduct().getProductId().equals(request.productId())) {
+                    throw new BadRequestException("Stock check session does not match the specified product");
+                }
+                sc.setStatus("COMPLETED");
+                stockCheckRepository.save(sc);
+            }
+        }
+
+        // 5. Lock product and fetch current stock (pessimistic write lock for concurrency safety)
+        Product product = productRepository.findByIdWithLock(request.productId())
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + request.productId()));
+
+        if (product.getStatus() != GeneralStatus.ACTIVE) {
+            throw new BadRequestException("Cannot adjust stock for inactive product: " + product.getProductName());
+        }
+
+        BigDecimal previousStock = product.getStockQuantity() != null ? product.getStockQuantity() : BigDecimal.ZERO;
+        BigDecimal newStock;
+        BigDecimal quantityChange;
+
+        if ("INCREASE".equals(typeStr)) {
+            newStock = previousStock.add(qty);
+            quantityChange = qty;
+        } else {
+            // DECREASE: prevent negative stock
+            if (previousStock.compareTo(qty) < 0) {
+                throw new BadRequestException("Insufficient stock. Resulting stock cannot be negative (current stock: "
+                        + previousStock + ", requested decrease: " + qty + ")");
+            }
+            newStock = previousStock.subtract(qty);
+            quantityChange = qty.negate();
+        }
+
+        // 6. Update Product stock
+        product.setStockQuantity(newStock);
+        productRepository.save(product);
+
+        // 7. Record StockMovement
+        User currentUser = resolveCurrentUser();
+        LocalDateTime now = LocalDateTime.now();
+
+        StockMovement movement = new StockMovement();
+        movement.setProduct(product);
+        movement.setMovementType(StockMovementType.ADJUSTMENT);
+        movement.setQuantityChange(quantityChange);
+        movement.setReferenceType(StockReferenceType.STOCK_CHECK);
+        movement.setReferenceId(request.stockCheckId() != null ? request.stockCheckId() : 0L);
+        movement.setReason(reason);
+        movement.setCreatedBy(currentUser);
+        movement.setCreatedAt(now);
+
+        StockMovement savedMovement = stockMovementRepository.save(movement);
+
+        return new StockAdjustmentResponse(
+                savedMovement.getMovementId(),
+                product.getProductId(),
+                product.getProductCode(),
+                product.getProductName(),
+                product.getUnit(),
+                typeStr,
+                previousStock,
+                qty,
+                newStock,
+                reason,
+                request.stockCheckId(),
+                currentUser.getUsername(),
+                now
         );
     }
 

@@ -29,6 +29,7 @@ import PurchaseOrderDetailPage from './pages/purchaseOrder/PurchaseOrderDetailPa
 
 // Inventory
 import InventoryPage from './pages/inventory/InventoryPage';
+import AdjustStockPage from './pages/inventory/AdjustStockPage';
 import StockReceiptListPage from './pages/inventory/StockReceiptListPage';
 import StockReceiptDetailPage from './pages/inventory/StockReceiptDetailPage';
 import CreateStockReceiptPage from './pages/inventory/CreateStockReceiptPage';
@@ -68,6 +69,7 @@ export default function App() {
 
                     {/* Inventory */}
                     <Route path="/inventory" element={<InventoryPage />} />
+                    <Route path="/inventory/adjust" element={<AdjustStockPage />} />
                     <Route path="/inventory/stock-receipts" element={<StockReceiptListPage />} />
                     <Route path="/inventory/stock-receipts/create" element={<CreateStockReceiptPage />} />
                     <Route path="/inventory/stock-receipts/:id" element={<StockReceiptDetailPage />} />

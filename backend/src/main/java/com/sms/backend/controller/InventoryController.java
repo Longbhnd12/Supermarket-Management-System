@@ -3,6 +3,8 @@ package com.sms.backend.controller;
 import com.sms.backend.dto.ApiResponse;
 import com.sms.backend.dto.inventory.InventoryFilter;
 import com.sms.backend.dto.inventory.InventoryPageResponse;
+import com.sms.backend.dto.inventory.StockAdjustmentRequest;
+import com.sms.backend.dto.inventory.StockAdjustmentResponse;
 import com.sms.backend.dto.inventory.StockCheckResponse;
 import com.sms.backend.dto.inventory.StockMovementResponse;
 import com.sms.backend.dto.inventory.StockReceiptResponse;
@@ -10,6 +12,7 @@ import com.sms.backend.enums.StockMovementType;
 import com.sms.backend.enums.StockReceiptStatus;
 import com.sms.backend.enums.StockReferenceType;
 import com.sms.backend.service.InventoryService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -78,6 +81,21 @@ public class InventoryController {
         headers.setContentLength(csv.length);
 
         return ResponseEntity.ok().headers(headers).body(csv);
+    }
+
+    // =========================================================================
+    // UC33 - Adjust Stock
+    // =========================================================================
+
+    /**
+     * POST /api/v1/inventory/adjust
+     * Applies manual stock adjustment or discrepancy adjustment from stock check.
+     */
+    @PostMapping("/adjust")
+    public ResponseEntity<ApiResponse<StockAdjustmentResponse>> adjustStock(
+            @Valid @RequestBody StockAdjustmentRequest request) {
+        StockAdjustmentResponse result = inventoryService.adjustStock(request);
+        return ResponseEntity.ok(ApiResponse.success("Stock adjusted successfully", result));
     }
 
     // =========================================================================
