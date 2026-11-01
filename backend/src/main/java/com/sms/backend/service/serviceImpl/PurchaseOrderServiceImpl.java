@@ -1,20 +1,27 @@
 package com.sms.backend.service.serviceImpl;
 
 import com.sms.backend.dto.product.ProductResponse;
+import com.sms.backend.dto.purchaseorder.ApprovePurchaseOrderRequest;
+import com.sms.backend.dto.purchaseorder.ApprovedItemRequest;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderDetailRequest;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderDetailResponse;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderRequest;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderResponse;
+import com.sms.backend.dto.purchaseorder.RejectPurchaseOrderRequest;
+import com.sms.backend.entity.Notification;
 import com.sms.backend.entity.Product;
 import com.sms.backend.entity.PurchaseOrder;
 import com.sms.backend.entity.PurchaseOrderDetail;
 import com.sms.backend.entity.Supplier;
 import com.sms.backend.entity.User;
 import com.sms.backend.enums.GeneralStatus;
+import com.sms.backend.enums.NotificationType;
 import com.sms.backend.enums.PurchaseOrderStatus;
 import com.sms.backend.enums.SupplierStatus;
 import com.sms.backend.exception.BadRequestException;
+import com.sms.backend.exception.BusinessException;
 import com.sms.backend.exception.ResourceNotFoundException;
+import com.sms.backend.repository.NotificationRepository;
 import com.sms.backend.repository.ProductRepository;
 import com.sms.backend.repository.PurchaseOrderDetailRepository;
 import com.sms.backend.repository.PurchaseOrderRepository;
@@ -32,8 +39,10 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -47,6 +56,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     private final SupplierRepository supplierRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
+    private final NotificationRepository notificationRepository;
 
     @Override
     public List<PurchaseOrderResponse> getAllPurchaseOrders() {
@@ -62,6 +72,11 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 .stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    @Override
+    public List<PurchaseOrderResponse> getPendingPurchaseRequests() {
+        return getPurchaseOrdersByStatus(PurchaseOrderStatus.PENDING_APPROVAL);
     }
 
     @Override
@@ -262,22 +277,167 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         );
     }
 
+    // =========================================================================
+    // UC47 — Approve Purchase Request
+    // =========================================================================
+
     @Override
     @Transactional
-    public PurchaseOrderResponse approvePurchaseOrder(Long id) {
-        throw new UnsupportedOperationException("Not yet implemented - pending UC47");
+    public PurchaseOrderResponse approvePurchaseOrder(Long id, ApprovePurchaseOrderRequest request) {
+        PurchaseOrder po = findById(id);
+
+        // 1. Validate status: only PENDING_APPROVAL requests may be approved
+        if (po.getStatus() != PurchaseOrderStatus.PENDING_APPROVAL) {
+            throw new BusinessException("Only purchase requests with status PENDING_APPROVAL can be approved. Current status: " + po.getStatus());
+        }
+
+        // 2. Load detail lines
+        List<PurchaseOrderDetail> details = purchaseOrderDetailRepository.findByPurchaseOrder(po);
+        if (details.isEmpty()) {
+            throw new BadRequestException("Purchase request contains no item details");
+        }
+
+        // 3. Map user-adjusted approved quantities if provided
+        Map<Long, BigDecimal> qtyByDetailId = new HashMap<>();
+        Map<Long, BigDecimal> qtyByProductId = new HashMap<>();
+        if (request != null && request.items() != null) {
+            for (ApprovedItemRequest item : request.items()) {
+                if (item.approvedQuantity() == null || item.approvedQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+                    throw new BadRequestException("Approved quantity must be greater than zero");
+                }
+                if (item.orderDetailId() != null) {
+                    qtyByDetailId.put(item.orderDetailId(), item.approvedQuantity());
+                } else if (item.productId() != null) {
+                    qtyByProductId.put(item.productId(), item.approvedQuantity());
+                }
+            }
+        }
+
+        // 4. Update orderedQuantity on detail lines & recalculate total
+        BigDecimal newTotal = BigDecimal.ZERO;
+        for (PurchaseOrderDetail detail : details) {
+            BigDecimal approvedQty = null;
+            if (qtyByDetailId.containsKey(detail.getOrderDetailId())) {
+                approvedQty = qtyByDetailId.get(detail.getOrderDetailId());
+            } else if (qtyByProductId.containsKey(detail.getProduct().getProductId())) {
+                approvedQty = qtyByProductId.get(detail.getProduct().getProductId());
+            } else {
+                // Default to original requested quantity
+                approvedQty = detail.getRequestedQuantity();
+            }
+
+            if (approvedQty == null || approvedQty.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BadRequestException("Approved quantity must be greater than zero for product: " + detail.getProduct().getProductName());
+            }
+
+            // Save approved quantity into ordered_quantity, preserving requested_quantity
+            detail.setOrderedQuantity(approvedQty);
+            BigDecimal lineTotal = approvedQty.multiply(detail.getUnitPrice()).setScale(2, RoundingMode.HALF_UP);
+            newTotal = newTotal.add(lineTotal);
+
+            purchaseOrderDetailRepository.save(detail);
+        }
+
+        // 5. Resolve authenticated approver (Admin / Manager)
+        User approver = resolveCurrentUser();
+        LocalDateTime now = LocalDateTime.now();
+
+        // 6. Transition status to SENT and record approval metadata
+        po.setApprovedBy(approver);
+        po.setTotalAmount(newTotal.setScale(2, RoundingMode.HALF_UP));
+        po.setStatus(PurchaseOrderStatus.SENT);
+        if (request != null && request.managerNote() != null && !request.managerNote().isBlank()) {
+            po.setResponseReason(request.managerNote().trim());
+        }
+        po.setUpdatedAt(now);
+
+        po = purchaseOrderRepository.save(po);
+
+        // 7. Persist system notifications
+        try {
+            Notification supplierNotif = new Notification();
+            supplierNotif.setType(NotificationType.PO_ALERT);
+            supplierNotif.setTargetRole("SUPPLIER");
+            supplierNotif.setTitle("Purchase Order Issued: " + po.getPoNumber());
+            supplierNotif.setMessage("Purchase Order " + po.getPoNumber() + " has been approved and issued to supplier " +
+                    po.getSupplier().getSupplierName() + " for total amount " + po.getTotalAmount() + ".");
+            supplierNotif.setIsRead(false);
+            supplierNotif.setCreatedAt(now);
+            notificationRepository.save(supplierNotif);
+
+            if (po.getRequestedBy() != null) {
+                Notification requesterNotif = new Notification();
+                requesterNotif.setUser(po.getRequestedBy());
+                requesterNotif.setType(NotificationType.PO_ALERT);
+                requesterNotif.setTitle("Purchase Request Approved: " + po.getPoNumber());
+                requesterNotif.setMessage("Your purchase request " + po.getPoNumber() + " was approved by " +
+                        approver.getUsername() + " and sent to supplier.");
+                requesterNotif.setIsRead(false);
+                requesterNotif.setCreatedAt(now);
+                notificationRepository.save(requesterNotif);
+            }
+        } catch (Exception e) {
+            // Notification persistence failure should not roll back transaction
+        }
+
+        return toResponse(po);
     }
 
     @Override
     @Transactional
-    public PurchaseOrderResponse rejectPurchaseOrder(Long id, String reason) {
-        throw new UnsupportedOperationException("Not yet implemented - pending UC47");
+    public PurchaseOrderResponse rejectPurchaseOrder(Long id, RejectPurchaseOrderRequest request) {
+        PurchaseOrder po = findById(id);
+
+        // 1. Validate status: only PENDING_APPROVAL requests may be rejected
+        if (po.getStatus() != PurchaseOrderStatus.PENDING_APPROVAL) {
+            throw new BusinessException("Only purchase requests with status PENDING_APPROVAL can be rejected. Current status: " + po.getStatus());
+        }
+
+        // 2. Validate mandatory rejection reason
+        if (request == null || request.reason() == null || request.reason().trim().isEmpty()) {
+            throw new BadRequestException("Rejection reason is mandatory when rejecting a purchase request");
+        }
+        String reason = request.reason().trim();
+        if (reason.length() > 255) {
+            throw new BadRequestException("Rejection reason must not exceed 255 characters");
+        }
+
+        // 3. Resolve authenticated approver
+        User approver = resolveCurrentUser();
+        LocalDateTime now = LocalDateTime.now();
+
+        // 4. Transition status to REJECTED_BY_MANAGER and save reason
+        po.setStatus(PurchaseOrderStatus.REJECTED_BY_MANAGER);
+        po.setApprovedBy(approver);
+        po.setResponseReason(reason);
+        po.setUpdatedAt(now);
+
+        po = purchaseOrderRepository.save(po);
+
+        // 5. Persist system notification for requester
+        try {
+            if (po.getRequestedBy() != null) {
+                Notification requesterNotif = new Notification();
+                requesterNotif.setUser(po.getRequestedBy());
+                requesterNotif.setType(NotificationType.PO_ALERT);
+                requesterNotif.setTitle("Purchase Request Rejected: " + po.getPoNumber());
+                requesterNotif.setMessage("Your purchase request " + po.getPoNumber() + " was rejected by " +
+                        approver.getUsername() + ". Reason: " + reason);
+                requesterNotif.setIsRead(false);
+                requesterNotif.setCreatedAt(now);
+                notificationRepository.save(requesterNotif);
+            }
+        } catch (Exception e) {
+            // Notification persistence failure should not roll back transaction
+        }
+
+        return toResponse(po);
     }
 
     @Override
     @Transactional
     public PurchaseOrderResponse cancelPurchaseOrder(Long id) {
-        throw new UnsupportedOperationException("Not yet implemented - pending UC47");
+        throw new UnsupportedOperationException("Not yet implemented - pending SDD review");
     }
 
     // --- helpers ---
@@ -291,9 +451,9 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         List<PurchaseOrderDetailResponse> details = purchaseOrderDetailRepository.findByPurchaseOrder(po)
                 .stream()
                 .map(d -> {
-                    BigDecimal qty = d.getRequestedQuantity() != null ? d.getRequestedQuantity() : d.getOrderedQuantity();
-                    BigDecimal subtotal = qty != null && d.getUnitPrice() != null
-                            ? qty.multiply(d.getUnitPrice()).setScale(2, RoundingMode.HALF_UP)
+                    BigDecimal effectiveQty = d.getOrderedQuantity() != null ? d.getOrderedQuantity() : d.getRequestedQuantity();
+                    BigDecimal subtotal = effectiveQty != null && d.getUnitPrice() != null
+                            ? effectiveQty.multiply(d.getUnitPrice()).setScale(2, RoundingMode.HALF_UP)
                             : BigDecimal.ZERO;
                     return new PurchaseOrderDetailResponse(
                             d.getOrderDetailId(),

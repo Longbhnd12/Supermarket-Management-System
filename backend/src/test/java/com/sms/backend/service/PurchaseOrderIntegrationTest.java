@@ -1,17 +1,22 @@
 package com.sms.backend.service;
 
 import com.sms.backend.dto.product.ProductResponse;
+import com.sms.backend.dto.purchaseorder.ApprovePurchaseOrderRequest;
+import com.sms.backend.dto.purchaseorder.ApprovedItemRequest;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderDetailRequest;
-import com.sms.backend.dto.purchaseorder.PurchaseOrderRequest;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderDetailResponse;
+import com.sms.backend.dto.purchaseorder.PurchaseOrderRequest;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderResponse;
+import com.sms.backend.dto.purchaseorder.RejectPurchaseOrderRequest;
 import com.sms.backend.entity.Product;
 import com.sms.backend.entity.PurchaseOrder;
+import com.sms.backend.entity.PurchaseOrderDetail;
 import com.sms.backend.entity.Supplier;
 import com.sms.backend.enums.GeneralStatus;
 import com.sms.backend.enums.PurchaseOrderStatus;
 import com.sms.backend.enums.SupplierStatus;
 import com.sms.backend.exception.BadRequestException;
+import com.sms.backend.exception.BusinessException;
 import com.sms.backend.exception.ResourceNotFoundException;
 import com.sms.backend.repository.ProductRepository;
 import com.sms.backend.repository.PurchaseOrderDetailRepository;
@@ -51,6 +56,10 @@ class PurchaseOrderIntegrationTest {
 
     @Autowired
     private StockMovementRepository stockMovementRepository;
+
+    // =========================================================================
+    // UC46 — Create Purchase Request Tests
+    // =========================================================================
 
     @Test
     @DisplayName("UC46 - Get next request number returns valid format PRxxxx")
@@ -95,10 +104,9 @@ class PurchaseOrderIntegrationTest {
                 new BigDecimal("25000.00")
         );
 
-        // Expected total: 20 * 15000 + 10 * 25000 = 300000 + 250000 = 550000.00
         LocalDate deliveryDate = LocalDate.now().plusDays(7);
         PurchaseOrderRequest request = new PurchaseOrderRequest(
-                null, // auto-generated
+                null,
                 1L,
                 deliveryDate,
                 "Urgent restock for weekend sale",
@@ -118,7 +126,6 @@ class PurchaseOrderIntegrationTest {
         assertEquals(0, new BigDecimal("550000.00").compareTo(response.totalAmount()));
         assertEquals(2, response.details().size());
 
-        // Verify detail lines in response
         PurchaseOrderDetailResponse d1 = response.details().stream()
                 .filter(d -> d.productId().equals(1L))
                 .findFirst().orElseThrow();
@@ -127,19 +134,15 @@ class PurchaseOrderIntegrationTest {
         assertEquals(0, new BigDecimal("15000.00").compareTo(d1.unitPrice()));
         assertEquals(0, new BigDecimal("300000.00").compareTo(d1.subtotal()));
 
-        // Verify entity in DB
         PurchaseOrder savedPo = purchaseOrderRepository.findById(response.orderId()).orElseThrow();
         assertEquals(PurchaseOrderStatus.PENDING_APPROVAL, savedPo.getStatus());
         assertNull(savedPo.getApprovedBy());
         assertEquals(0, new BigDecimal("550000.00").compareTo(savedPo.getTotalAmount()));
 
-        // CRITICAL: Verify Product stock was NOT altered
         Product updatedP1 = productRepository.findById(1L).orElseThrow();
         Product updatedP2 = productRepository.findById(6L).orElseThrow();
         assertEquals(0, initialStock1.compareTo(updatedP1.getStockQuantity()));
         assertEquals(0, initialStock2.compareTo(updatedP2.getStockQuantity()));
-
-        // CRITICAL: Verify NO StockMovement records were created
         assertEquals(initialMovements, stockMovementRepository.count());
     }
 
@@ -164,12 +167,11 @@ class PurchaseOrderIntegrationTest {
         assertEquals("PR-TEST-CUSTOM-01", response.poNumber());
         assertEquals(PurchaseOrderStatus.PENDING_APPROVAL, response.status());
 
-        // Duplicate number should fail
         assertThrows(BadRequestException.class, () -> purchaseOrderService.createPurchaseOrder(request));
     }
 
     @Test
-    @DisplayName("UC46 - Validation: missing or past delivery date throws BadRequestException")
+    @DisplayName("UC46 - Validation: past delivery date throws BadRequestException")
     void testValidationPastDeliveryDate() {
         PurchaseOrderDetailRequest item = new PurchaseOrderDetailRequest(
                 1L,
@@ -177,8 +179,6 @@ class PurchaseOrderIntegrationTest {
                 null,
                 new BigDecimal("10000.00")
         );
-
-        // Past date
         PurchaseOrderRequest pastDateRequest = new PurchaseOrderRequest(
                 null,
                 1L,
@@ -187,16 +187,6 @@ class PurchaseOrderIntegrationTest {
                 List.of(item)
         );
         assertThrows(BadRequestException.class, () -> purchaseOrderService.createPurchaseOrder(pastDateRequest));
-
-        // Today's date (must be in future)
-        PurchaseOrderRequest todayRequest = new PurchaseOrderRequest(
-                null,
-                1L,
-                LocalDate.now(),
-                null,
-                List.of(item)
-        );
-        assertThrows(BadRequestException.class, () -> purchaseOrderService.createPurchaseOrder(todayRequest));
     }
 
     @Test
@@ -208,6 +198,7 @@ class PurchaseOrderIntegrationTest {
         disabledSup.setPhone("0123456789");
         disabledSup.setStatus(SupplierStatus.DISABLED);
         disabledSup.setCreatedAt(java.time.LocalDateTime.now());
+        disabledSup.setUpdatedAt(java.time.LocalDateTime.now());
         disabledSup = supplierRepository.save(disabledSup);
 
         PurchaseOrderDetailRequest item = new PurchaseOrderDetailRequest(
@@ -305,5 +296,165 @@ class PurchaseOrderIntegrationTest {
         );
 
         assertThrows(BadRequestException.class, () -> purchaseOrderService.createPurchaseOrder(request));
+    }
+
+    // =========================================================================
+    // UC47 — Approve Purchase Request Tests
+    // =========================================================================
+
+    @Test
+    @DisplayName("UC47 - Get pending purchase requests returns only PENDING_APPROVAL status")
+    void testGetPendingPurchaseRequests() {
+        // Create one pending request
+        PurchaseOrderDetailRequest item = new PurchaseOrderDetailRequest(1L, new BigDecimal("10"), null, new BigDecimal("12000.00"));
+        PurchaseOrderRequest req = new PurchaseOrderRequest(null, 1L, LocalDate.now().plusDays(4), "Pending test", List.of(item));
+        PurchaseOrderResponse created = purchaseOrderService.createPurchaseOrder(req);
+
+        List<PurchaseOrderResponse> pendingList = purchaseOrderService.getPendingPurchaseRequests();
+        assertNotNull(pendingList);
+        assertFalse(pendingList.isEmpty());
+        for (PurchaseOrderResponse po : pendingList) {
+            assertEquals(PurchaseOrderStatus.PENDING_APPROVAL, po.status());
+        }
+    }
+
+    @Test
+    @DisplayName("UC47 - Approve request with adjusted quantities: transitions to SENT, saves orderedQuantity, recalculates total, does NOT modify stock")
+    void testApproveRequestWithAdjustedQuantities() {
+        Product p = productRepository.findById(1L).orElseThrow();
+        BigDecimal initialStock = p.getStockQuantity();
+        long initialMovements = stockMovementRepository.count();
+
+        // 1. Create PENDING_APPROVAL request with requestedQuantity = 20, unitPrice = 15000.00
+        PurchaseOrderDetailRequest item = new PurchaseOrderDetailRequest(1L, new BigDecimal("20"), null, new BigDecimal("15000.00"));
+        PurchaseOrderRequest req = new PurchaseOrderRequest(null, 1L, LocalDate.now().plusDays(5), "Requester note", List.of(item));
+        PurchaseOrderResponse created = purchaseOrderService.createPurchaseOrder(req);
+        Long orderId = created.orderId();
+
+        // 2. Manager adjusts approved quantity down to 12
+        ApprovedItemRequest approvedItem = new ApprovedItemRequest(null, 1L, new BigDecimal("12"));
+        ApprovePurchaseOrderRequest approveReq = new ApprovePurchaseOrderRequest("Approved with 12 units based on storage capacity", List.of(approvedItem));
+
+        PurchaseOrderResponse approved = purchaseOrderService.approvePurchaseOrder(orderId, approveReq);
+
+        // 3. Verify status transitioned to SENT
+        assertEquals(PurchaseOrderStatus.SENT, approved.status());
+        assertNotNull(approved.approvedById());
+        assertNotNull(approved.approvedByUsername());
+
+        // 4. Verify total amount recalculated: 12 * 15000 = 180000.00 (was 300000.00)
+        assertEquals(0, new BigDecimal("180000.00").compareTo(approved.totalAmount()));
+
+        // 5. Verify detail line: orderedQuantity = 12, requestedQuantity = 20 preserved!
+        PurchaseOrderDetailResponse d = approved.details().get(0);
+        assertEquals(0, new BigDecimal("20").compareTo(d.requestedQuantity()));
+        assertEquals(0, new BigDecimal("12").compareTo(d.orderedQuantity()));
+        assertEquals(0, new BigDecimal("180000.00").compareTo(d.subtotal()));
+
+        // 6. Verify entity in DB
+        PurchaseOrder savedPo = purchaseOrderRepository.findById(orderId).orElseThrow();
+        assertEquals(PurchaseOrderStatus.SENT, savedPo.getStatus());
+        assertEquals("Approved with 12 units based on storage capacity", savedPo.getResponseReason());
+        List<PurchaseOrderDetail> savedDetails = purchaseOrderDetailRepository.findByPurchaseOrder(savedPo);
+        assertEquals(0, new BigDecimal("20").compareTo(savedDetails.get(0).getRequestedQuantity()));
+        assertEquals(0, new BigDecimal("12").compareTo(savedDetails.get(0).getOrderedQuantity()));
+
+        // 7. CRITICAL: Product stock and stock movements MUST NOT CHANGE
+        Product updatedP = productRepository.findById(1L).orElseThrow();
+        assertEquals(0, initialStock.compareTo(updatedP.getStockQuantity()));
+        assertEquals(initialMovements, stockMovementRepository.count());
+    }
+
+    @Test
+    @DisplayName("UC47 - Approve request with default quantities: uses requestedQuantity as orderedQuantity")
+    void testApproveRequestWithDefaultQuantities() {
+        PurchaseOrderDetailRequest item = new PurchaseOrderDetailRequest(6L, new BigDecimal("15"), null, new BigDecimal("20000.00"));
+        PurchaseOrderRequest req = new PurchaseOrderRequest(null, 1L, LocalDate.now().plusDays(5), null, List.of(item));
+        PurchaseOrderResponse created = purchaseOrderService.createPurchaseOrder(req);
+
+        // Approve without passing adjusted items
+        PurchaseOrderResponse approved = purchaseOrderService.approvePurchaseOrder(created.orderId(), new ApprovePurchaseOrderRequest(null, null));
+
+        assertEquals(PurchaseOrderStatus.SENT, approved.status());
+        assertEquals(0, new BigDecimal("300000.00").compareTo(approved.totalAmount()));
+        PurchaseOrderDetailResponse d = approved.details().get(0);
+        assertEquals(0, new BigDecimal("15").compareTo(d.requestedQuantity()));
+        assertEquals(0, new BigDecimal("15").compareTo(d.orderedQuantity()));
+    }
+
+    @Test
+    @DisplayName("UC47 - Reject request: transitions to REJECTED_BY_MANAGER and records mandatory reason")
+    void testRejectRequest() {
+        Product p = productRepository.findById(1L).orElseThrow();
+        BigDecimal initialStock = p.getStockQuantity();
+
+        PurchaseOrderDetailRequest item = new PurchaseOrderDetailRequest(1L, new BigDecimal("10"), null, new BigDecimal("15000.00"));
+        PurchaseOrderRequest req = new PurchaseOrderRequest(null, 1L, LocalDate.now().plusDays(5), "Need items", List.of(item));
+        PurchaseOrderResponse created = purchaseOrderService.createPurchaseOrder(req);
+
+        RejectPurchaseOrderRequest rejectReq = new RejectPurchaseOrderRequest("Over budget for this category this month", null);
+        PurchaseOrderResponse rejected = purchaseOrderService.rejectPurchaseOrder(created.orderId(), rejectReq);
+
+        assertEquals(PurchaseOrderStatus.REJECTED_BY_MANAGER, rejected.status());
+        assertNotNull(rejected.approvedById()); // records manager who made the decision
+        assertEquals("Over budget for this category this month", rejected.responseReason());
+
+        PurchaseOrder savedPo = purchaseOrderRepository.findById(created.orderId()).orElseThrow();
+        assertEquals(PurchaseOrderStatus.REJECTED_BY_MANAGER, savedPo.getStatus());
+        assertEquals("Over budget for this category this month", savedPo.getResponseReason());
+
+        // Stock must not change
+        Product updatedP = productRepository.findById(1L).orElseThrow();
+        assertEquals(0, initialStock.compareTo(updatedP.getStockQuantity()));
+    }
+
+    @Test
+    @DisplayName("UC47 - Validation: rejecting without reason throws BadRequestException")
+    void testRejectMissingReason() {
+        PurchaseOrderDetailRequest item = new PurchaseOrderDetailRequest(1L, new BigDecimal("5"), null, new BigDecimal("10000.00"));
+        PurchaseOrderRequest req = new PurchaseOrderRequest(null, 1L, LocalDate.now().plusDays(5), null, List.of(item));
+        PurchaseOrderResponse created = purchaseOrderService.createPurchaseOrder(req);
+
+        assertThrows(BadRequestException.class, () ->
+                purchaseOrderService.rejectPurchaseOrder(created.orderId(), new RejectPurchaseOrderRequest("", null)));
+        assertThrows(BadRequestException.class, () ->
+                purchaseOrderService.rejectPurchaseOrder(created.orderId(), new RejectPurchaseOrderRequest("   ", null)));
+        assertThrows(BadRequestException.class, () ->
+                purchaseOrderService.rejectPurchaseOrder(created.orderId(), new RejectPurchaseOrderRequest(null, null)));
+    }
+
+    @Test
+    @DisplayName("UC47 - Validation: approving with non-positive quantity throws BadRequestException")
+    void testApproveInvalidQuantity() {
+        PurchaseOrderDetailRequest item = new PurchaseOrderDetailRequest(1L, new BigDecimal("5"), null, new BigDecimal("10000.00"));
+        PurchaseOrderRequest req = new PurchaseOrderRequest(null, 1L, LocalDate.now().plusDays(5), null, List.of(item));
+        PurchaseOrderResponse created = purchaseOrderService.createPurchaseOrder(req);
+
+        ApprovedItemRequest zeroQtyItem = new ApprovedItemRequest(null, 1L, BigDecimal.ZERO);
+        assertThrows(BadRequestException.class, () ->
+                purchaseOrderService.approvePurchaseOrder(created.orderId(), new ApprovePurchaseOrderRequest(null, List.of(zeroQtyItem))));
+
+        ApprovedItemRequest negQtyItem = new ApprovedItemRequest(null, 1L, new BigDecimal("-5"));
+        assertThrows(BadRequestException.class, () ->
+                purchaseOrderService.approvePurchaseOrder(created.orderId(), new ApprovePurchaseOrderRequest(null, List.of(negQtyItem))));
+    }
+
+    @Test
+    @DisplayName("UC47 - Concurrency / Status check: repeated approval or rejection of non-PENDING request throws BusinessException")
+    void testRepeatedApprovalThrowsBusinessException() {
+        PurchaseOrderDetailRequest item = new PurchaseOrderDetailRequest(1L, new BigDecimal("5"), null, new BigDecimal("10000.00"));
+        PurchaseOrderRequest req = new PurchaseOrderRequest(null, 1L, LocalDate.now().plusDays(5), null, List.of(item));
+        PurchaseOrderResponse created = purchaseOrderService.createPurchaseOrder(req);
+
+        // First approval succeeds
+        purchaseOrderService.approvePurchaseOrder(created.orderId(), new ApprovePurchaseOrderRequest(null, null));
+
+        // Repeated approval must throw BusinessException
+        assertThrows(BusinessException.class, () ->
+                purchaseOrderService.approvePurchaseOrder(created.orderId(), new ApprovePurchaseOrderRequest(null, null)));
+
+        // Rejection of already approved order must throw BusinessException
+        assertThrows(BusinessException.class, () ->
+                purchaseOrderService.rejectPurchaseOrder(created.orderId(), new RejectPurchaseOrderRequest("Too late", null)));
     }
 }

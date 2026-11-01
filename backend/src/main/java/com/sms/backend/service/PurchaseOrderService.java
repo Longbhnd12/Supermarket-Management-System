@@ -1,20 +1,24 @@
 package com.sms.backend.service;
 
 import com.sms.backend.dto.product.ProductResponse;
+import com.sms.backend.dto.purchaseorder.ApprovePurchaseOrderRequest;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderRequest;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderResponse;
+import com.sms.backend.dto.purchaseorder.RejectPurchaseOrderRequest;
 import com.sms.backend.enums.PurchaseOrderStatus;
 
 import java.util.List;
 
 /**
- * Service interface for Purchase Order operations.
+ * Service interface for Purchase Order & Purchase Request operations.
  */
 public interface PurchaseOrderService {
 
     List<PurchaseOrderResponse> getAllPurchaseOrders();
 
     List<PurchaseOrderResponse> getPurchaseOrdersByStatus(PurchaseOrderStatus status);
+
+    List<PurchaseOrderResponse> getPendingPurchaseRequests();
 
     PurchaseOrderResponse getPurchaseOrderById(Long id);
 
@@ -24,9 +28,17 @@ public interface PurchaseOrderService {
 
     List<ProductResponse> getLowStockSuggestions();
 
-    PurchaseOrderResponse approvePurchaseOrder(Long id);
+    PurchaseOrderResponse approvePurchaseOrder(Long id, ApprovePurchaseOrderRequest request);
 
-    PurchaseOrderResponse rejectPurchaseOrder(Long id, String reason);
+    default PurchaseOrderResponse approvePurchaseOrder(Long id) {
+        return approvePurchaseOrder(id, new ApprovePurchaseOrderRequest(null, null));
+    }
+
+    PurchaseOrderResponse rejectPurchaseOrder(Long id, RejectPurchaseOrderRequest request);
+
+    default PurchaseOrderResponse rejectPurchaseOrder(Long id, String reason) {
+        return rejectPurchaseOrder(id, new RejectPurchaseOrderRequest(reason, null));
+    }
 
     PurchaseOrderResponse cancelPurchaseOrder(Long id);
 }

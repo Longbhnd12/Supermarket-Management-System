@@ -2,8 +2,10 @@ package com.sms.backend.controller;
 
 import com.sms.backend.dto.ApiResponse;
 import com.sms.backend.dto.product.ProductResponse;
+import com.sms.backend.dto.purchaseorder.ApprovePurchaseOrderRequest;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderRequest;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderResponse;
+import com.sms.backend.dto.purchaseorder.RejectPurchaseOrderRequest;
 import com.sms.backend.enums.PurchaseOrderStatus;
 import com.sms.backend.service.PurchaseOrderService;
 import jakarta.validation.Valid;
@@ -15,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * REST controller for Purchase Order operations.
+ * REST controller for Purchase Order & Purchase Request operations.
  */
 @RestController
 @RequestMapping("/api/v1/purchase-orders")
@@ -31,6 +33,12 @@ public class PurchaseOrderController {
                 ? purchaseOrderService.getPurchaseOrdersByStatus(status)
                 : purchaseOrderService.getAllPurchaseOrders();
         return ResponseEntity.ok(ApiResponse.success("Purchase orders retrieved", result));
+    }
+
+    @GetMapping("/pending")
+    public ResponseEntity<ApiResponse<List<PurchaseOrderResponse>>> getPendingPurchaseRequests() {
+        return ResponseEntity.ok(ApiResponse.success("Pending purchase requests retrieved",
+                purchaseOrderService.getPendingPurchaseRequests()));
     }
 
     @GetMapping("/next-number")
@@ -68,17 +76,30 @@ public class PurchaseOrderController {
     }
 
     @PostMapping("/{id}/approve")
-    public ResponseEntity<ApiResponse<PurchaseOrderResponse>> approvePurchaseOrder(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.success("Purchase order approved",
-                purchaseOrderService.approvePurchaseOrder(id)));
+    public ResponseEntity<ApiResponse<PurchaseOrderResponse>> approvePurchaseOrder(
+            @PathVariable Long id,
+            @Valid @RequestBody(required = false) ApprovePurchaseOrderRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Purchase order approved and sent to supplier",
+                purchaseOrderService.approvePurchaseOrder(id, request)));
     }
 
     @PostMapping("/{id}/reject")
     public ResponseEntity<ApiResponse<PurchaseOrderResponse>> rejectPurchaseOrder(
             @PathVariable Long id,
-            @RequestParam String reason) {
+            @RequestParam(required = false) String reason,
+            @Valid @RequestBody(required = false) RejectPurchaseOrderRequest request) {
+        String effectiveReason = null;
+        String managerNote = null;
+        if (request != null && request.reason() != null && !request.reason().isBlank()) {
+            effectiveReason = request.reason();
+            managerNote = request.managerNote();
+        } else if (reason != null && !reason.isBlank()) {
+            effectiveReason = reason;
+        }
+
+        RejectPurchaseOrderRequest finalRequest = new RejectPurchaseOrderRequest(effectiveReason, managerNote);
         return ResponseEntity.ok(ApiResponse.success("Purchase order rejected",
-                purchaseOrderService.rejectPurchaseOrder(id, reason)));
+                purchaseOrderService.rejectPurchaseOrder(id, finalRequest)));
     }
 
     @PostMapping("/{id}/cancel")

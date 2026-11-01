@@ -8,6 +8,7 @@ import {
     Eye,
     Calendar,
     Building2,
+    Clock,
     X
 } from 'lucide-react';
 import PurchaseOrderService from '../../services/purchaseOrderService';
@@ -104,7 +105,27 @@ export default function PurchaseOrderListPage() {
                         Track and review purchase requests and official supplier purchase orders
                     </p>
                 </div>
-                <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <Link
+                        to="/purchase-orders/pending"
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.6rem 1.15rem',
+                            backgroundColor: '#ffffff',
+                            color: '#1d4ed8',
+                            border: '1px solid #bfdbfe',
+                            borderRadius: '6px',
+                            fontWeight: 600,
+                            fontSize: '0.875rem',
+                            textDecoration: 'none',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                        }}
+                    >
+                        <Clock size={16} />
+                        <span>Pending Approvals</span>
+                    </Link>
                     <Link
                         to="/purchase-orders/create"
                         style={{
