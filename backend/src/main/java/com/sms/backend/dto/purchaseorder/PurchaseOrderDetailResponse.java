@@ -10,6 +10,8 @@ public record PurchaseOrderDetailResponse(
         Long productId,
         String productName,
         String productCode,
+        String unit,
+        BigDecimal requestedQuantity,
         BigDecimal orderedQuantity,
         BigDecimal unitPrice,
         BigDecimal subtotal

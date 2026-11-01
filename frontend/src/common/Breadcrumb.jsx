@@ -14,6 +14,7 @@ const routeLabels = {
     suppliers: 'Supplier Management',
     'purchase-orders': 'Purchase Orders',
     'create-request': 'Create Purchase Request',
+    create: 'Create Purchase Request',
     employees: 'Employee Management',
     users: 'User Management',
     reports: 'Reports',

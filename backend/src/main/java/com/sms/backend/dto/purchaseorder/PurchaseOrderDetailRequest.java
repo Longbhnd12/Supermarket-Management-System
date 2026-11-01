@@ -13,12 +13,19 @@ public record PurchaseOrderDetailRequest(
         @NotNull(message = "Product ID is required")
         Long productId,
 
-        @NotNull(message = "Ordered quantity is required")
-        @DecimalMin(value = "0.001", message = "Ordered quantity must be greater than 0")
+        @DecimalMin(value = "0.001", message = "Requested quantity must be greater than 0")
+        BigDecimal requestedQuantity,
+
         BigDecimal orderedQuantity,
 
         @NotNull(message = "Unit price is required")
-        @DecimalMin(value = "0.0", inclusive = false, message = "Unit price must be greater than 0")
+        @DecimalMin(value = "0.0", message = "Unit price must not be negative")
         BigDecimal unitPrice
 ) {
+    public BigDecimal effectiveQuantity() {
+        if (requestedQuantity != null) {
+            return requestedQuantity;
+        }
+        return orderedQuantity;
+    }
 }
