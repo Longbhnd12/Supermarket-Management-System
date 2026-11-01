@@ -1,4 +1,3 @@
-// CashChangeRequest - cash received from customer for change calculation
 package com.sms.backend.dto.payment;
 
 import jakarta.validation.constraints.*;

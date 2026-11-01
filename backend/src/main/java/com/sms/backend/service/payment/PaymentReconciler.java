@@ -1,4 +1,3 @@
-// PaymentReconciler - reconciles pending and completed transaction logs
 package com.sms.backend.service.payment;
 
 import com.sms.backend.repository.PaymentRepository;

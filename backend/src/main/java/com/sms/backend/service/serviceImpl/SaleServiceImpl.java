@@ -1,4 +1,3 @@
-// SaleServiceImpl - manages sales persistence, batch stock deduction, and status
 package com.sms.backend.service.serviceImpl;
 
 import com.sms.backend.dto.response.PageResponse;

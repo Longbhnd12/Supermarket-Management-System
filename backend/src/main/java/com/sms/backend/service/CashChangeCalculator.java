@@ -1,4 +1,3 @@
-// CashChangeCalculator - greedy coin/note change distribution algorithm
 package com.sms.backend.service;
 
 import com.sms.backend.exception.BadRequestException;

@@ -1,4 +1,3 @@
-// PaymentServiceImpl - verifies signatures and updates order payment status
 package com.sms.backend.service.serviceImpl;
 
 import com.sms.backend.config.VnpayProperties;

@@ -1,4 +1,3 @@
-// InvoiceController - REST controller for invoice lookup, PDF download and printing
 package com.sms.backend.controller;
 
 import com.sms.backend.dto.ApiResponse;

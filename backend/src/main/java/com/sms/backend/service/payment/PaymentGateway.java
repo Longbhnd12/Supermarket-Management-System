@@ -1,4 +1,3 @@
-// PaymentGateway - interface defining payment provider integration contracts
 package com.sms.backend.service.payment;
 
 import com.sms.backend.entity.Payment;

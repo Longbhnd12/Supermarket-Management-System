@@ -1,4 +1,3 @@
-// InvoicePdfServiceImpl - iText PDF template rendering for retail receipt printing
 package com.sms.backend.service.serviceImpl;
 
 import com.sms.backend.service.InvoicePdfService;

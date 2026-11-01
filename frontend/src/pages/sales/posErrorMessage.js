@@ -1,4 +1,3 @@
-// posErrorMessage - user-friendly error translations for POS cashiers
 import { getErrorMessage } from '../../utils/errorUtils';
 
 // Translate POS errors locally; other pages keep their existing error messages.

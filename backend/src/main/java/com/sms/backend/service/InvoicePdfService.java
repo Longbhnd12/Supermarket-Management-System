@@ -1,4 +1,3 @@
-// InvoicePdfService - service interface for generating printable invoice documents
 package com.sms.backend.service;
 
 import com.sms.backend.dto.sale.InvoiceResponse;

@@ -1,4 +1,3 @@
-// SalePromotionCalculator - applies promotion discounts to order line items
 package com.sms.backend.service;
 
 import com.sms.backend.entity.Promotion;

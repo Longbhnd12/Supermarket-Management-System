@@ -1,4 +1,3 @@
-// invoiceFormat - currency and date formatting utilities for invoices
 const currency = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 });
 const quantity = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 3 });
 

@@ -1,4 +1,3 @@
-// PaymentController - REST controller for payment creation, IPN, and status check
 package com.sms.backend.controller;
 
 import com.sms.backend.config.VnpayProperties;

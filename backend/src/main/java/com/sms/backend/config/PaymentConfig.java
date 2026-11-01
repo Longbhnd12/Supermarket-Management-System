@@ -1,4 +1,3 @@
-// PaymentConfig - configuration and bean definitions for payment gateways
 package com.sms.backend.config;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;

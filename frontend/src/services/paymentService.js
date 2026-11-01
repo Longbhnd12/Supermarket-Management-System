@@ -1,4 +1,3 @@
-// paymentService - frontend API client for cash and VNPay payment initiation
 import API from './api';
 
 export default {

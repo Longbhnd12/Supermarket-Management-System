@@ -1,4 +1,3 @@
-// SaleController - REST controller for POS sales orders and cart operations
 package com.sms.backend.controller;
 
 import com.sms.backend.dto.ApiResponse;
