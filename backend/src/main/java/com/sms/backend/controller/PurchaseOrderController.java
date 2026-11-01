@@ -1,6 +1,7 @@
 package com.sms.backend.controller;
 
 import com.sms.backend.dto.ApiResponse;
+import com.sms.backend.dto.product.ProductResponse;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderRequest;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderResponse;
 import com.sms.backend.enums.PurchaseOrderStatus;
@@ -15,8 +16,6 @@ import java.util.List;
 
 /**
  * REST controller for Purchase Order operations.
- * TODO (SDD): Confirm role-based access control – which roles can approve/reject POs.
- * TODO (SDD): Confirm supplier counter-proposal endpoints.
  */
 @RestController
 @RequestMapping("/api/v1/purchase-orders")
@@ -34,10 +33,30 @@ public class PurchaseOrderController {
         return ResponseEntity.ok(ApiResponse.success("Purchase orders retrieved", result));
     }
 
+    @GetMapping("/next-number")
+    public ResponseEntity<ApiResponse<String>> getNextRequestNumber() {
+        return ResponseEntity.ok(ApiResponse.success("Next purchase request number generated",
+                purchaseOrderService.getNextRequestNumber()));
+    }
+
+    @GetMapping("/low-stock-suggestions")
+    public ResponseEntity<ApiResponse<List<ProductResponse>>> getLowStockSuggestions() {
+        return ResponseEntity.ok(ApiResponse.success("Low-stock product suggestions retrieved",
+                purchaseOrderService.getLowStockSuggestions()));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<PurchaseOrderResponse>> getPurchaseOrderById(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success("Purchase order retrieved",
                 purchaseOrderService.getPurchaseOrderById(id)));
+    }
+
+    @PostMapping("/requests")
+    public ResponseEntity<ApiResponse<PurchaseOrderResponse>> createPurchaseRequest(
+            @Valid @RequestBody PurchaseOrderRequest request) {
+        PurchaseOrderResponse response = purchaseOrderService.createPurchaseOrder(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Purchase request created successfully", response));
     }
 
     @PostMapping
@@ -45,7 +64,7 @@ public class PurchaseOrderController {
             @Valid @RequestBody PurchaseOrderRequest request) {
         PurchaseOrderResponse response = purchaseOrderService.createPurchaseOrder(request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Purchase order created", response));
+                .body(ApiResponse.success("Purchase request created successfully", response));
     }
 
     @PostMapping("/{id}/approve")

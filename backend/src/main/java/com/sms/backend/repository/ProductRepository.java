@@ -33,4 +33,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     @Query("SELECT p FROM Product p JOIN FETCH p.category c WHERE p.status = com.sms.backend.enums.GeneralStatus.ACTIVE AND (:categoryId IS NULL OR c.categoryId = :categoryId) AND (:keyword IS NULL OR LOWER(p.productName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(p.productCode) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(p.barcode) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     List<Product> findAllByFilterNoPaging(@Param("keyword") String keyword, @Param("categoryId") Long categoryId);
+
+    @Query("SELECT p FROM Product p JOIN FETCH p.category c WHERE p.status = com.sms.backend.enums.GeneralStatus.ACTIVE AND p.stockQuantity <= p.minimumStockLevel ORDER BY (p.stockQuantity - p.minimumStockLevel) ASC, p.productName ASC")
+    List<Product> findLowStockProducts();
 }

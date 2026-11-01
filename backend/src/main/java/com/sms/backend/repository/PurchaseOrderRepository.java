@@ -15,6 +15,10 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
 
     Optional<PurchaseOrder> findByPoNumber(String poNumber);
 
+    boolean existsByPoNumber(String poNumber);
+
+    Optional<PurchaseOrder> findTopByOrderByOrderIdDesc();
+
     List<PurchaseOrder> findBySupplier(Supplier supplier);
 
     List<PurchaseOrder> findByRequestedBy(User requestedBy);
