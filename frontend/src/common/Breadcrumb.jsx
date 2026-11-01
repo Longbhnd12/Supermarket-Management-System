@@ -15,6 +15,7 @@ const routeLabels = {
     'purchase-orders': 'Purchase Orders',
     'create-request': 'Create Purchase Request',
     create: 'Create Purchase Request',
+    pending: 'Pending Purchase Requests',
     employees: 'Employee Management',
     users: 'User Management',
     reports: 'Reports',

@@ -156,5 +156,155 @@ class PurchaseOrderControllerTest {
                 .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.message").isNotEmpty());
     }
+
+    @Test
+    @DisplayName("GET /api/v1/purchase-orders/pending - Returns 200 with list of pending requests")
+    void testPendingPurchaseOrdersEndpoint() throws Exception {
+        mockMvc.perform(get("/api/v1/purchase-orders/pending")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isArray());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/purchase-orders/{id}/approve - Returns 200 with SENT status")
+    void testApprovePurchaseOrderEndpoint() throws Exception {
+        // First create a pending purchase order
+        String futureDate = LocalDate.now().plusDays(4).toString();
+        String createJson = """
+                {
+                    "supplierId": 1,
+                    "expectedDeliveryDate": "%s",
+                    "note": "For approval test",
+                    "details": [
+                        {
+                            "productId": 1,
+                            "requestedQuantity": 10,
+                            "unitPrice": 12000.00
+                        }
+                    ]
+                }
+                """.formatted(futureDate);
+
+        String responseStr = mockMvc.perform(post("/api/v1/purchase-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createJson))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"orderId\":\\s*(\\d+)").matcher(responseStr);
+        org.junit.jupiter.api.Assertions.assertTrue(m.find(), "orderId should be present in response");
+        long orderId = Long.parseLong(m.group(1));
+
+        String approveJson = """
+                {
+                    "managerNote": "Approved by Controller Test",
+                    "items": [
+                        {
+                            "productId": 1,
+                            "approvedQuantity": 12.0
+                        }
+                    ]
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/purchase-orders/" + orderId + "/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(approveJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("SENT"))
+                .andExpect(jsonPath("$.data.totalAmount").value(144000.00))
+                .andExpect(jsonPath("$.data.responseReason").value("Approved by Controller Test"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/purchase-orders/{id}/reject - Returns 200 with REJECTED_BY_MANAGER status")
+    void testRejectPurchaseOrderEndpoint() throws Exception {
+        // Create a pending request
+        String futureDate = LocalDate.now().plusDays(4).toString();
+        String createJson = """
+                {
+                    "supplierId": 1,
+                    "expectedDeliveryDate": "%s",
+                    "note": "For rejection test",
+                    "details": [
+                        {
+                            "productId": 1,
+                            "requestedQuantity": 5,
+                            "unitPrice": 12000.00
+                        }
+                    ]
+                }
+                """.formatted(futureDate);
+
+        String responseStr = mockMvc.perform(post("/api/v1/purchase-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createJson))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"orderId\":\\s*(\\d+)").matcher(responseStr);
+        org.junit.jupiter.api.Assertions.assertTrue(m.find(), "orderId should be present in response");
+        long orderId = Long.parseLong(m.group(1));
+
+        String rejectJson = """
+                {
+                    "reason": "Budget limit exceeded for category",
+                    "managerNote": "Contact finance before re-requesting"
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/purchase-orders/" + orderId + "/reject")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(rejectJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("REJECTED_BY_MANAGER"))
+                .andExpect(jsonPath("$.data.responseReason").value("Budget limit exceeded for category"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/purchase-orders/{id}/reject - Returns 400 Bad Request when reason is missing")
+    void testRejectPurchaseOrderWithoutReasonValidation() throws Exception {
+        String futureDate = LocalDate.now().plusDays(4).toString();
+        String createJson = """
+                {
+                    "supplierId": 1,
+                    "expectedDeliveryDate": "%s",
+                    "note": "For validation test",
+                    "details": [
+                        {
+                            "productId": 1,
+                            "requestedQuantity": 5,
+                            "unitPrice": 12000.00
+                        }
+                    ]
+                }
+                """.formatted(futureDate);
+
+        String responseStr = mockMvc.perform(post("/api/v1/purchase-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createJson))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"orderId\":\\s*(\\d+)").matcher(responseStr);
+        org.junit.jupiter.api.Assertions.assertTrue(m.find(), "orderId should be present in response");
+        long orderId = Long.parseLong(m.group(1));
+
+        String invalidRejectJson = """
+                {
+                    "reason": "   "
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/purchase-orders/" + orderId + "/reject")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalidRejectJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Rejection reason is required"));
+    }
 }
 

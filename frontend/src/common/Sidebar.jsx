@@ -17,6 +17,7 @@ import {
     PanelLeftOpen,
     FileInput,
     FileText,
+    FileCheck,
     X
 } from 'lucide-react';
 
@@ -48,7 +49,14 @@ const menuGroups = [
             {
                 label: 'Purchase Orders',
                 icon: FileText,
-                path: '/purchase-orders'
+                path: '/purchase-orders',
+                end: true
+            },
+            {
+                label: 'Approve Requests',
+                icon: FileCheck,
+                path: '/purchase-orders/pending',
+                end: true
             },
             {
                 label: 'Stock Receipts',

@@ -27,6 +27,7 @@ import POSPage from './pages/sales/POSPage';
 import PurchaseOrderListPage from './pages/purchaseOrder/PurchaseOrderListPage';
 import PurchaseOrderDetailPage from './pages/purchaseOrder/PurchaseOrderDetailPage';
 import CreatePurchaseRequestPage from './pages/purchaseOrder/CreatePurchaseRequestPage';
+import PendingPurchaseRequestsPage from './pages/purchaseOrder/PendingPurchaseRequestsPage';
 
 // Inventory
 import InventoryPage from './pages/inventory/InventoryPage';
@@ -67,6 +68,7 @@ export default function App() {
                     {/* Purchase Orders */}
                     <Route path="/purchase-orders" element={<PurchaseOrderListPage />} />
                     <Route path="/purchase-orders/create" element={<CreatePurchaseRequestPage />} />
+                    <Route path="/purchase-orders/pending" element={<PendingPurchaseRequestsPage />} />
                     <Route path="/purchase-orders/:id" element={<PurchaseOrderDetailPage />} />
 
                     {/* Inventory */}
