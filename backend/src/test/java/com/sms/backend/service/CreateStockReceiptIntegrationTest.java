@@ -243,4 +243,132 @@ class CreateStockReceiptIntegrationTest {
 
         assertThrows(BadRequestException.class, () -> inventoryService.createStockReceipt(request));
     }
+
+    @Test
+    @DisplayName("UC36/37 - Update DRAFT stock receipt updates details without altering stock or creating movements")
+    void testUpdateDraftStockReceipt() {
+        Product p = productRepository.findById(6L).orElseThrow();
+        BigDecimal initialStock = p.getStockQuantity();
+        long initialMovements = stockMovementRepository.count();
+
+        // 1. Create a draft receipt
+        CreateStockReceiptItemRequest item1 = new CreateStockReceiptItemRequest(
+                6L, new BigDecimal("10.00"), new BigDecimal("15000.00"), null, null
+        );
+        CreateStockReceiptRequest createReq = new CreateStockReceiptRequest(
+                null, 1L, null, StockReceiptStatus.DRAFT, List.of(item1)
+        );
+        StockReceiptResponse created = inventoryService.createStockReceipt(createReq);
+        assertEquals(StockReceiptStatus.DRAFT, created.status());
+        Long receiptId = created.stockReceiptId();
+        String receiptNumber = created.receiptNumber();
+
+        // 2. Update the draft receipt with different quantity and unitCost
+        CreateStockReceiptItemRequest updatedItem = new CreateStockReceiptItemRequest(
+                6L, new BigDecimal("25.00"), new BigDecimal("14000.00"), null, null
+        );
+        CreateStockReceiptRequest updateReq = new CreateStockReceiptRequest(
+                receiptNumber, 1L, null, StockReceiptStatus.DRAFT, List.of(updatedItem)
+        );
+        StockReceiptResponse updated = inventoryService.updateStockReceipt(receiptId, updateReq);
+
+        // 3. Verify ID, receiptNumber, status preserved
+        assertEquals(receiptId, updated.stockReceiptId());
+        assertEquals(receiptNumber, updated.receiptNumber());
+        assertEquals(StockReceiptStatus.DRAFT, updated.status());
+        assertEquals(new BigDecimal("350000.00"), updated.totalCost());
+        assertEquals(1, updated.details().size());
+        assertEquals(0, new BigDecimal("25.00").compareTo(updated.details().get(0).receivedQuantity()));
+
+        // 4. Verify product stock & movement unchanged
+        Product pAfterUpdate = productRepository.findById(6L).orElseThrow();
+        assertEquals(initialStock, pAfterUpdate.getStockQuantity());
+        assertEquals(initialMovements, stockMovementRepository.count());
+    }
+
+    @Test
+    @DisplayName("UC36/37 - Confirming an edited DRAFT receipt updates product stock and logs movement exactly once")
+    void testConfirmEditedDraftStockReceipt() {
+        Product p = productRepository.findById(6L).orElseThrow();
+        BigDecimal initialStock = p.getStockQuantity();
+        long initialMovements = stockMovementRepository.count();
+
+        // 1. Create and update a draft receipt with quantity 5
+        CreateStockReceiptItemRequest item = new CreateStockReceiptItemRequest(
+                6L, new BigDecimal("5.00"), new BigDecimal("12000.00"), null, null
+        );
+        CreateStockReceiptRequest createReq = new CreateStockReceiptRequest(
+                null, 1L, null, StockReceiptStatus.DRAFT, List.of(item)
+        );
+        StockReceiptResponse created = inventoryService.createStockReceipt(createReq);
+
+        // 2. Confirm the receipt
+        StockReceiptResponse confirmed = inventoryService.confirmStockReceipt(created.stockReceiptId());
+        assertEquals(StockReceiptStatus.CONFIRMED, confirmed.status());
+
+        // 3. Verify stock increased by 5 and 1 movement added
+        Product pAfterConfirm = productRepository.findById(6L).orElseThrow();
+        assertEquals(initialStock.add(new BigDecimal("5.00")), pAfterConfirm.getStockQuantity());
+        assertEquals(initialMovements + 1, stockMovementRepository.count());
+    }
+
+    @Test
+    @DisplayName("UC37 - Cancel DRAFT stock receipt marks status CANCELLED without touching stock")
+    void testCancelDraftStockReceipt() {
+        Product p = productRepository.findById(6L).orElseThrow();
+        BigDecimal initialStock = p.getStockQuantity();
+        long initialMovements = stockMovementRepository.count();
+
+        CreateStockReceiptItemRequest item = new CreateStockReceiptItemRequest(
+                6L, new BigDecimal("12.00"), new BigDecimal("10000.00"), null, null
+        );
+        CreateStockReceiptRequest createReq = new CreateStockReceiptRequest(
+                null, 1L, null, StockReceiptStatus.DRAFT, List.of(item)
+        );
+        StockReceiptResponse created = inventoryService.createStockReceipt(createReq);
+        assertEquals(StockReceiptStatus.DRAFT, created.status());
+
+        StockReceiptResponse cancelled = inventoryService.cancelStockReceipt(created.stockReceiptId());
+        assertEquals(StockReceiptStatus.CANCELLED, cancelled.status());
+
+        // Verify stock & movements unchanged
+        Product pAfterCancel = productRepository.findById(6L).orElseThrow();
+        assertEquals(initialStock, pAfterCancel.getStockQuantity());
+        assertEquals(initialMovements, stockMovementRepository.count());
+    }
+
+    @Test
+    @DisplayName("UC37 - Cannot edit or cancel a CONFIRMED or CANCELLED stock receipt")
+    void testCannotEditOrCancelConfirmedReceipt() {
+        // Create and confirm a receipt
+        CreateStockReceiptItemRequest item = new CreateStockReceiptItemRequest(
+                6L, new BigDecimal("2.00"), new BigDecimal("10000.00"), null, null
+        );
+        CreateStockReceiptRequest createReq = new CreateStockReceiptRequest(
+                null, 1L, null, StockReceiptStatus.CONFIRMED, List.of(item)
+        );
+        StockReceiptResponse confirmed = inventoryService.createStockReceipt(createReq);
+
+        CreateStockReceiptRequest updateReq = new CreateStockReceiptRequest(
+                confirmed.receiptNumber(), 1L, null, StockReceiptStatus.DRAFT, List.of(item)
+        );
+
+        // Editing confirmed receipt throws BusinessException
+        assertThrows(BusinessException.class, () -> inventoryService.updateStockReceipt(confirmed.stockReceiptId(), updateReq));
+
+        // Cancelling confirmed receipt throws BusinessException
+        assertThrows(BusinessException.class, () -> inventoryService.cancelStockReceipt(confirmed.stockReceiptId()));
+
+        // Create draft and cancel it
+        CreateStockReceiptRequest draftReq = new CreateStockReceiptRequest(
+                null, 1L, null, StockReceiptStatus.DRAFT, List.of(item)
+        );
+        StockReceiptResponse draft = inventoryService.createStockReceipt(draftReq);
+        inventoryService.cancelStockReceipt(draft.stockReceiptId());
+
+        // Cancelling already cancelled receipt throws BusinessException
+        assertThrows(BusinessException.class, () -> inventoryService.cancelStockReceipt(draft.stockReceiptId()));
+        // Editing cancelled receipt throws BusinessException
+        assertThrows(BusinessException.class, () -> inventoryService.updateStockReceipt(draft.stockReceiptId(), updateReq));
+    }
 }

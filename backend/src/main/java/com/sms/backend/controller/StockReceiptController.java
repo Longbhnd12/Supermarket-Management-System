@@ -115,6 +115,31 @@ public class StockReceiptController {
     }
 
     /**
+     * PUT /api/v1/stock-receipts/{id}
+     * Updates an existing DRAFT stock receipt and its details.
+     * Rejects updates if receipt is already CONFIRMED or CANCELLED.
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<StockReceiptResponse>> updateStockReceipt(
+            @PathVariable Long id,
+            @Valid @RequestBody CreateStockReceiptRequest request) {
+        StockReceiptResponse response = inventoryService.updateStockReceipt(id, request);
+        return ResponseEntity.ok(ApiResponse.success("Stock receipt updated successfully", response));
+    }
+
+    /**
+     * POST /api/v1/stock-receipts/{id}/cancel
+     * Cancels an existing DRAFT stock receipt without altering product stock.
+     * Rejects cancelling if receipt is already CONFIRMED or CANCELLED.
+     */
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<ApiResponse<StockReceiptResponse>> cancelStockReceipt(
+            @PathVariable Long id) {
+        StockReceiptResponse response = inventoryService.cancelStockReceipt(id);
+        return ResponseEntity.ok(ApiResponse.success("Stock receipt cancelled successfully", response));
+    }
+
+    /**
      * POST /api/v1/stock-receipts/{id}/confirm
      * Confirms an existing DRAFT stock receipt, updates inventory stock,
      * sets remainingQuantity on details, and logs StockMovement records.
