@@ -18,10 +18,10 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     List<Notification> findByUserAndIsRead(User user, Boolean isRead);
     List<Notification> findByTargetRole(String targetRole);
     List<Notification> findByType(NotificationType type);
-    @Query("SELECT n FROM Notification n WHERE n.user = :user OR n.targetRole = :role")
+    @Query("SELECT n FROM Notification n WHERE n.user = :user OR (n.user IS NULL AND n.targetRole = :role)")
     Page<Notification> findForRecipient(@Param("user") User user, @Param("role") String role, Pageable pageable);
-    @Query("SELECT n FROM Notification n WHERE (n.user = :user OR n.targetRole = :role) AND n.isRead = :isRead")
+    @Query("SELECT n FROM Notification n WHERE (n.user = :user OR (n.user IS NULL AND n.targetRole = :role)) AND n.isRead = :isRead")
     Page<Notification> findForRecipientAndRead(@Param("user") User user, @Param("role") String role, @Param("isRead") boolean isRead, Pageable pageable);
-    @Query("SELECT COUNT(n) FROM Notification n WHERE (n.user = :user OR n.targetRole = :role) AND n.isRead = false")
+    @Query("SELECT COUNT(n) FROM Notification n WHERE (n.user = :user OR (n.user IS NULL AND n.targetRole = :role)) AND n.isRead = false")
     long countUnreadForRecipient(@Param("user") User user, @Param("role") String role);
 }

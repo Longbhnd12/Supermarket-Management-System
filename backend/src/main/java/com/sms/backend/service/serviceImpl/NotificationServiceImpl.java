@@ -42,7 +42,11 @@ public class NotificationServiceImpl implements NotificationService {
     }
     private User currentUser() { Authentication auth=SecurityContextHolder.getContext().getAuthentication(); if(auth==null||!auth.isAuthenticated()||"anonymousUser".equals(auth.getName())) throw new UnauthorizedException("Authentication is required to access notifications"); return userRepository.findByUsername(auth.getName()).orElseThrow(()->new UnauthorizedException("Authenticated user was not found")); }
     private String role(User user) { return user.getRole()==null||user.getRole().getRoleName()==null?"":user.getRole().getRoleName().name(); }
-    private boolean belongsTo(Notification notification,User user) { return (notification.getUser()!=null&&notification.getUser().getUserId().equals(user.getUserId()))||role(user).equals(notification.getTargetRole()); }
+    private boolean belongsTo(Notification notification, User user) {
+        return notification.getUser() != null
+                ? notification.getUser().getUserId().equals(user.getUserId())
+                : role(user).equals(notification.getTargetRole());
+    }
     private String normalizeStatus(String status) { String value=status==null||status.isBlank()?"ALL":status.trim().toUpperCase(Locale.ROOT); if(!value.equals("ALL")&&!value.equals("READ")&&!value.equals("UNREAD"))throw new BadRequestException("Unsupported notification status: "+status);return value; }
     private NotificationResponse toResponse(Notification notification) { return new NotificationResponse(notification.getNotificationId(),notification.getType(),notification.getTitle(),notification.getMessage(),Boolean.TRUE.equals(notification.getIsRead()),notification.getCreatedAt()); }
 }
