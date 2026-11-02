@@ -1,6 +1,8 @@
 package com.sms.backend.controller;
 
 import com.sms.backend.dto.ApiResponse;
+import com.sms.backend.dto.response.PageResponse;
+import com.sms.backend.dto.response.SaleListItemResponse;
 import com.sms.backend.dto.sale.SaleItemRequest;
 import com.sms.backend.dto.sale.SaleResponse;
 import com.sms.backend.dto.sale.CreateSaleRequest;
@@ -10,11 +12,12 @@ import com.sms.backend.enums.SaleStatus;
 import com.sms.backend.service.SaleService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import java.time.LocalDateTime;
 
 /**
  * REST controller for Sale (POS) operations.
@@ -28,13 +31,19 @@ public class SaleController {
 
     private final SaleService saleService;
 
+    /** UC21 - lists every business status, including DRAFT (shown as Pending in the UI). */
     @GetMapping
-    public ResponseEntity<ApiResponse<List<SaleResponse>>> getAllSales(
-            @RequestParam(required = false) SaleStatus status) {
-        List<SaleResponse> result = status != null
-                ? saleService.getSalesByStatus(status)
-                : saleService.getAllSales();
-        return ResponseEntity.ok(ApiResponse.success("Sales retrieved", result));
+    public ResponseEntity<ApiResponse<PageResponse<SaleListItemResponse>>> getSales(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime toDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Sales retrieved successfully", saleService.getSales(search, status, fromDate, toDate, page, size)
+        ));
     }
 
     @GetMapping("/{id}")
@@ -64,8 +73,8 @@ public class SaleController {
 
     @PostMapping("/{id}/items")
     public ResponseEntity<ApiResponse<SaleResponse>> addItem(
-            @PathVariable Long id,
-            @Valid @RequestBody SaleItemRequest itemRequest) {
+            @PathVariable Long id, @Valid @RequestBody SaleItemRequest itemRequest
+    ) {
         return ResponseEntity.ok(ApiResponse.success("Item added", saleService.addItemToSale(id, itemRequest)));
     }
 
@@ -78,9 +87,7 @@ public class SaleController {
     }
 
     @DeleteMapping("/{id}/items/{saleItemId}")
-    public ResponseEntity<ApiResponse<SaleResponse>> removeItem(
-            @PathVariable Long id,
-            @PathVariable Long saleItemId) {
+    public ResponseEntity<ApiResponse<SaleResponse>> removeItem(@PathVariable Long id, @PathVariable Long saleItemId) {
         return ResponseEntity.ok(ApiResponse.success("Item removed", saleService.removeItemFromSale(id, saleItemId)));
     }
 

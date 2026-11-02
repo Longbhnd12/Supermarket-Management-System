@@ -33,3 +33,8 @@
 *.log
 .DS_Store
 Thumbs.db
+
+# Local project documentation
+/docs/SDD.docx
+/docs/SRS.docx
+/docs/database.sql

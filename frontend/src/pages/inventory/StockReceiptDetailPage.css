@@ -1,0 +1,482 @@
+/* =============================================================================
+   StockReceiptDetailPage.css — SMS UC37 Stock Receipt Details
+   Design tokens consistent with StockReceiptListPage.css
+   ============================================================================= */
+
+/* ─── 1. Page Container ─────────────────────────────────────────────────────── */
+
+.srd-page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+    color: var(--sms-text, #19233b);
+}
+
+/* ─── 2. Header ─────────────────────────────────────────────────────────────── */
+
+.srd-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.srd-header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.srd-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--sms-text-secondary, #69748c);
+}
+
+.srd-breadcrumb__sep {
+    color: var(--sms-border, #c8cedf);
+}
+
+.srd-breadcrumb__link {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--sms-primary, #2458dc);
+    font-weight: 500;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.srd-breadcrumb__link:hover {
+    color: var(--sms-primary-dark, #1746bb);
+}
+
+.srd-breadcrumb__item--active {
+    color: var(--sms-primary, #2458dc);
+    font-weight: 500;
+}
+
+.srd-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.srd-title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--sms-text, #19233b);
+    letter-spacing: -0.02em;
+    font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
+}
+
+.srd-subtitle {
+    margin: 0;
+    font-size: 13px;
+    color: var(--sms-text-secondary, #69748c);
+}
+
+.srd-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* ─── 3. Buttons ────────────────────────────────────────────────────────────── */
+
+.srd-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 38px;
+    padding: 0 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: nowrap;
+    border: none;
+}
+
+.srd-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(36, 88, 220, 0.25);
+}
+
+.srd-btn--primary {
+    background: var(--sms-primary, #2458dc);
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(36, 88, 220, 0.24);
+}
+
+.srd-btn--primary:hover:not(:disabled) {
+    background: var(--sms-primary-dark, #1746bb);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(36, 88, 220, 0.32);
+}
+
+.srd-btn--primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.srd-btn--secondary {
+    background: #fff;
+    color: var(--sms-text, #19233b);
+    border: 1px solid var(--sms-border, #e5e9f3);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.srd-btn--secondary:hover:not(:disabled) {
+    background: var(--sms-bg-hover, #f4f6fc);
+    border-color: #c8cedf;
+}
+
+.srd-btn--ghost {
+    background: transparent;
+    color: var(--sms-text-secondary, #69748c);
+    border: 1px solid transparent;
+}
+
+.srd-btn--ghost:hover {
+    background: var(--sms-bg-hover, #f4f6fc);
+    color: var(--sms-text, #19233b);
+    border-color: var(--sms-border, #e5e9f3);
+}
+
+/* ─── 4. Loading / States ───────────────────────────────────────────────────── */
+
+.srd-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 80px 24px;
+    color: var(--sms-text-secondary, #69748c);
+}
+
+.srd-spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid var(--sms-border, #e5e9f3);
+    border-top-color: var(--sms-primary, #2458dc);
+    border-radius: 50%;
+    animation: srd-spin 0.8s linear infinite;
+    flex-shrink: 0;
+}
+
+.srd-spinner--sm {
+    width: 14px;
+    height: 14px;
+    border-width: 2px;
+}
+
+@keyframes srd-spin {
+    to { transform: rotate(360deg); }
+}
+
+.srd-loading__text {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.srd-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 60px 24px;
+    text-align: center;
+}
+
+.srd-state--error   { color: #e53e3e; }
+.srd-state--notfound { color: var(--sms-text-secondary, #69748c); }
+.srd-state--empty   { color: var(--sms-text-secondary, #69748c); padding: 40px 24px; }
+
+.srd-state__title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--sms-text, #19233b);
+}
+
+.srd-state__msg {
+    margin: 0;
+    font-size: 13px;
+    max-width: 360px;
+    line-height: 1.5;
+}
+
+/* ─── 5. Cards ──────────────────────────────────────────────────────────────── */
+
+.srd-card {
+    background: #fff;
+    border: 1px solid var(--sms-border, #e5e9f3);
+    border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    overflow: hidden;
+}
+
+.srd-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--sms-border, #e5e9f3);
+    background: var(--sms-bg-subtle, #fafbfd);
+}
+
+.srd-card__title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--sms-text, #19233b);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.srd-card__count {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--sms-text-secondary, #69748c);
+    background: var(--sms-border, #e5e9f3);
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+/* ─── 6. Meta Grid ──────────────────────────────────────────────────────────── */
+
+.srd-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+}
+
+@media (max-width: 1100px) {
+    .srd-meta-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 768px) {
+    .srd-meta-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+    .srd-meta-grid { grid-template-columns: 1fr; }
+}
+
+.srd-meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 16px 20px;
+    border-right: 1px solid var(--sms-border, #e5e9f3);
+    border-bottom: 1px solid var(--sms-border, #e5e9f3);
+}
+
+.srd-meta-item:nth-child(4n) {
+    border-right: none;
+}
+
+.srd-meta-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--sms-text-secondary, #69748c);
+}
+
+.srd-meta-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--sms-text, #19233b);
+}
+
+.srd-meta-value--mono {
+    font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
+    font-size: 13px;
+    color: var(--sms-primary, #2458dc);
+    background: rgba(36, 88, 220, 0.07);
+    padding: 2px 8px;
+    border-radius: 4px;
+    width: fit-content;
+}
+
+.srd-meta-value--cost {
+    font-size: 16px;
+    font-variant-numeric: tabular-nums;
+    color: var(--sms-primary, #2458dc);
+}
+
+/* ─── 7. Status Badges ──────────────────────────────────────────────────────── */
+
+.srd-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.srd-badge--draft {
+    background: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+.srd-badge--confirmed {
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+}
+
+.srd-badge--cancelled {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
+/* ─── 8. Table ──────────────────────────────────────────────────────────────── */
+
+.srd-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.srd-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.srd-table th {
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--sms-text-secondary, #69748c);
+    background: var(--sms-bg-subtle, #fafbfd);
+    border-bottom: 1px solid var(--sms-border, #e5e9f3);
+    white-space: nowrap;
+}
+
+.srd-table th.srd-th-num {
+    text-align: right;
+}
+
+.srd-tr {
+    transition: background 0.15s;
+}
+
+.srd-tr:not(:last-child) {
+    border-bottom: 1px solid var(--sms-border, #e5e9f3);
+}
+
+.srd-tr:hover {
+    background: var(--sms-bg-hover, #f4f6fc);
+}
+
+.srd-td {
+    padding: 12px 14px;
+    vertical-align: middle;
+    color: var(--sms-text, #19233b);
+}
+
+.srd-td--seq {
+    font-size: 12px;
+    color: var(--sms-text-secondary, #69748c);
+    width: 36px;
+    text-align: center;
+}
+
+.srd-td--sku { white-space: nowrap; }
+
+.srd-sku-chip {
+    display: inline-flex;
+    align-items: center;
+    font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
+    font-size: 11px;
+    color: var(--sms-primary, #2458dc);
+    background: rgba(36, 88, 220, 0.07);
+    border-radius: 4px;
+    padding: 2px 7px;
+}
+
+.srd-td--name {
+    font-weight: 500;
+    min-width: 160px;
+}
+
+.srd-td--num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.srd-td--date {
+    font-size: 12px;
+    color: var(--sms-text-secondary, #69748c);
+    white-space: nowrap;
+}
+
+.srd-td--subtotal {
+    font-weight: 600;
+}
+
+.srd-batch {
+    font-size: 12px;
+    font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
+    background: #f0f4ff;
+    color: #3b5bdb;
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+
+.srd-null {
+    color: var(--sms-text-secondary, #69748c);
+    font-style: italic;
+    font-size: 12px;
+}
+
+/* ─── 9. Table Footer (Total row) ───────────────────────────────────────────── */
+
+.srd-tfoot-row {
+    background: var(--sms-bg-subtle, #fafbfd);
+    border-top: 2px solid var(--sms-border, #e5e9f3);
+}
+
+.srd-tfoot-label {
+    padding: 12px 14px;
+    text-align: right;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--sms-text-secondary, #69748c);
+}
+
+.srd-tfoot-total {
+    padding: 12px 14px;
+    text-align: right;
+    font-size: 15px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--sms-primary, #2458dc);
+}
+
