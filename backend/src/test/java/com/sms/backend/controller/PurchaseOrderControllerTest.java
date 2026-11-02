@@ -306,5 +306,94 @@ class PurchaseOrderControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Rejection reason is required"));
     }
+
+    // =========================================================================
+    // UC50 - View Purchase Order Status
+    // =========================================================================
+
+    @Test
+    @DisplayName("UC50 - GET /api/v1/purchase-orders - Returns 200 with paginated results and status counts")
+    void testGetPurchaseOrdersPaginated() throws Exception {
+        mockMvc.perform(get("/api/v1/purchase-orders")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(10))
+                .andExpect(jsonPath("$.data.statusCounts").isMap())
+                .andExpect(jsonPath("$.data.statusCounts.all").isNumber())
+                .andExpect(jsonPath("$.data.statusCounts.pendingApproval").isNumber())
+                .andExpect(jsonPath("$.data.statusCounts.rejectedByManager").isNumber())
+                .andExpect(jsonPath("$.data.statusCounts.sent").isNumber())
+                .andExpect(jsonPath("$.data.statusCounts.accepted").isNumber())
+                .andExpect(jsonPath("$.data.statusCounts.rejectedBySupplier").isNumber())
+                .andExpect(jsonPath("$.data.statusCounts.partiallyFulfilled").isNumber())
+                .andExpect(jsonPath("$.data.statusCounts.fulfilled").isNumber());
+    }
+
+    @Test
+    @DisplayName("UC50 - GET /api/v1/purchase-orders/counts - Returns 200 with counts across all 8 tabs")
+    void testGetPurchaseOrderStatusCounts() throws Exception {
+        mockMvc.perform(get("/api/v1/purchase-orders/counts")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.all").isNumber())
+                .andExpect(jsonPath("$.data.pendingApproval").isNumber())
+                .andExpect(jsonPath("$.data.sent").isNumber());
+    }
+
+    @Test
+    @DisplayName("UC50 - GET /api/v1/purchase-orders with invalid date range returns 400 Bad Request")
+    void testGetPurchaseOrdersInvalidDateRange() throws Exception {
+        mockMvc.perform(get("/api/v1/purchase-orders")
+                        .param("startDate", "2026-12-01")
+                        .param("endDate", "2026-11-01")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Start date cannot be after end date"));
+    }
+
+    @Test
+    @DisplayName("UC50 - GET /api/v1/purchase-orders/{id} - Returns 200 with details and receipts list")
+    void testGetPurchaseOrderDetailsWithReceipts() throws Exception {
+        String futureDate = LocalDate.now().plusDays(4).toString();
+        String createJson = """
+                {
+                    "supplierId": 1,
+                    "expectedDeliveryDate": "%s",
+                    "note": "For UC50 detail test",
+                    "details": [
+                        {
+                            "productId": 1,
+                            "requestedQuantity": 5,
+                            "unitPrice": 12000.00
+                        }
+                    ]
+                }
+                """.formatted(futureDate);
+
+        String responseStr = mockMvc.perform(post("/api/v1/purchase-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createJson))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"orderId\":\\s*(\\d+)").matcher(responseStr);
+        org.junit.jupiter.api.Assertions.assertTrue(m.find(), "orderId should be present in response");
+        long orderId = Long.parseLong(m.group(1));
+
+        mockMvc.perform(get("/api/v1/purchase-orders/" + orderId)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.orderId").value(orderId))
+                .andExpect(jsonPath("$.data.poNumber").isNotEmpty())
+                .andExpect(jsonPath("$.data.details").isArray())
+                .andExpect(jsonPath("$.data.receipts").isArray());
+    }
 }
 

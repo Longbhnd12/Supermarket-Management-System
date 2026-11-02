@@ -3,17 +3,22 @@ package com.sms.backend.controller;
 import com.sms.backend.dto.ApiResponse;
 import com.sms.backend.dto.product.ProductResponse;
 import com.sms.backend.dto.purchaseorder.ApprovePurchaseOrderRequest;
+import com.sms.backend.dto.purchaseorder.PurchaseOrderFilter;
+import com.sms.backend.dto.purchaseorder.PurchaseOrderPageResponse;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderRequest;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderResponse;
+import com.sms.backend.dto.purchaseorder.PurchaseOrderStatusCountsResponse;
 import com.sms.backend.dto.purchaseorder.RejectPurchaseOrderRequest;
 import com.sms.backend.enums.PurchaseOrderStatus;
 import com.sms.backend.service.PurchaseOrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -27,12 +32,28 @@ public class PurchaseOrderController {
     private final PurchaseOrderService purchaseOrderService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<PurchaseOrderResponse>>> getAllPurchaseOrders(
-            @RequestParam(required = false) PurchaseOrderStatus status) {
-        List<PurchaseOrderResponse> result = status != null
-                ? purchaseOrderService.getPurchaseOrdersByStatus(status)
-                : purchaseOrderService.getAllPurchaseOrders();
-        return ResponseEntity.ok(ApiResponse.success("Purchase orders retrieved", result));
+    public ResponseEntity<ApiResponse<PurchaseOrderPageResponse>> getPurchaseOrders(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long supplierId,
+            @RequestParam(required = false) PurchaseOrderStatus status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        PurchaseOrderFilter filter = new PurchaseOrderFilter(keyword, supplierId, status, startDate, endDate, page, size);
+        PurchaseOrderPageResponse response = purchaseOrderService.getPurchaseOrdersPage(filter);
+        return ResponseEntity.ok(ApiResponse.success("Purchase orders retrieved", response));
+    }
+
+    @GetMapping("/counts")
+    public ResponseEntity<ApiResponse<PurchaseOrderStatusCountsResponse>> getStatusCounts(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long supplierId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        PurchaseOrderFilter filter = new PurchaseOrderFilter(keyword, supplierId, null, startDate, endDate, 0, 0);
+        return ResponseEntity.ok(ApiResponse.success("Status counts retrieved",
+                purchaseOrderService.getStatusCounts(filter)));
     }
 
     @GetMapping("/pending")
