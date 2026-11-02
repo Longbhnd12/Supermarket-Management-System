@@ -10,10 +10,8 @@ import com.sms.backend.dto.sale.SaleItemResponse;
 import com.sms.backend.dto.sale.UpdateSaleItemRequest;
 import com.sms.backend.entity.Product;
 import com.sms.backend.entity.SaleItem;
-import com.sms.backend.entity.User;
 import com.sms.backend.enums.AccountStatus;
 import com.sms.backend.enums.GeneralStatus;
-import com.sms.backend.exception.BadRequestException;
 import com.sms.backend.repository.ProductRepository;
 import com.sms.backend.repository.UserRepository;
 import com.sms.backend.repository.PaymentRepository;
@@ -42,7 +40,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -240,7 +239,15 @@ public class SaleServiceImpl implements SaleService {
     }
 
     @Override @Transactional
-    public SaleResponse cancelSale(Long saleId) { throw new UnsupportedOperationException("Not yet implemented – pending SDD review"); }
+    public SaleResponse cancelSale(Long saleId) {
+        Sale sale = findDraftForUpdate(saleId);
+        if (paymentRepository.hasBlockingPayment(sale)) {
+            throw new BadRequestException("A sale with a pending, successful or unresolved payment cannot be cancelled");
+        }
+        sale.setStatus(SaleStatus.CANCELLED);
+        sale.setCompletionRequested(false);
+        return toResponse(saleRepository.save(sale));
+    }
 
     private Optional<SaleStatus> parseStatus(String status) {
         if (status == null || status.isBlank()) return Optional.empty();

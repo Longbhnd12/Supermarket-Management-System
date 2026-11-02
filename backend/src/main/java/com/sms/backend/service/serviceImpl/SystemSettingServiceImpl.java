@@ -7,6 +7,7 @@ import com.sms.backend.entity.User;
 import com.sms.backend.exception.BadRequestException;
 import com.sms.backend.exception.ResourceNotFoundException;
 import com.sms.backend.repository.SystemSettingRepository;
+import com.sms.backend.repository.UserRepository;
 import com.sms.backend.service.SystemLogService;
 import com.sms.backend.service.SystemSettingService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,6 +28,7 @@ public class SystemSettingServiceImpl implements SystemSettingService {
 
     private final SystemSettingRepository systemSettingRepository;
     private final SystemLogService systemLogService;
+    private final UserRepository userRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -107,8 +109,7 @@ public class SystemSettingServiceImpl implements SystemSettingService {
          * as soon as the authentication principal exposes it, without trusting a
          * user id supplied by the browser.
          */
-        Object principal = authentication.getPrincipal();
-        return principal instanceof User user ? user : null;
+        return userRepository.findByUsername(authentication.getName()).orElse(null);
     }
 
     private String extractClientIp() {
