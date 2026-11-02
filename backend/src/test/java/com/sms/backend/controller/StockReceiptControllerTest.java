@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
@@ -138,5 +139,138 @@ class StockReceiptControllerTest {
                         .content(jsonPayload))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/stock-receipts/{id} - Updates DRAFT stock receipt successfully")
+    void testUpdateStockReceiptEndpoint() throws Exception {
+        String createPayload = """
+                {
+                    "supplierId": 1,
+                    "receiptNumber": "SR-DRAFT-TO-UPDATE",
+                    "status": "DRAFT",
+                    "items": [
+                        {
+                            "productId": 6,
+                            "quantity": 5.0,
+                            "unitCost": 10000.0
+                        }
+                    ]
+                }
+                """;
+
+        String createResponse = mockMvc.perform(post("/api/v1/stock-receipts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createPayload))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        // Extract receiptId
+        Long receiptId = ((Number) com.jayway.jsonpath.JsonPath.read(createResponse, "$.data.stockReceiptId")).longValue();
+
+        String updatePayload = """
+                {
+                    "supplierId": 1,
+                    "receiptNumber": "SR-DRAFT-TO-UPDATE",
+                    "status": "DRAFT",
+                    "items": [
+                        {
+                            "productId": 6,
+                            "quantity": 15.0,
+                            "unitCost": 12000.0
+                        }
+                    ]
+                }
+                """;
+
+        mockMvc.perform(put("/api/v1/stock-receipts/" + receiptId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updatePayload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.stockReceiptId").value(receiptId))
+                .andExpect(jsonPath("$.data.receiptNumber").value("SR-DRAFT-TO-UPDATE"))
+                .andExpect(jsonPath("$.data.status").value("DRAFT"))
+                .andExpect(jsonPath("$.data.totalCost").value(180000.00))
+                .andExpect(jsonPath("$.data.details[0].receivedQuantity").value(15.0));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/stock-receipts/{id}/cancel - Cancels DRAFT stock receipt successfully")
+    void testCancelStockReceiptEndpoint() throws Exception {
+        String createPayload = """
+                {
+                    "supplierId": 1,
+                    "receiptNumber": "SR-DRAFT-TO-CANCEL",
+                    "status": "DRAFT",
+                    "items": [
+                        {
+                            "productId": 6,
+                            "quantity": 2.0,
+                            "unitCost": 10000.0
+                        }
+                    ]
+                }
+                """;
+
+        String createResponse = mockMvc.perform(post("/api/v1/stock-receipts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createPayload))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        Long receiptId = ((Number) com.jayway.jsonpath.JsonPath.read(createResponse, "$.data.stockReceiptId")).longValue();
+
+        mockMvc.perform(post("/api/v1/stock-receipts/" + receiptId + "/cancel"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.stockReceiptId").value(receiptId))
+                .andExpect(jsonPath("$.data.status").value("CANCELLED"));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/stock-receipts/{id} - Rejects editing confirmed receipt with 400")
+    void testCannotEditConfirmedReceiptEndpoint() throws Exception {
+        String createPayload = """
+                {
+                    "supplierId": 1,
+                    "receiptNumber": "SR-CONFIRMED-NO-EDIT",
+                    "status": "CONFIRMED",
+                    "items": [
+                        {
+                            "productId": 6,
+                            "quantity": 1.0,
+                            "unitCost": 10000.0
+                        }
+                    ]
+                }
+                """;
+
+        String createResponse = mockMvc.perform(post("/api/v1/stock-receipts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createPayload))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        Long receiptId = ((Number) com.jayway.jsonpath.JsonPath.read(createResponse, "$.data.stockReceiptId")).longValue();
+
+        String updatePayload = """
+                {
+                    "supplierId": 1,
+                    "status": "DRAFT",
+                    "items": [
+                        {
+                            "productId": 6,
+                            "quantity": 2.0,
+                            "unitCost": 10000.0
+                        }
+                    ]
+                }
+                """;
+
+        mockMvc.perform(put("/api/v1/stock-receipts/" + receiptId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updatePayload))
+                .andExpect(status().isBadRequest());
     }
 }

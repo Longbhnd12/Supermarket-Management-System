@@ -88,6 +88,7 @@ export default function App() {
                     <Route path="/inventory/stock-receipts" element={<StockReceiptListPage />} />
                     <Route path="/inventory/stock-receipts/create" element={<CreateStockReceiptPage />} />
                     <Route path="/inventory/stock-receipts/:id" element={<StockReceiptDetailPage />} />
+                    <Route path="/inventory/stock-receipts/:id/edit" element={<CreateStockReceiptPage />} />
 
                     {/* Suppliers */}
                     <Route path="/suppliers" element={<SupplierListPage />} />

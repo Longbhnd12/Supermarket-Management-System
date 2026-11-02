@@ -60,6 +60,26 @@ function StatusBadge({ status }) {
 // ─── Print / PDF helpers ────────────────────────────────────────────────────────
 
 function buildPrintHtml(receipt) {
+    const isDraft = receipt.status === 'DRAFT';
+    const isCancelled = receipt.status === 'CANCELLED';
+
+    let noticeBanner = '';
+    if (isDraft) {
+        noticeBanner = `
+        <div style="padding: 10px 14px; background: #fffbeb; color: #92400e; border: 2px dashed #fde68a; border-radius: 6px; margin-bottom: 20px; font-size: 13px;">
+          <strong>⚠️ DRAFT RECEIPT — NOT A CONFIRMED INVENTORY TRANSACTION</strong><br>
+          <span style="font-size: 11px; color: #b45309;">This document is a draft work-in-progress. Inventory quantities have NOT been imported.</span>
+        </div>`;
+    } else if (isCancelled) {
+        noticeBanner = `
+        <div style="padding: 10px 14px; background: #fef2f2; color: #991b1b; border: 2px dashed #fca5a5; border-radius: 6px; margin-bottom: 20px; font-size: 13px;">
+          <strong>🚫 CANCELLED RECEIPT — VOID / NOT AN INVENTORY TRANSACTION</strong><br>
+          <span style="font-size: 11px; color: #b91c1c;">This receipt has been cancelled and is preserved for historical recordkeeping only.</span>
+        </div>`;
+    }
+
+    const titleSuffix = isDraft ? ' (DRAFT - NOT CONFIRMED)' : isCancelled ? ' (CANCELLED / VOID)' : '';
+
     const rows = (receipt.details || []).map((d, i) => `
         <tr>
             <td>${i + 1}</td>
@@ -77,7 +97,7 @@ function buildPrintHtml(receipt) {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Stock Receipt — ${escHtml(receipt.receiptNumber)}</title>
+<title>Stock Receipt — ${escHtml(receipt.receiptNumber)}${titleSuffix}</title>
 <style>
   body { font-family: Arial, sans-serif; font-size: 12px; color: #111; margin: 0; padding: 24px; }
   h1 { font-size: 20px; margin: 0 0 4px; }
@@ -97,7 +117,8 @@ function buildPrintHtml(receipt) {
 </style>
 </head>
 <body>
-  <h1>Stock Receipt</h1>
+  ${noticeBanner}
+  <h1>Stock Receipt${titleSuffix}</h1>
   <p class="subtitle">SMS — Supermarket Management System</p>
   <div class="meta-grid">
     <div class="meta-item"><label>Receipt Number</label><span>${escHtml(receipt.receiptNumber)}</span></div>
@@ -151,17 +172,10 @@ function handlePrint(receipt) {
     win.document.close();
     win.focus();
     win.print();
-    // close after print dialog closes (not all browsers support this)
     win.onafterprint = () => win.close();
 }
 
 async function handleExportPdf(receipt, setPdfLoading) {
-    // Use jsPDF + html2canvas loaded via CDN check, or fall back to print-as-PDF
-    // We implement a dedicated PDF via the browser's print-to-PDF in a dedicated iframe
-    // with a filename hint via the title, plus a Data URI approach for jsPDF when available.
-
-    // Strategy: build the print HTML, inject it into a hidden iframe, trigger print.
-    // The browser's "Save as PDF" delivers a named file because the title is set.
     setPdfLoading(true);
     try {
         const html = buildPrintHtml(receipt);
@@ -174,14 +188,12 @@ async function handleExportPdf(receipt, setPdfLoading) {
         document.body.appendChild(iframe);
 
         iframe.onload = () => {
-            // Set the iframe document title so the PDF file is named correctly
             try {
-                iframe.contentDocument.title = `StockReceipt-${receipt.receiptNumber}`;
+                iframe.contentDocument.title = `StockReceipt-${receipt.receiptNumber}-${receipt.status}`;
             } catch (_) { /* cross-origin guard */ }
             iframe.contentWindow.focus();
             iframe.contentWindow.print();
 
-            // Cleanup after a delay to allow the print dialog to open
             setTimeout(() => {
                 document.body.removeChild(iframe);
                 URL.revokeObjectURL(url);
@@ -205,9 +217,10 @@ export default function StockReceiptDetailPage() {
     const [error, setError]     = useState(null);
     const [notFound, setNotFound] = useState(false);
     const [pdfLoading, setPdfLoading] = useState(false);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [actionMsg, setActionMsg] = useState(null);
 
     const fetchReceipt = useCallback(() => {
-        // Validate the ID is numeric
         const numId = parseInt(id, 10);
         if (!id || isNaN(numId) || numId <= 0) {
             setNotFound(true);
@@ -242,6 +255,48 @@ export default function StockReceiptDetailPage() {
     useEffect(() => {
         fetchReceipt();
     }, [fetchReceipt]);
+
+    const handleConfirmReceipt = async () => {
+        if (!receipt) return;
+        const ok = window.confirm(
+            `Are you sure you want to confirm stock receipt "${receipt.receiptNumber}"? This will update supermarket inventory stock and record stock movements.`
+        );
+        if (!ok) return;
+
+        setActionLoading(true);
+        setActionMsg(null);
+        try {
+            await StockReceiptService.confirm(receipt.stockReceiptId);
+            setActionMsg({ type: 'success', text: `Stock receipt "${receipt.receiptNumber}" confirmed successfully. Inventory stock has been updated.` });
+            fetchReceipt();
+        } catch (err) {
+            const msg = err.response?.data?.message || 'Failed to confirm stock receipt.';
+            setActionMsg({ type: 'error', text: msg });
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleCancelReceipt = async () => {
+        if (!receipt) return;
+        const ok = window.confirm(
+            `Are you sure you want to cancel draft stock receipt "${receipt.receiptNumber}"? This action cannot be undone.`
+        );
+        if (!ok) return;
+
+        setActionLoading(true);
+        setActionMsg(null);
+        try {
+            await StockReceiptService.cancel(receipt.stockReceiptId);
+            setActionMsg({ type: 'success', text: `Stock receipt "${receipt.receiptNumber}" has been cancelled.` });
+            fetchReceipt();
+        } catch (err) {
+            const msg = err.response?.data?.message || 'Failed to cancel stock receipt.';
+            setActionMsg({ type: 'error', text: msg });
+        } finally {
+            setActionLoading(false);
+        }
+    };
 
     // ── Loading ──
     if (loading) {
@@ -330,9 +385,12 @@ export default function StockReceiptDetailPage() {
                     <button
                         className="srd-btn srd-btn--ghost"
                         onClick={() => navigate('/inventory/stock-receipts')}
+                        disabled={actionLoading}
                     >
                         ← Back
                     </button>
+
+                    {/* Print / Export PDF available for all statuses (Confirmed, Draft, Cancelled) */}
                     <button
                         className="srd-btn srd-btn--secondary"
                         onClick={() => handlePrint(receipt)}
@@ -347,7 +405,7 @@ export default function StockReceiptDetailPage() {
                         Print
                     </button>
                     <button
-                        className="srd-btn srd-btn--primary"
+                        className="srd-btn srd-btn--secondary"
                         onClick={() => handleExportPdf(receipt, setPdfLoading)}
                         disabled={pdfLoading}
                         title="Export as PDF"
@@ -369,8 +427,84 @@ export default function StockReceiptDetailPage() {
                             </>
                         )}
                     </button>
+
+                    {/* DRAFT Actions: Cancel, Edit Draft, Confirm Receipt */}
+                    {receipt.status === 'DRAFT' && (
+                        <>
+                            <button
+                                className="srd-btn srd-btn--danger"
+                                onClick={handleCancelReceipt}
+                                disabled={actionLoading}
+                                title="Cancel this draft stock receipt"
+                            >
+                                {actionLoading ? 'Processing…' : 'Cancel Receipt'}
+                            </button>
+                            <button
+                                className="srd-btn srd-btn--secondary"
+                                onClick={() => navigate(`/inventory/stock-receipts/${receipt.stockReceiptId}/edit`)}
+                                disabled={actionLoading}
+                                title="Edit this draft stock receipt"
+                            >
+                                Edit Draft
+                            </button>
+                            <button
+                                className="srd-btn srd-btn--primary"
+                                onClick={handleConfirmReceipt}
+                                disabled={actionLoading}
+                                title="Confirm receipt and immediately increase inventory stock"
+                            >
+                                {actionLoading ? (
+                                    <>
+                                        <span className="srd-spinner srd-spinner--sm" aria-hidden="true" />
+                                        Confirming…
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                        </svg>
+                                        Confirm Receipt
+                                    </>
+                                )}
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
+
+            {/* ── Status Banner Notices ── */}
+            {receipt.status === 'DRAFT' && (
+                <div className="srd-status-banner srd-status-banner--draft" role="status">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    <span><strong>Draft Receipt:</strong> This receipt is saved as a draft. Stock quantities have not yet been added to inventory. You can edit, cancel, or confirm this receipt.</span>
+                </div>
+            )}
+
+            {receipt.status === 'CANCELLED' && (
+                <div className="srd-status-banner srd-status-banner--cancelled" role="status">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    <span><strong>Cancelled Receipt:</strong> This stock receipt has been cancelled and is retained for audit/historical records only. No inventory was modified.</span>
+                </div>
+            )}
+
+            {/* ── Action Feedback Banner ── */}
+            {actionMsg && (
+                <div className={`srd-alert srd-alert--${actionMsg.type}`} role="alert">
+                    <span>{actionMsg.text}</span>
+                    <button
+                        type="button"
+                        className="srd-alert__close"
+                        onClick={() => setActionMsg(null)}
+                        aria-label="Close notification"
+                    >
+                        ×
+                    </button>
+                </div>
+            )}
 
             {/* ── Summary Card ── */}
             <div className="srd-card">

@@ -39,6 +39,19 @@ const StockReceiptService = {
     confirm: (id) => API.post(`/stock-receipts/${id}/confirm`),
 
     /**
+     * Updates an existing DRAFT stock receipt.
+     * @param {number} id
+     * @param {Object} data
+     */
+    update: (id, data) => API.put(`/stock-receipts/${id}`, data),
+
+    /**
+     * Cancels an existing DRAFT stock receipt.
+     * @param {number} id
+     */
+    cancel: (id) => API.post(`/stock-receipts/${id}/cancel`),
+
+    /**
      * UC36 — Generates the next sequential stock receipt number.
      */
     getNextNumber: () => API.get('/stock-receipts/next-number'),

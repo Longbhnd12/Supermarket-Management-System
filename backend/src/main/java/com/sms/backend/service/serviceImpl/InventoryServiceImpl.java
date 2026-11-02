@@ -599,6 +599,9 @@ public class InventoryServiceImpl implements InventoryService {
         if (receipt.getStatus() == StockReceiptStatus.CANCELLED) {
             throw new BusinessException("Cannot confirm a cancelled stock receipt");
         }
+        if (receipt.getStatus() != StockReceiptStatus.DRAFT) {
+            throw new BusinessException("Only DRAFT receipts can be confirmed");
+        }
 
         LocalDateTime now = LocalDateTime.now();
         receipt.setStatus(StockReceiptStatus.CONFIRMED);
@@ -631,6 +634,146 @@ public class InventoryServiceImpl implements InventoryService {
             movement.setCreatedAt(now);
             stockMovementRepository.save(movement);
         }
+
+        return getStockReceiptById(receipt.getStockReceiptId());
+    }
+
+    @Override
+    @Transactional
+    public StockReceiptResponse updateStockReceipt(Long id, CreateStockReceiptRequest request) {
+        if (request == null) {
+            throw new BadRequestException("Request body cannot be null");
+        }
+        StockReceipt receipt = findReceiptById(id);
+
+        if (receipt.getStatus() == StockReceiptStatus.CONFIRMED) {
+            throw new BusinessException("Cannot edit confirmed stock receipt #" + receipt.getReceiptNumber());
+        }
+        if (receipt.getStatus() == StockReceiptStatus.CANCELLED) {
+            throw new BusinessException("Cannot edit cancelled stock receipt #" + receipt.getReceiptNumber());
+        }
+        if (receipt.getStatus() != StockReceiptStatus.DRAFT) {
+            throw new BusinessException("Cannot edit receipt with status " + receipt.getStatus() + ". Only DRAFT receipts can be edited.");
+        }
+
+        if (request.items() == null || request.items().isEmpty()) {
+            throw new BadRequestException("Stock receipt must contain at least one product item");
+        }
+
+        // 1. Validate Supplier
+        Supplier supplier = supplierRepository.findById(request.supplierId())
+                .orElseThrow(() -> new ResourceNotFoundException("Supplier not found: " + request.supplierId()));
+        if (supplier.getStatus() == SupplierStatus.DISABLED) {
+            throw new BadRequestException("Cannot import stock from disabled supplier: " + supplier.getSupplierName());
+        }
+
+        // 2. Validate Optional Purchase Order
+        PurchaseOrder purchaseOrder = null;
+        if (request.purchaseOrderId() != null) {
+            purchaseOrder = purchaseOrderRepository.findById(request.purchaseOrderId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Purchase order not found: " + request.purchaseOrderId()));
+        }
+
+        // Target status: DRAFT or CONFIRMED
+        StockReceiptStatus targetStatus = request.status() != null ? request.status() : StockReceiptStatus.DRAFT;
+        if (targetStatus == StockReceiptStatus.CANCELLED) {
+            throw new BadRequestException("Use cancel endpoint to cancel a stock receipt");
+        }
+
+        // 3. Pre-validate products & calculate subtotals
+        BigDecimal totalCost = BigDecimal.ZERO;
+        List<ItemValidationContext> validatedItems = new ArrayList<>();
+
+        for (CreateStockReceiptItemRequest itemReq : request.items()) {
+            if (itemReq.quantity() == null || itemReq.quantity().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BadRequestException("Quantity must be greater than zero");
+            }
+            if (itemReq.unitCost() == null || itemReq.unitCost().compareTo(BigDecimal.ZERO) < 0) {
+                throw new BadRequestException("Unit cost must not be negative");
+            }
+
+            Product product = productRepository.findById(itemReq.productId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + itemReq.productId()));
+
+            if (product.getStatus() != GeneralStatus.ACTIVE) {
+                throw new BadRequestException("Cannot import inactive product: " + product.getProductName());
+            }
+
+            String batchNumber = itemReq.batchNumber() != null ? itemReq.batchNumber().trim() : null;
+            if (batchNumber != null && batchNumber.isEmpty()) batchNumber = null;
+            LocalDate expirationDate = itemReq.expirationDate();
+
+            if (Boolean.TRUE.equals(product.getTrackExpiry())) {
+                if (batchNumber == null) {
+                    throw new BadRequestException("Batch number is required for perishable product: " + product.getProductName());
+                }
+                if (batchNumber.length() > 50) {
+                    throw new BadRequestException("Batch number must not exceed 50 characters: " + product.getProductName());
+                }
+                if (expirationDate == null) {
+                    throw new BadRequestException("Expiration date is required for perishable product: " + product.getProductName());
+                }
+                if (expirationDate.isBefore(LocalDate.now())) {
+                    throw new BadRequestException("Expiration date cannot be in the past for product: " + product.getProductName());
+                }
+            }
+
+            BigDecimal subtotal = itemReq.quantity().multiply(itemReq.unitCost()).setScale(2, RoundingMode.HALF_UP);
+            totalCost = totalCost.add(subtotal);
+
+            validatedItems.add(new ItemValidationContext(product, itemReq.quantity(), itemReq.unitCost(), batchNumber, expirationDate, subtotal));
+        }
+
+        // 4. Update header (preserve original receiptNumber, createdAt, createdBy, and DRAFT status initially)
+        receipt.setSupplier(supplier);
+        receipt.setPurchaseOrder(purchaseOrder);
+        receipt.setTotalCost(totalCost);
+        receipt = stockReceiptRepository.save(receipt);
+
+        // 5. Remove existing details for this draft receipt
+        List<StockReceiptDetail> existingDetails = stockReceiptDetailRepository.findByStockReceipt(receipt);
+        stockReceiptDetailRepository.deleteAll(existingDetails);
+        stockReceiptDetailRepository.flush();
+
+        // 6. Save new details
+        for (ItemValidationContext item : validatedItems) {
+            StockReceiptDetail detail = new StockReceiptDetail();
+            detail.setStockReceipt(receipt);
+            detail.setProduct(item.product);
+            detail.setQuantity(item.quantity);
+            detail.setRemainingQuantity(BigDecimal.ZERO);
+            detail.setUnitCost(item.unitCost);
+            detail.setBatchNumber(item.batchNumber);
+            detail.setExpirationDate(item.expirationDate);
+            detail.setSubtotal(item.subtotal);
+            stockReceiptDetailRepository.save(detail);
+        }
+
+        // 7. If target status is CONFIRMED, confirm immediately
+        if (targetStatus == StockReceiptStatus.CONFIRMED) {
+            return confirmStockReceipt(receipt.getStockReceiptId());
+        }
+
+        return getStockReceiptById(receipt.getStockReceiptId());
+    }
+
+    @Override
+    @Transactional
+    public StockReceiptResponse cancelStockReceipt(Long id) {
+        StockReceipt receipt = findReceiptById(id);
+
+        if (receipt.getStatus() == StockReceiptStatus.CANCELLED) {
+            throw new BusinessException("Stock receipt is already cancelled");
+        }
+        if (receipt.getStatus() == StockReceiptStatus.CONFIRMED) {
+            throw new BusinessException("Cannot cancel a confirmed stock receipt");
+        }
+        if (receipt.getStatus() != StockReceiptStatus.DRAFT) {
+            throw new BusinessException("Only DRAFT receipts can be cancelled");
+        }
+
+        receipt.setStatus(StockReceiptStatus.CANCELLED);
+        receipt = stockReceiptRepository.save(receipt);
 
         return getStockReceiptById(receipt.getStockReceiptId());
     }
