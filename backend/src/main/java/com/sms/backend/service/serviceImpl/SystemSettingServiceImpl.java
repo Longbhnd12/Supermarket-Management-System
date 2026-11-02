@@ -1,4 +1,4 @@
-package com.sms.backend.service.impl;
+package com.sms.backend.service.serviceImpl;
 
 import com.sms.backend.dto.request.UpdateSystemSettingRequest;
 import com.sms.backend.dto.response.SystemSettingResponse;
