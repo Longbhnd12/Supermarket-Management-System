@@ -51,6 +51,13 @@ const InventoryService = {
     // Stock Checks
     getAllChecks: (params) => API.get('/inventory/checks', { params }),
     getCheckById: (id) => API.get('/inventory/checks/' + id),
+
+    // UC32 - Stock Check & Stock Difference
+    getNextStockCheckSession: () => API.get('/inventory/checks/next-session'),
+    performStockCheck: (data) => API.post('/inventory/checks', data),
+    getStockCheckSession: (checkNumber) => API.get('/inventory/checks/session/' + encodeURIComponent(checkNumber)),
+    getAllStockCheckSessions: () => API.get('/inventory/checks/sessions'),
+    updateStockCheckCount: (id, data) => API.put('/inventory/checks/' + id, data),
 };
 
 export default InventoryService;

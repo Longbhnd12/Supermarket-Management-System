@@ -7,6 +7,8 @@ const routeLabels = {
     inventory: 'Inventory Management',
     'adjust-stock': 'Adjust Stock',
     'stock-check': 'Stock Check',
+    'stock-checks': 'Stock Check History',
+    'stock-difference': 'Stock Difference',
     'stock-history': 'Stock History',
     history: 'Stock History',
     'stock-alerts': 'Stock Alerts',

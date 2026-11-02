@@ -196,12 +196,12 @@ export default function InventoryPage() {
                         </svg>
                         Adjust Stock
                     </button>
-                    {/* UC32 – Stock Check: route not yet implemented */}
+                    {/* UC32 – Stock Check */}
                     <button
                         id="inv-stock-check-btn"
-                        className="inv-btn inv-btn--primary inv-btn--disabled"
-                        title="Stock Check (not yet implemented)"
-                        disabled
+                        className="inv-btn inv-btn--primary"
+                        onClick={() => navigate('/inventory/stock-check')}
+                        title="Start physical stock audit (UC32)"
                     >
                         <ClipboardIcon /> Start Stock Check
                     </button>

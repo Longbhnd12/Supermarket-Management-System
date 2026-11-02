@@ -32,6 +32,8 @@ import PendingPurchaseRequestsPage from './pages/purchaseOrder/PendingPurchaseRe
 // Inventory
 import InventoryPage from './pages/inventory/InventoryPage';
 import AdjustStockPage from './pages/inventory/AdjustStockPage';
+import StockCheckPage from './pages/inventory/StockCheckPage';
+import StockDifferencePage from './pages/inventory/StockDifferencePage';
 import StockHistoryPage from './pages/inventory/StockHistoryPage';
 import StockAlertsPage from './pages/inventory/StockAlertsPage';
 import StockReceiptListPage from './pages/inventory/StockReceiptListPage';
@@ -75,6 +77,9 @@ export default function App() {
 
                     {/* Inventory */}
                     <Route path="/inventory" element={<InventoryPage />} />
+                    <Route path="/inventory/stock-check" element={<StockCheckPage />} />
+                    <Route path="/inventory/stock-checks" element={<StockCheckPage />} />
+                    <Route path="/inventory/stock-difference" element={<StockDifferencePage />} />
                     <Route path="/inventory/adjust" element={<AdjustStockPage />} />
                     <Route path="/inventory/stock-history" element={<StockHistoryPage />} />
                     <Route path="/inventory/history" element={<StockHistoryPage />} />

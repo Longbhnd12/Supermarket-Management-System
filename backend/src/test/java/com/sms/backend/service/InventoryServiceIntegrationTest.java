@@ -3,19 +3,31 @@ package com.sms.backend.service;
 import com.sms.backend.dto.inventory.InventoryFilter;
 import com.sms.backend.dto.inventory.InventoryPageResponse;
 import com.sms.backend.dto.inventory.InventoryResponse;
+import com.sms.backend.dto.inventory.StockAdjustmentRequest;
+import com.sms.backend.dto.inventory.StockAdjustmentResponse;
 import com.sms.backend.dto.inventory.StockAlertFilter;
 import com.sms.backend.dto.inventory.StockAlertItemResponse;
 import com.sms.backend.dto.inventory.StockAlertSummaryResponse;
+import com.sms.backend.dto.inventory.StockCheckItemRequest;
+import com.sms.backend.dto.inventory.StockCheckResponse;
+import com.sms.backend.dto.inventory.StockCheckSessionRequest;
+import com.sms.backend.dto.inventory.StockCheckSessionResponse;
+import com.sms.backend.dto.inventory.UpdateStockCheckCountRequest;
 import com.sms.backend.dto.inventory.StockHistoryFilter;
 import com.sms.backend.dto.inventory.StockMovementPageResponse;
 import com.sms.backend.dto.inventory.StockMovementResponse;
+import com.sms.backend.entity.Product;
 import com.sms.backend.enums.StockMovementType;
 import com.sms.backend.exception.BadRequestException;
+import com.sms.backend.exception.BusinessException;
+import com.sms.backend.repository.ProductRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
@@ -23,10 +35,14 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
+@Transactional
 class InventoryServiceIntegrationTest {
 
     @Autowired
     private InventoryService inventoryService;
+
+    @Autowired
+    private ProductRepository productRepository;
 
     @Test
     @DisplayName("UC31 - Retrieve all inventory with pagination")
@@ -259,5 +275,352 @@ class InventoryServiceIntegrationTest {
                 assertTrue(item.expiryDate().isBefore(LocalDate.now()));
             }
         }
+    }
+
+    // =========================================================================
+    // UC32 - Stock Check & Stock Difference Integration Tests
+    // =========================================================================
+
+    @Test
+    @DisplayName("UC32 - Generates sequence session number starting with SC-")
+    void testNextStockCheckSessionNumber() {
+        String sessionNumber = inventoryService.getNextStockCheckSessionNumber();
+        assertNotNull(sessionNumber);
+        assertTrue(sessionNumber.startsWith("SC-"));
+    }
+
+    @Test
+    @DisplayName("UC32 - Perform stock check session records physical counts without altering master stock (BR-05)")
+    void testPerformStockCheckSessionSuccess() {
+        var p1 = productRepository.findById(1L).orElseThrow();
+        BigDecimal originalStock1 = p1.getStockQuantity();
+
+        StockCheckItemRequest item1 = new StockCheckItemRequest(1L, originalStock1, "Exact count match");
+        StockCheckItemRequest item2 = new StockCheckItemRequest(2L, new BigDecimal("45"), "Shortage found");
+
+        StockCheckSessionRequest request = new StockCheckSessionRequest(
+                "SC-INTEG-001",
+                List.of(item1, item2)
+        );
+
+        StockCheckSessionResponse session = inventoryService.performStockCheck(request);
+
+        assertNotNull(session);
+        assertEquals("SC-INTEG-001", session.checkNumber());
+        assertEquals(2, session.totalSkus());
+        assertEquals(1, session.matchedCount());
+        assertEquals(1, session.discrepancyCount());
+
+        // Verify master product stock quantity is untouched
+        var p1After = productRepository.findById(1L).orElseThrow();
+        assertEquals(0, originalStock1.compareTo(p1After.getStockQuantity()), "Master stock must remain untouched");
+
+        // Verify retrieving the session returns the exact counts
+        StockCheckSessionResponse fetched = inventoryService.getStockCheckSession("SC-INTEG-001");
+        assertNotNull(fetched);
+        assertEquals(2, fetched.items().size());
+    }
+
+    @Test
+    @DisplayName("UC32 - Disallow duplicate product entries in the same stock check session (BR-04)")
+    void testPerformStockCheckDuplicateProductFails() {
+        StockCheckItemRequest item1 = new StockCheckItemRequest(1L, new BigDecimal("100"), "First scan");
+        StockCheckItemRequest item2 = new StockCheckItemRequest(1L, new BigDecimal("105"), "Duplicate scan");
+
+        StockCheckSessionRequest request = new StockCheckSessionRequest(
+                "SC-INTEG-DUP",
+                List.of(item1, item2)
+        );
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () -> {
+            inventoryService.performStockCheck(request);
+        });
+        assertTrue(ex.getMessage().contains("Duplicate product ID"));
+    }
+
+    @Test
+    @DisplayName("UC32 - Disallow negative count values (BR-03)")
+    void testPerformStockCheckNegativeCountFails() {
+        StockCheckItemRequest item1 = new StockCheckItemRequest(1L, new BigDecimal("-5"), "Invalid negative");
+
+        StockCheckSessionRequest request = new StockCheckSessionRequest(
+                "SC-INTEG-NEG",
+                List.of(item1)
+        );
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () -> {
+            inventoryService.performStockCheck(request);
+        });
+        assertTrue(ex.getMessage().contains("non-negative"));
+    }
+
+    @Test
+    @DisplayName("UC32 & UC33 - Apply adjustment for stock check, prevent duplicate and reject stale stock conflict")
+    void testUC33AdjustmentFromStockCheckAndPreventDuplicateAndConflict() {
+        var p = productRepository.findById(1L).orElseThrow();
+        BigDecimal initialStock = p.getStockQuantity();
+
+        // 1. Perform stock check with deficit: 10 items less
+        BigDecimal countedQty = initialStock.subtract(new BigDecimal("10"));
+        StockCheckItemRequest item = new StockCheckItemRequest(1L, countedQty, "Discrepancy test");
+        StockCheckSessionRequest checkReq = new StockCheckSessionRequest("SC-ADJ-TEST", List.of(item));
+
+        StockCheckSessionResponse checkSession = inventoryService.performStockCheck(checkReq);
+        StockCheckResponse checkItem = checkSession.items().getFirst();
+        assertEquals("PENDING_ADJUSTMENT", checkItem.status());
+
+        // 2. Adjust stock via UC33 linked to this stock check
+        StockAdjustmentRequest adjReq = new StockAdjustmentRequest(
+                1L,
+                "DECREASE",
+                new BigDecimal("10"),
+                "Reconcile shelf audit SC-ADJ-TEST",
+                checkItem.stockCheckId()
+        );
+        StockAdjustmentResponse adjResp = inventoryService.adjustStock(adjReq);
+        assertNotNull(adjResp);
+        assertEquals(0, countedQty.compareTo(adjResp.newStock()));
+
+        // 3. Duplicate prevention: Trying to adjust again for the same stock check must be rejected
+        BusinessException duplicateEx = assertThrows(BusinessException.class, () -> {
+            inventoryService.adjustStock(adjReq);
+        });
+        assertTrue(duplicateEx.getMessage().contains("already been applied"));
+
+        // 4. Stale stock conflict detection:
+        // Perform another check
+        StockCheckItemRequest item2 = new StockCheckItemRequest(1L, new BigDecimal("50"), "Second check");
+        StockCheckSessionResponse checkSession2 = inventoryService.performStockCheck(
+                new StockCheckSessionRequest("SC-CONFLICT-TEST", List.of(item2))
+        );
+        StockCheckResponse checkItem2 = checkSession2.items().getFirst();
+
+        // Change master stock behind the scenes (e.g. sale or another movement)
+        var pCurrent = productRepository.findById(1L).orElseThrow();
+        pCurrent.setStockQuantity(pCurrent.getStockQuantity().add(new BigDecimal("5")));
+        productRepository.save(pCurrent);
+
+        // Attempting to adjust linked to checkItem2 where systemQuantity no longer matches current stock
+        BigDecimal expectedVariance = checkItem2.difference().abs();
+        StockAdjustmentRequest conflictAdjReq = new StockAdjustmentRequest(
+                1L,
+                "DECREASE",
+                expectedVariance,
+                "Reconcile audit after master stock moved",
+                checkItem2.stockCheckId()
+        );
+        BusinessException conflictEx = assertThrows(BusinessException.class, () -> {
+            inventoryService.adjustStock(conflictAdjReq);
+        });
+        assertTrue(conflictEx.getMessage().contains("Stock conflict"));
+    }
+
+    @Test
+    @DisplayName("UC32 & UC33 - Reject adjustments with mismatched type or quantity for stock check discrepancy")
+    void testUC33AdjustmentRejectsMismatchedTypeAndQuantity() {
+        var p = productRepository.findById(1L).orElseThrow();
+        BigDecimal initialStock = p.getStockQuantity();
+
+        // Count 5 items less (shortage of 5)
+        BigDecimal countedQty = initialStock.subtract(new BigDecimal("5"));
+        StockCheckItemRequest item = new StockCheckItemRequest(1L, countedQty, "Shortage 5 test");
+        StockCheckSessionRequest checkReq = new StockCheckSessionRequest("SC-LOCK-TEST", List.of(item));
+
+        StockCheckSessionResponse checkSession = inventoryService.performStockCheck(checkReq);
+        StockCheckResponse checkItem = checkSession.items().getFirst();
+
+        // 1. Trying to submit INCREASE instead of DECREASE should fail
+        StockAdjustmentRequest wrongTypeReq = new StockAdjustmentRequest(
+                1L,
+                "INCREASE",
+                new BigDecimal("5"),
+                "Wrong type test",
+                checkItem.stockCheckId()
+        );
+        BadRequestException typeEx = assertThrows(BadRequestException.class, () -> {
+            inventoryService.adjustStock(wrongTypeReq);
+        });
+        assertTrue(typeEx.getMessage().contains("Adjustment type must be DECREASE"));
+
+        // 2. Trying to submit quantity != 5 (e.g. 10) should fail
+        StockAdjustmentRequest wrongQtyReq = new StockAdjustmentRequest(
+                1L,
+                "DECREASE",
+                new BigDecimal("10"),
+                "Wrong qty test",
+                checkItem.stockCheckId()
+        );
+        BadRequestException qtyEx = assertThrows(BadRequestException.class, () -> {
+            inventoryService.adjustStock(wrongQtyReq);
+        });
+        assertTrue(qtyEx.getMessage().contains("does not match audited discrepancy"));
+    }
+
+    @Test
+    @DisplayName("UC32 - Retrieve all stock check sessions (session history)")
+    void testGetAllStockCheckSessions() {
+        // Create at least one session
+        StockCheckItemRequest item = new StockCheckItemRequest(1L, new BigDecimal("100"), "History test");
+        inventoryService.performStockCheck(new StockCheckSessionRequest("SC-HIST-001", List.of(item)));
+
+        List<StockCheckSessionResponse> sessions = inventoryService.getAllStockCheckSessions();
+        assertNotNull(sessions);
+        assertFalse(sessions.isEmpty());
+        assertTrue(sessions.stream().anyMatch(s -> "SC-HIST-001".equals(s.checkNumber())));
+    }
+
+    @Test
+    @DisplayName("UC32 - Edit physical count recalculates variance and status without modifying product stock")
+    void testUpdateStockCheckItemCountSuccessAndRecalculatesVariance() {
+        var product = productRepository.findById(1L).orElseThrow();
+        BigDecimal originalSysStock = product.getStockQuantity();
+
+        // 1. Initial count: system is e.g. originalSysStock, physical entered as 5
+        StockCheckItemRequest item = new StockCheckItemRequest(1L, new BigDecimal("5"), "Initial miscount");
+        StockCheckSessionResponse session = inventoryService.performStockCheck(
+                new StockCheckSessionRequest("SC-CORRECT-001", List.of(item))
+        );
+        StockCheckResponse initialRecord = session.items().getFirst();
+        assertEquals(0, new BigDecimal("5").compareTo(initialRecord.actualQuantity()));
+        assertEquals("PENDING_ADJUSTMENT", initialRecord.status());
+
+        // 2. Correct physical count to originalSysStock - 5 (e.g. shortage of 5 instead of massive deficit)
+        BigDecimal correctedActual = originalSysStock.subtract(new BigDecimal("5"));
+        UpdateStockCheckCountRequest updateReq = new UpdateStockCheckCountRequest(
+                correctedActual,
+                "Audit recount verified on bottom shelf"
+        );
+        StockCheckResponse updatedRecord = inventoryService.updateStockCheckItemCount(initialRecord.stockCheckId(), updateReq);
+
+        assertNotNull(updatedRecord);
+        assertEquals(0, correctedActual.compareTo(updatedRecord.actualQuantity()));
+        assertEquals(0, new BigDecimal("-5").compareTo(updatedRecord.difference()));
+        assertEquals("PENDING_ADJUSTMENT", updatedRecord.status());
+        assertEquals("Audit recount verified on bottom shelf", updatedRecord.reason());
+
+        // 3. Verify master product stock quantity is untouched
+        var productAfter = productRepository.findById(1L).orElseThrow();
+        assertEquals(0, originalSysStock.compareTo(productAfter.getStockQuantity()), "Master product stock must NOT change");
+
+        // 4. Verify UC33 adjustment receives and locks to the corrected variance (-5 -> DECREASE 5)
+        StockAdjustmentRequest adjReq = new StockAdjustmentRequest(
+                1L,
+                "DECREASE",
+                new BigDecimal("5"),
+                "Reconcile corrected audit",
+                updatedRecord.stockCheckId()
+        );
+        StockAdjustmentResponse adjResp = inventoryService.adjustStock(adjReq);
+        assertNotNull(adjResp);
+        assertEquals(0, correctedActual.compareTo(adjResp.newStock()));
+    }
+
+    @Test
+    @DisplayName("UC32 - Correcting physical count to match system sets status to MATCHED")
+    void testUpdateStockCheckItemCountToMatchSystemSetsMatched() {
+        var product = productRepository.findById(1L).orElseThrow();
+        BigDecimal sysStock = product.getStockQuantity();
+
+        StockCheckItemRequest item = new StockCheckItemRequest(1L, sysStock.subtract(new BigDecimal("10")), "Discrepancy");
+        StockCheckSessionResponse session = inventoryService.performStockCheck(
+                new StockCheckSessionRequest("SC-MATCH-001", List.of(item))
+        );
+        Long checkId = session.items().getFirst().stockCheckId();
+
+        // Correct count to match system perfectly
+        UpdateStockCheckCountRequest updateReq = new UpdateStockCheckCountRequest(sysStock, "Found missing box, perfectly matches");
+        StockCheckResponse updated = inventoryService.updateStockCheckItemCount(checkId, updateReq);
+
+        assertEquals(0, BigDecimal.ZERO.compareTo(updated.difference()));
+        assertEquals("MATCHED", updated.status());
+    }
+
+    @Test
+    @DisplayName("UC32 - Reject editing physical count for already reconciled item")
+    void testUpdateStockCheckItemCountRejectsAlreadyReconciled() {
+        var product = productRepository.findById(1L).orElseThrow();
+        BigDecimal sysStock = product.getStockQuantity();
+
+        StockCheckItemRequest item = new StockCheckItemRequest(1L, sysStock.subtract(new BigDecimal("2")), "Discrepancy");
+        StockCheckSessionResponse session = inventoryService.performStockCheck(
+                new StockCheckSessionRequest("SC-RECON-001", List.of(item))
+        );
+        Long checkId = session.items().getFirst().stockCheckId();
+
+        // Reconcile through UC33
+        inventoryService.adjustStock(new StockAdjustmentRequest(
+                1L, "DECREASE", new BigDecimal("2"), "Reconciled", checkId
+        ));
+
+        // Now attempt to edit physical count should be rejected
+        UpdateStockCheckCountRequest updateReq = new UpdateStockCheckCountRequest(sysStock, "Trying to edit after adjustment");
+        BusinessException ex = assertThrows(BusinessException.class, () -> {
+            inventoryService.updateStockCheckItemCount(checkId, updateReq);
+        });
+        assertTrue(ex.getMessage().contains("already been reconciled/adjusted"));
+    }
+
+    @Test
+    @DisplayName("UC32 - Reject negative or non-integer physical count update")
+    void testUpdateStockCheckItemCountRejectsNegativeOrFractional() {
+        StockCheckItemRequest item = new StockCheckItemRequest(1L, new BigDecimal("10"), "Count");
+        StockCheckSessionResponse session = inventoryService.performStockCheck(
+                new StockCheckSessionRequest("SC-VAL-001", List.of(item))
+        );
+        Long checkId = session.items().getFirst().stockCheckId();
+
+        // 1. Negative count
+        assertThrows(BadRequestException.class, () -> {
+            inventoryService.updateStockCheckItemCount(checkId, new UpdateStockCheckCountRequest(new BigDecimal("-1"), "Negative"));
+        });
+
+        // 2. Fractional count
+        assertThrows(BadRequestException.class, () -> {
+            inventoryService.updateStockCheckItemCount(checkId, new UpdateStockCheckCountRequest(new BigDecimal("10.5"), "Fractional"));
+        });
+    }
+
+    @Test
+    @DisplayName("UC32/UC33 - Detect stale discrepancy when current stock moves and block reconciliation with old variance")
+    void testStaleDiscrepancyDetectionAndReconciliationBlocked() {
+        Product p = productRepository.findById(1L).orElseThrow();
+        BigDecimal initialStock = p.getStockQuantity();
+
+        // 1. Perform stock check with discrepancy
+        BigDecimal countedQty = initialStock.subtract(new BigDecimal("5"));
+        StockCheckItemRequest item = new StockCheckItemRequest(1L, countedQty, "Audited 5 missing");
+        String sessionCode = "SC-STALE-001";
+        StockCheckSessionResponse session = inventoryService.performStockCheck(
+                new StockCheckSessionRequest(sessionCode, List.of(item))
+        );
+        StockCheckResponse checkItem = session.items().getFirst();
+        assertFalse(checkItem.isStale(), "Immediately after audit, stock has not moved so not stale");
+
+        // 2. Perform independent manual adjustment (without stockCheckId)
+        inventoryService.adjustStock(new StockAdjustmentRequest(
+                1L, "INCREASE", new BigDecimal("10"), "Manual independent adjustment", null
+        ));
+
+        // 3. Fetch session again: discrepancy must now be detected as STALE
+        StockCheckSessionResponse updatedSession = inventoryService.getStockCheckSession(sessionCode);
+        StockCheckResponse staleItem = updatedSession.items().getFirst();
+
+        assertEquals("PENDING_ADJUSTMENT", staleItem.status(), "Stock check status remains pending (not automatically adjusted)");
+        assertTrue(staleItem.isStale(), "Item must be detected as stale because current stock != audit system quantity");
+        assertEquals(1, updatedSession.staleCount(), "Session staleCount must be 1");
+        assertNotEquals(staleItem.systemQuantity(), staleItem.currentStock(), "System quantity and current stock differ");
+
+        // 4. Attempting to adjust with old variance must be blocked by conflict detection
+        BusinessException conflictEx = assertThrows(BusinessException.class, () -> {
+            inventoryService.adjustStock(new StockAdjustmentRequest(
+                    1L, "DECREASE", new BigDecimal("5"), "Attempt to apply stale variance", checkItem.stockCheckId()
+            ));
+        });
+        assertTrue(conflictEx.getMessage().toLowerCase().contains("conflict") || conflictEx.getMessage().toLowerCase().contains("moved"));
+
+        // Cleanup: restore initial stock
+        Product resetP = productRepository.findById(1L).orElseThrow();
+        resetP.setStockQuantity(initialStock);
+        productRepository.save(resetP);
     }
 }

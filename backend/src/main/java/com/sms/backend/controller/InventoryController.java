@@ -7,7 +7,11 @@ import com.sms.backend.dto.inventory.StockAdjustmentRequest;
 import com.sms.backend.dto.inventory.StockAdjustmentResponse;
 import com.sms.backend.dto.inventory.StockAlertFilter;
 import com.sms.backend.dto.inventory.StockAlertSummaryResponse;
+import com.sms.backend.dto.inventory.StockCheckItemRequest;
 import com.sms.backend.dto.inventory.StockCheckResponse;
+import com.sms.backend.dto.inventory.StockCheckSessionRequest;
+import com.sms.backend.dto.inventory.StockCheckSessionResponse;
+import com.sms.backend.dto.inventory.UpdateStockCheckCountRequest;
 import com.sms.backend.dto.inventory.StockHistoryFilter;
 import com.sms.backend.dto.inventory.StockMovementPageResponse;
 import com.sms.backend.dto.inventory.StockMovementResponse;
@@ -20,6 +24,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -209,15 +214,48 @@ public class InventoryController {
     }
 
     // =========================================================================
-    // Stock Checks
+    // UC32 - Stock Checks & Stock Difference
     // =========================================================================
+
+    @GetMapping("/checks/next-session")
+    public ResponseEntity<ApiResponse<String>> getNextStockCheckSession() {
+        return ResponseEntity.ok(ApiResponse.success("Next session number generated",
+                inventoryService.getNextStockCheckSessionNumber()));
+    }
+
+    @PostMapping("/checks")
+    public ResponseEntity<ApiResponse<StockCheckSessionResponse>> performStockCheck(
+            @Valid @RequestBody StockCheckSessionRequest request) {
+        StockCheckSessionResponse response = inventoryService.performStockCheck(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Stock check session recorded successfully", response));
+    }
+
+    @GetMapping("/checks/session/{checkNumber}")
+    public ResponseEntity<ApiResponse<StockCheckSessionResponse>> getStockCheckSession(
+            @PathVariable String checkNumber) {
+        return ResponseEntity.ok(ApiResponse.success("Stock check session retrieved",
+                inventoryService.getStockCheckSession(checkNumber)));
+    }
+
+    @GetMapping("/checks/sessions")
+    public ResponseEntity<ApiResponse<List<StockCheckSessionResponse>>> getAllStockCheckSessions() {
+        return ResponseEntity.ok(ApiResponse.success("Stock check sessions retrieved",
+                inventoryService.getAllStockCheckSessions()));
+    }
 
     @GetMapping("/checks")
     public ResponseEntity<ApiResponse<List<StockCheckResponse>>> getAllChecks(
-            @RequestParam(required = false) Long productId) {
-        List<StockCheckResponse> result = productId != null
-                ? inventoryService.getStockChecksByProduct(productId)
-                : inventoryService.getAllStockChecks();
+            @RequestParam(required = false) Long productId,
+            @RequestParam(required = false) String checkNumber) {
+        List<StockCheckResponse> result;
+        if (checkNumber != null && !checkNumber.isBlank()) {
+            result = inventoryService.getStockCheckSession(checkNumber).items();
+        } else if (productId != null) {
+            result = inventoryService.getStockChecksByProduct(productId);
+        } else {
+            result = inventoryService.getAllStockChecks();
+        }
         return ResponseEntity.ok(ApiResponse.success("Stock checks retrieved", result));
     }
 
@@ -225,5 +263,13 @@ public class InventoryController {
     public ResponseEntity<ApiResponse<StockCheckResponse>> getCheckById(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success("Stock check retrieved",
                 inventoryService.getStockCheckById(id)));
+    }
+
+    @PutMapping("/checks/{id}")
+    public ResponseEntity<ApiResponse<StockCheckResponse>> updateStockCheckCount(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateStockCheckCountRequest request) {
+        StockCheckResponse response = inventoryService.updateStockCheckItemCount(id, request);
+        return ResponseEntity.ok(ApiResponse.success("Physical count updated successfully", response));
     }
 }
