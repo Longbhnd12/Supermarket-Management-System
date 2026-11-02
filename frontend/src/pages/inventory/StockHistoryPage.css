@@ -1,0 +1,528 @@
+/* ─── Stock History Page Styles (UC34) ─── */
+
+.sms-history-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding-bottom: 2.5rem;
+}
+
+/* Header */
+.sms-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--sms-border, #e2e8f0);
+}
+
+.sms-history-header-left {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.sms-btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.85rem;
+    border: 1px solid var(--sms-border, #cbd5e1);
+    background-color: var(--sms-surface, #ffffff);
+    color: var(--sms-text, #334155);
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-decoration: none;
+}
+
+.sms-btn-back:hover {
+    background-color: var(--sms-hover, #f1f5f9);
+    border-color: var(--sms-border-dark, #94a3b8);
+}
+
+.sms-history-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--sms-text-heading, #0f172a);
+    margin: 0 0 0.25rem 0;
+}
+
+.sms-history-subtitle {
+    font-size: 0.875rem;
+    color: var(--sms-text-muted, #64748b);
+    margin: 0;
+}
+
+.sms-history-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.sms-btn-refresh {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.85rem;
+    border: 1px solid var(--sms-border, #cbd5e1);
+    background-color: var(--sms-surface, #ffffff);
+    color: var(--sms-text, #334155);
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.sms-btn-refresh:hover:not(:disabled) {
+    background-color: var(--sms-hover, #f1f5f9);
+    border-color: var(--sms-border-dark, #94a3b8);
+}
+
+.sms-btn-refresh:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Alert Banners */
+.sms-alert {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.85rem 1.15rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    animation: fadeIn 0.2s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-3px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.sms-alert-content {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.sms-alert-close {
+    background: none;
+    border: none;
+    color: inherit;
+    opacity: 0.7;
+    cursor: pointer;
+    padding: 0.15rem;
+    display: inline-flex;
+    border-radius: 4px;
+}
+
+.sms-alert-close:hover {
+    opacity: 1;
+}
+
+.sms-alert--danger {
+    background-color: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+/* ─── Selected Product Information Card (UC34 / UC31 Navigation) ─── */
+.sms-selected-product-card {
+    background-color: var(--sms-surface, #ffffff);
+    border: 1px solid #bfdbfe;
+    border-left: 4px solid #2563eb;
+    border-radius: 8px;
+    padding: 1.15rem 1.35rem;
+    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    animation: fadeIn 0.2s ease-in;
+}
+
+.sms-selected-product-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.sms-selected-product-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.sms-selected-product-icon {
+    color: #2563eb;
+}
+
+.sms-selected-product-badge {
+    background-color: #dbeafe;
+    color: #1d4ed8;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.15rem 0.55rem;
+    border-radius: 9999px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.sms-selected-product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1.15rem;
+}
+
+.sms-product-prop {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.sms-prop-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: #64748b;
+}
+
+.sms-prop-value {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.sms-prop-value--code {
+    font-family: monospace;
+    font-size: 0.9rem;
+    color: #1e293b;
+}
+
+.sms-prop-value--stock {
+    color: #047857;
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.sms-btn-clear-product {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem 0.85rem;
+    border: 1px solid #cbd5e1;
+    background-color: #ffffff;
+    color: #334155;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.sms-btn-clear-product:hover {
+    background-color: #f1f5f9;
+    border-color: #94a3b8;
+    color: #0f172a;
+}
+
+/* ─── Search & Filters Bar (Single Main Search Input) ─── */
+.sms-history-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    background-color: var(--sms-surface, #ffffff);
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--sms-border, #e2e8f0);
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.sms-filter-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.85rem;
+    flex: 1;
+}
+
+.sms-filter-search {
+    position: relative;
+    min-width: 280px;
+    max-width: 440px;
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.sms-filter-search-icon {
+    position: absolute;
+    left: 0.75rem;
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+.sms-filter-search-input {
+    width: 100%;
+    padding: 0.55rem 2.2rem 0.55rem 2.25rem;
+    border: 1px solid var(--sms-border, #cbd5e1);
+    border-radius: 6px;
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    box-sizing: border-box;
+}
+
+.sms-filter-search-input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.sms-filter-search-clear {
+    position: absolute;
+    right: 0.6rem;
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 0.2rem;
+    display: inline-flex;
+    border-radius: 4px;
+}
+
+.sms-filter-search-clear:hover {
+    color: #475569;
+}
+
+.sms-filter-select {
+    padding: 0.55rem 0.85rem;
+    border: 1px solid var(--sms-border, #cbd5e1);
+    border-radius: 6px;
+    font-size: 0.875rem;
+    background-color: #ffffff;
+    color: #334155;
+    outline: none;
+    min-width: 170px;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.sms-filter-select:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+/* Date Range Inputs */
+.sms-date-range-box {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background-color: #ffffff;
+}
+
+.sms-date-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #64748b;
+}
+
+.sms-date-input {
+    padding: 0.5rem 0.65rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    outline: none;
+    box-sizing: border-box;
+    color: #334155;
+}
+
+.sms-date-input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.sms-date-input--error {
+    border-color: #ef4444;
+    background-color: #fffaf0;
+}
+
+.sms-btn-ghost {
+    background: none;
+    border: 1px dashed #cbd5e1;
+    padding: 0.45rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.sms-btn-ghost:hover {
+    border-color: #94a3b8;
+    color: #0f172a;
+    background-color: #f8fafc;
+}
+
+/* ─── Stock Movement Table Card ─── */
+.sms-history-table-card {
+    background-color: var(--sms-surface, #ffffff);
+    border: 1px solid var(--sms-border, #e2e8f0);
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.sms-table-wrapper {
+    overflow-x: auto;
+}
+
+.sms-history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    text-align: left;
+}
+
+.sms-history-table th {
+    background-color: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+}
+
+.sms-history-table td {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    vertical-align: middle;
+}
+
+.sms-history-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.sms-history-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+/* Movement Type Badges */
+.sms-movement-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
+}
+
+.sms-movement-badge--receipt {
+    background-color: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.sms-movement-badge--sale {
+    background-color: #fff1f2;
+    color: #be123c;
+    border: 1px solid #fecdd3;
+}
+
+.sms-movement-badge--adjustment {
+    background-color: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+}
+
+/* Quantity Change */
+.sms-qty-change {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.95rem;
+}
+
+.sms-qty-change--positive {
+    color: #059669;
+}
+
+.sms-qty-change--negative {
+    color: #dc2626;
+}
+
+.sms-qty-change--neutral {
+    color: #64748b;
+}
+
+.sms-ref-code {
+    font-weight: 600;
+    color: #1d4ed8;
+    font-family: monospace;
+    font-size: 0.825rem;
+    background-color: #f1f5f9;
+    padding: 0.2rem 0.45rem;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.sms-performed-by {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: #475569;
+    font-size: 0.85rem;
+}
+
+/* Empty State Card */
+.sms-empty-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3.5rem 1.5rem;
+    text-align: center;
+    color: #64748b;
+}
+
+.sms-empty-icon {
+    width: 48px;
+    height: 48px;
+    color: #94a3b8;
+    margin-bottom: 1rem;
+    opacity: 0.7;
+}
+
+.sms-empty-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0 0 0.4rem 0;
+}
+
+.sms-empty-desc {
+    font-size: 0.875rem;
+    color: #64748b;
+    margin: 0 0 1rem 0;
+    max-width: 420px;
+}

@@ -15,6 +15,11 @@ import {
     Store,
     PanelLeftClose,
     PanelLeftOpen,
+    FileInput,
+    FileText,
+    FileCheck,
+    History,
+    AlertTriangle,
     X
 } from 'lucide-react';
 
@@ -34,24 +39,58 @@ const menuGroups = [
         items: [
             {
                 label: 'Product Management',
-                icon: Package
+                icon: Package,
+                path: '/products'
             },
             {
                 label: 'Purchase & Inventory',
-                icon: Warehouse
+                icon: Warehouse,
+                path: '/inventory',
+                end: true
+            },
+            {
+                label: 'Purchase Orders',
+                icon: FileText,
+                path: '/purchase-orders',
+                end: true
+            },
+            {
+                label: 'Approve Requests',
+                icon: FileCheck,
+                path: '/purchase-orders/pending',
+                end: true
+            },
+            {
+                label: 'Stock Receipts',
+                icon: FileInput,
+                path: '/inventory/stock-receipts'
+            },
+            {
+                label: 'Stock History',
+                icon: History,
+                path: '/inventory/stock-history',
+                end: true
+            },
+            {
+                label: 'Stock Alerts',
+                icon: AlertTriangle,
+                path: '/inventory/stock-alerts',
+                end: true
             },
             {
                 label: 'Sales & POS',
                 icon: ShoppingCart,
-                path: '/sales'
+                path: '/sales/pos'
             },
             {
                 label: 'Supplier Management',
-                icon: Truck
+                icon: Truck,
+                path: '/suppliers'
             },
             {
                 label: 'Promotion Management',
-                icon: Tags
+                icon: Tags,
+                path: '/promotions'
             }
         ]
     },
@@ -60,11 +99,13 @@ const menuGroups = [
         items: [
             {
                 label: 'Employee Management',
-                icon: Users
+                icon: Users,
+                path: '/employees'
             },
             {
                 label: 'User Management',
-                icon: UserCog
+                icon: UserCog,
+                path: '/users'
             },
             {
                 label: 'Reports',
@@ -175,13 +216,11 @@ export default function Sidebar({
                                     <NavLink
                                         key={item.label}
                                         to={item.path}
-                                        end={item.path === '/'}
+                                        end={item.end ?? item.path === '/'}
                                         title={item.label}
                                         onClick={() => setMobileOpen(false)}
                                         className={({ isActive }) =>
-                                            `sms-menu-item ${
-                                                isActive ? 'active' : ''
-                                            }`
+                                            `sms-menu-item ${isActive ? 'active' : ''}`
                                         }
                                     >
                                         <Icon size={19} />
