@@ -15,6 +15,8 @@ import ProductDetailPage from './pages/product/ProductDetailPage';
 // Sales
 import SaleListPage from './pages/sales/SaleListPage';
 import POSPage from './pages/sales/POSPage';
+import InvoicePage from './pages/sales/InvoicePage';
+import PaymentReturnPage from './pages/sales/PaymentReturnPage';
 
 // Purchase Orders
 import PurchaseOrderListPage from './pages/purchaseOrder/PurchaseOrderListPage';
@@ -51,6 +53,8 @@ export default function App() {
                     {/* Sales & POS */}
                     <Route path="/sales" element={<SaleListPage />} />
                     <Route path="/sales/pos" element={<POSPage />} />
+                    <Route path="/sales/:id/invoice" element={<InvoicePage />} />
+                    <Route path="/payments/vnpay/return" element={<PaymentReturnPage />} />
 
                     {/* Purchase Orders */}
                     <Route path="/purchase-orders" element={<PurchaseOrderListPage />} />

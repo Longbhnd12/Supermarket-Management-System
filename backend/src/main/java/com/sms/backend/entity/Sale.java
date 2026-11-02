@@ -46,6 +46,13 @@ public class Sale {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @org.hibernate.annotations.Nationalized
+    @Column(name = "invoice_snapshot", columnDefinition = "nvarchar(max)")
+    private String invoiceSnapshot;
+
+    @Column(name = "completion_requested", nullable = false)
+    private boolean completionRequested;
+
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 }

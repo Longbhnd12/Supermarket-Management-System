@@ -3,6 +3,9 @@ package com.sms.backend.controller;
 import com.sms.backend.dto.ApiResponse;
 import com.sms.backend.dto.sale.SaleItemRequest;
 import com.sms.backend.dto.sale.SaleResponse;
+import com.sms.backend.dto.sale.CreateSaleRequest;
+import com.sms.backend.dto.sale.SaleProductResponse;
+import com.sms.backend.dto.sale.UpdateSaleItemRequest;
 import com.sms.backend.enums.SaleStatus;
 import com.sms.backend.service.SaleService;
 import jakarta.validation.Valid;
@@ -16,7 +19,7 @@ import java.util.List;
 /**
  * REST controller for Sale (POS) operations.
  * TODO (SDD): Confirm authentication requirements – cashier role only vs. admin access.
- * TODO (SDD): Confirm whether invoice number generation is server-side.
+ * UC30 assigns invoice numbers on the server after successful payment.
  */
 @RestController
 @RequestMapping("/api/v1/sales")
@@ -45,10 +48,18 @@ public class SaleController {
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<SaleResponse>> createSale() {
-        SaleResponse response = saleService.createSale();
+    public ResponseEntity<ApiResponse<SaleResponse>> createSale(@Valid @RequestBody CreateSaleRequest request) {
+        SaleResponse response = saleService.createSale(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Sale created", response));
+    }
+
+    @GetMapping("/products")
+    public ResponseEntity<ApiResponse<List<SaleProductResponse>>> searchProducts(
+            @RequestParam(required = false) String barcode,
+            @RequestParam(required = false) String keyword) {
+        return ResponseEntity.ok(ApiResponse.success("Products retrieved",
+                saleService.searchProducts(barcode, keyword)));
     }
 
     @PostMapping("/{id}/items")
@@ -58,11 +69,24 @@ public class SaleController {
         return ResponseEntity.ok(ApiResponse.success("Item added", saleService.addItemToSale(id, itemRequest)));
     }
 
+    @PatchMapping("/{id}/items/{saleItemId}")
+    public ResponseEntity<ApiResponse<SaleResponse>> updateItemQuantity(
+            @PathVariable Long id, @PathVariable Long saleItemId,
+            @Valid @RequestBody UpdateSaleItemRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Item quantity updated",
+                saleService.updateItemQuantity(id, saleItemId, request)));
+    }
+
     @DeleteMapping("/{id}/items/{saleItemId}")
     public ResponseEntity<ApiResponse<SaleResponse>> removeItem(
             @PathVariable Long id,
             @PathVariable Long saleItemId) {
         return ResponseEntity.ok(ApiResponse.success("Item removed", saleService.removeItemFromSale(id, saleItemId)));
+    }
+
+    @PostMapping("/{id}/calculate")
+    public ResponseEntity<ApiResponse<SaleResponse>> calculateSaleTotal(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success("Sale totals calculated", saleService.calculateSaleTotal(id)));
     }
 
     @PostMapping("/{id}/complete")

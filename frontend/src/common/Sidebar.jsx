@@ -45,7 +45,7 @@ const menuGroups = [
             {
                 label: 'Sales & POS',
                 icon: ShoppingCart,
-                path: '/sales'
+                path: '/sales/pos'
             },
             {
                 label: 'Supplier Management',

@@ -10,5 +10,9 @@ import java.util.List;
 @Repository
 public interface StockReceiptDetailRepository extends JpaRepository<StockReceiptDetail, Long> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select b from StockReceiptDetail b where b.product.productId = :id order by b.stockReceiptItemId")
+    List<StockReceiptDetail> lockBatches(@org.springframework.data.repository.query.Param("id") Long id);
+
     List<StockReceiptDetail> findByStockReceipt(StockReceipt stockReceipt);
 }

@@ -52,4 +52,26 @@ public class Payment {
 
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
+
+    @Column(name = "txn_ref", length = 100)
+    private String txnRef;
+
+    @Column(name = "idempotency_key", length = 100)
+    private String idempotencyKey;
+
+    @Column(name = "bank_code", length = 20)
+    private String bankCode;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @Column(name = "expires_at")
+    private LocalDateTime expiresAt;
+
+    @Column(name = "reconciliation_required", nullable = false)
+    private boolean reconciliationRequired;
+
+    @Nationalized
+    @Column(name = "payment_url", columnDefinition = "nvarchar(max)")
+    private String paymentUrl;
 }
