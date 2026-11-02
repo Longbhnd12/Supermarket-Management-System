@@ -6,6 +6,8 @@ import com.sms.backend.dto.inventory.InventoryPageResponse;
 import com.sms.backend.dto.inventory.StockAdjustmentRequest;
 import com.sms.backend.dto.inventory.StockAdjustmentResponse;
 import com.sms.backend.dto.inventory.StockCheckResponse;
+import com.sms.backend.dto.inventory.StockHistoryFilter;
+import com.sms.backend.dto.inventory.StockMovementPageResponse;
 import com.sms.backend.dto.inventory.StockMovementResponse;
 import com.sms.backend.dto.inventory.StockReceiptResponse;
 import com.sms.backend.enums.StockMovementType;
@@ -14,11 +16,13 @@ import com.sms.backend.enums.StockReferenceType;
 import com.sms.backend.service.InventoryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -121,6 +125,31 @@ public class InventoryController {
     public ResponseEntity<ApiResponse<StockReceiptResponse>> confirmReceipt(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success("Stock receipt confirmed",
                 inventoryService.confirmStockReceipt(id)));
+    }
+
+    // =========================================================================
+    // UC34 - Stock History
+    // =========================================================================
+
+    /**
+     * GET /api/v1/inventory/history
+     * Retrieves paginated stock movement history with search, product, type, and date range filters.
+     */
+    @GetMapping({"/history", "/stock-history"})
+    public ResponseEntity<ApiResponse<StockMovementPageResponse>> getStockHistory(
+            @RequestParam(required = false) Long productId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) StockMovementType movementType,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        StockHistoryFilter filter = new StockHistoryFilter(
+                productId, keyword, movementType, startDate, endDate, page, size
+        );
+        StockMovementPageResponse result = inventoryService.getStockHistory(filter);
+        return ResponseEntity.ok(ApiResponse.success("Stock history retrieved", result));
     }
 
     // =========================================================================

@@ -6,6 +6,8 @@ import com.sms.backend.dto.inventory.InventoryPageResponse;
 import com.sms.backend.dto.inventory.StockAdjustmentRequest;
 import com.sms.backend.dto.inventory.StockAdjustmentResponse;
 import com.sms.backend.dto.inventory.StockCheckResponse;
+import com.sms.backend.dto.inventory.StockHistoryFilter;
+import com.sms.backend.dto.inventory.StockMovementPageResponse;
 import com.sms.backend.dto.inventory.StockMovementResponse;
 import com.sms.backend.dto.inventory.StockReceiptFilter;
 import com.sms.backend.dto.inventory.StockReceiptPageResponse;
@@ -44,6 +46,9 @@ public interface InventoryService {
     // UC36: Create Stock Receipt
     StockReceiptResponse createStockReceipt(CreateStockReceiptRequest request);
     String getNextReceiptNumber();
+
+    // UC34: Stock History
+    StockMovementPageResponse getStockHistory(StockHistoryFilter filter);
 
     // StockMovement
     List<StockMovementResponse> getMovementsByProduct(Long productId);
