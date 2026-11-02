@@ -5,13 +5,18 @@ import com.sms.backend.dto.purchaseorder.ApprovePurchaseOrderRequest;
 import com.sms.backend.dto.purchaseorder.ApprovedItemRequest;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderDetailRequest;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderDetailResponse;
+import com.sms.backend.dto.purchaseorder.PurchaseOrderFilter;
+import com.sms.backend.dto.purchaseorder.PurchaseOrderPageResponse;
+import com.sms.backend.dto.purchaseorder.PurchaseOrderReceiptSummary;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderRequest;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderResponse;
+import com.sms.backend.dto.purchaseorder.PurchaseOrderStatusCountsResponse;
 import com.sms.backend.dto.purchaseorder.RejectPurchaseOrderRequest;
 import com.sms.backend.entity.Notification;
 import com.sms.backend.entity.Product;
 import com.sms.backend.entity.PurchaseOrder;
 import com.sms.backend.entity.PurchaseOrderDetail;
+import com.sms.backend.entity.StockReceipt;
 import com.sms.backend.entity.Supplier;
 import com.sms.backend.entity.User;
 import com.sms.backend.enums.GeneralStatus;
@@ -25,10 +30,13 @@ import com.sms.backend.repository.NotificationRepository;
 import com.sms.backend.repository.ProductRepository;
 import com.sms.backend.repository.PurchaseOrderDetailRepository;
 import com.sms.backend.repository.PurchaseOrderRepository;
+import com.sms.backend.repository.StockReceiptRepository;
 import com.sms.backend.repository.SupplierRepository;
 import com.sms.backend.repository.UserRepository;
 import com.sms.backend.service.PurchaseOrderService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -38,6 +46,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -57,6 +66,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final NotificationRepository notificationRepository;
+    private final StockReceiptRepository stockReceiptRepository;
 
     @Override
     public List<PurchaseOrderResponse> getAllPurchaseOrders() {
@@ -72,6 +82,98 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 .stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    @Override
+    public PurchaseOrderPageResponse getPurchaseOrdersPage(PurchaseOrderFilter filter) {
+        if (filter.startDate() != null && filter.endDate() != null && filter.startDate().isAfter(filter.endDate())) {
+            throw new BadRequestException("Start date cannot be after end date");
+        }
+
+        LocalDateTime dateFrom = filter.startDate() != null ? filter.startDate().atStartOfDay() : null;
+        LocalDateTime dateTo = filter.endDate() != null ? filter.endDate().atTime(LocalTime.MAX) : null;
+
+        String keyword = filter.keyword() != null && !filter.keyword().isBlank()
+                ? filter.keyword().trim()
+                : null;
+
+        int pageNum = Math.max(0, filter.page());
+        int pageSize = filter.size() > 0 ? filter.size() : 10;
+        PageRequest pageRequest = PageRequest.of(pageNum, pageSize);
+
+        Page<PurchaseOrder> page = purchaseOrderRepository.findAllByFilter(
+                keyword,
+                filter.supplierId(),
+                filter.status(),
+                dateFrom,
+                dateTo,
+                pageRequest
+        );
+
+        List<PurchaseOrderResponse> content = page.getContent().stream()
+                .map(this::toResponse)
+                .toList();
+
+        PurchaseOrderStatusCountsResponse statusCounts = getStatusCounts(filter);
+
+        return new PurchaseOrderPageResponse(
+                content,
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages(),
+                statusCounts
+        );
+    }
+
+    @Override
+    public PurchaseOrderStatusCountsResponse getStatusCounts(PurchaseOrderFilter filter) {
+        LocalDateTime dateFrom = filter.startDate() != null ? filter.startDate().atStartOfDay() : null;
+        LocalDateTime dateTo = filter.endDate() != null ? filter.endDate().atTime(LocalTime.MAX) : null;
+
+        String keyword = filter.keyword() != null && !filter.keyword().isBlank()
+                ? filter.keyword().trim()
+                : null;
+
+        List<Object[]> rows = purchaseOrderRepository.countByStatusWithFilter(
+                keyword,
+                filter.supplierId(),
+                dateFrom,
+                dateTo
+        );
+
+        long pendingApproval = 0;
+        long rejectedByManager = 0;
+        long sent = 0;
+        long accepted = 0;
+        long rejectedBySupplier = 0;
+        long partiallyFulfilled = 0;
+        long fulfilled = 0;
+        long all = 0;
+
+        for (Object[] row : rows) {
+            PurchaseOrderStatus st = (PurchaseOrderStatus) row[0];
+            long count = ((Number) row[1]).longValue();
+            all += count;
+            if (st == PurchaseOrderStatus.PENDING_APPROVAL) pendingApproval = count;
+            else if (st == PurchaseOrderStatus.REJECTED_BY_MANAGER) rejectedByManager = count;
+            else if (st == PurchaseOrderStatus.SENT) sent = count;
+            else if (st == PurchaseOrderStatus.ACCEPTED) accepted = count;
+            else if (st == PurchaseOrderStatus.REJECTED_BY_SUPPLIER) rejectedBySupplier = count;
+            else if (st == PurchaseOrderStatus.PARTIALLY_FULFILLED) partiallyFulfilled = count;
+            else if (st == PurchaseOrderStatus.FULFILLED) fulfilled = count;
+        }
+
+        return new PurchaseOrderStatusCountsResponse(
+                all,
+                pendingApproval,
+                rejectedByManager,
+                sent,
+                accepted,
+                rejectedBySupplier,
+                partiallyFulfilled,
+                fulfilled
+        );
     }
 
     @Override
@@ -463,11 +565,26 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                             d.getProduct().getUnit(),
                             d.getRequestedQuantity(),
                             d.getOrderedQuantity(),
+                            d.getReceivedQuantity() != null ? d.getReceivedQuantity() : BigDecimal.ZERO,
                             d.getUnitPrice(),
                             subtotal
                     );
                 })
                 .toList();
+
+        List<PurchaseOrderReceiptSummary> receipts = stockReceiptRepository != null
+                ? stockReceiptRepository.findByPurchaseOrderWithCreatedBy(po)
+                        .stream()
+                        .map(sr -> new PurchaseOrderReceiptSummary(
+                                sr.getStockReceiptId(),
+                                sr.getReceiptNumber(),
+                                sr.getStatus(),
+                                sr.getReceivedAt(),
+                                sr.getCreatedAt(),
+                                sr.getCreatedBy() != null ? sr.getCreatedBy().getUsername() : null
+                        ))
+                        .toList()
+                : List.of();
 
         return new PurchaseOrderResponse(
                 po.getOrderId(),
@@ -486,7 +603,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 po.getResponseReason(),
                 po.getCreatedAt(),
                 po.getUpdatedAt(),
-                details
+                details,
+                receipts
         );
     }
 

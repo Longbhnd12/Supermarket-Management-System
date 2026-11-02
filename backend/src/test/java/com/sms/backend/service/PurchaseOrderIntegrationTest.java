@@ -5,8 +5,11 @@ import com.sms.backend.dto.purchaseorder.ApprovePurchaseOrderRequest;
 import com.sms.backend.dto.purchaseorder.ApprovedItemRequest;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderDetailRequest;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderDetailResponse;
+import com.sms.backend.dto.purchaseorder.PurchaseOrderFilter;
+import com.sms.backend.dto.purchaseorder.PurchaseOrderPageResponse;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderRequest;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderResponse;
+import com.sms.backend.dto.purchaseorder.PurchaseOrderStatusCountsResponse;
 import com.sms.backend.dto.purchaseorder.RejectPurchaseOrderRequest;
 import com.sms.backend.entity.Product;
 import com.sms.backend.entity.PurchaseOrder;
@@ -456,5 +459,82 @@ class PurchaseOrderIntegrationTest {
         // Rejection of already approved order must throw BusinessException
         assertThrows(BusinessException.class, () ->
                 purchaseOrderService.rejectPurchaseOrder(created.orderId(), new RejectPurchaseOrderRequest("Too late", null)));
+    }
+
+    // =========================================================================
+    // UC50 - View Purchase Order Status
+    // =========================================================================
+
+    @Test
+    @DisplayName("UC50 - Page query filters correctly by keyword, status, supplier, and date range")
+    void testUC50GetPurchaseOrdersPageWithFilters() {
+        // 1. Create a request for supplier 1
+        String uniquePo1 = "PRTEST" + System.currentTimeMillis();
+        PurchaseOrderDetailRequest item1 = new PurchaseOrderDetailRequest(1L, new BigDecimal("10"), null, new BigDecimal("15000.00"));
+        PurchaseOrderRequest req1 = new PurchaseOrderRequest(uniquePo1, 1L, LocalDate.now().plusDays(3), "UniqueNoteForKeyword", List.of(item1));
+        PurchaseOrderResponse po1 = purchaseOrderService.createPurchaseOrder(req1);
+        assertEquals(PurchaseOrderStatus.PENDING_APPROVAL, po1.status());
+
+        // 2. Query page filtering by unique keyword
+        PurchaseOrderFilter filterKeyword = new PurchaseOrderFilter(
+                uniquePo1, null, null, null, null, 0, 10
+        );
+        PurchaseOrderPageResponse pageRes = purchaseOrderService.getPurchaseOrdersPage(filterKeyword);
+        assertNotNull(pageRes);
+        assertTrue(pageRes.content().stream().anyMatch(p -> p.poNumber().equals(uniquePo1)));
+        assertTrue(pageRes.statusCounts().all() >= 1);
+        assertTrue(pageRes.statusCounts().pendingApproval() >= 1);
+
+        // 3. Query with status filter = PENDING_APPROVAL
+        PurchaseOrderFilter filterStatus = new PurchaseOrderFilter(
+                uniquePo1, 1L, PurchaseOrderStatus.PENDING_APPROVAL, null, null, 0, 10
+        );
+        PurchaseOrderPageResponse pageStatusRes = purchaseOrderService.getPurchaseOrdersPage(filterStatus);
+        assertEquals(1, pageStatusRes.content().size());
+        assertEquals(uniquePo1, pageStatusRes.content().get(0).poNumber());
+
+        // 4. Query with status filter = SENT (should NOT contain po1)
+        PurchaseOrderFilter filterSent = new PurchaseOrderFilter(
+                uniquePo1, 1L, PurchaseOrderStatus.SENT, null, null, 0, 10
+        );
+        PurchaseOrderPageResponse pageSentRes = purchaseOrderService.getPurchaseOrdersPage(filterSent);
+        assertTrue(pageSentRes.content().isEmpty());
+
+        // 5. Status counts should still reflect the existence of po1 under keyword/supplier
+        assertEquals(1, pageSentRes.statusCounts().pendingApproval());
+        assertEquals(0, pageSentRes.statusCounts().sent());
+    }
+
+    @Test
+    @DisplayName("UC50 - getStatusCounts returns all 8 status categories")
+    void testUC50GetStatusCounts() {
+        PurchaseOrderFilter filter = new PurchaseOrderFilter(null, null, null, null, null, 0, 10);
+        PurchaseOrderStatusCountsResponse counts = purchaseOrderService.getStatusCounts(filter);
+        assertNotNull(counts);
+        assertTrue(counts.all() >= 0);
+        assertTrue(counts.pendingApproval() >= 0);
+        assertTrue(counts.rejectedByManager() >= 0);
+        assertTrue(counts.sent() >= 0);
+        assertTrue(counts.accepted() >= 0);
+        assertTrue(counts.rejectedBySupplier() >= 0);
+        assertTrue(counts.partiallyFulfilled() >= 0);
+        assertTrue(counts.fulfilled() >= 0);
+    }
+
+    @Test
+    @DisplayName("UC50 - getPurchaseOrderById returns details with receivedQuantity and receipts")
+    void testUC50GetByIdWithDetailsAndReceipts() {
+        PurchaseOrderDetailRequest item = new PurchaseOrderDetailRequest(1L, new BigDecimal("5"), null, new BigDecimal("10000.00"));
+        PurchaseOrderRequest req = new PurchaseOrderRequest(null, 1L, LocalDate.now().plusDays(5), "Details test", List.of(item));
+        PurchaseOrderResponse created = purchaseOrderService.createPurchaseOrder(req);
+
+        PurchaseOrderResponse po = purchaseOrderService.getPurchaseOrderById(created.orderId());
+        assertNotNull(po);
+        assertEquals(created.orderId(), po.orderId());
+        assertNotNull(po.details());
+        assertNotNull(po.receipts());
+        if (!po.details().isEmpty()) {
+            assertNotNull(po.details().get(0).receivedQuantity());
+        }
     }
 }

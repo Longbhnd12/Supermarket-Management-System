@@ -5,7 +5,8 @@ import API from './api';
  * Base URL: /api/v1/purchase-orders
  */
 const PurchaseOrderService = {
-    getAll: (params) => API.get('/purchase-orders', { params }), // params: { status }
+    getAll: (params) => API.get('/purchase-orders', { params }), // params: { keyword, supplierId, status, startDate, endDate, page, size }
+    getStatusCounts: (params) => API.get('/purchase-orders/counts', { params }),
     getPending: (params) => API.get('/purchase-orders/pending', { params }),
     getById: (id) => API.get(`/purchase-orders/${id}`),
     getNextNumber: () => API.get('/purchase-orders/next-number'),

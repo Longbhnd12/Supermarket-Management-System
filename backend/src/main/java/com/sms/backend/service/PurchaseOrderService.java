@@ -2,8 +2,11 @@ package com.sms.backend.service;
 
 import com.sms.backend.dto.product.ProductResponse;
 import com.sms.backend.dto.purchaseorder.ApprovePurchaseOrderRequest;
+import com.sms.backend.dto.purchaseorder.PurchaseOrderFilter;
+import com.sms.backend.dto.purchaseorder.PurchaseOrderPageResponse;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderRequest;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderResponse;
+import com.sms.backend.dto.purchaseorder.PurchaseOrderStatusCountsResponse;
 import com.sms.backend.dto.purchaseorder.RejectPurchaseOrderRequest;
 import com.sms.backend.enums.PurchaseOrderStatus;
 
@@ -17,6 +20,10 @@ public interface PurchaseOrderService {
     List<PurchaseOrderResponse> getAllPurchaseOrders();
 
     List<PurchaseOrderResponse> getPurchaseOrdersByStatus(PurchaseOrderStatus status);
+
+    PurchaseOrderPageResponse getPurchaseOrdersPage(PurchaseOrderFilter filter);
+
+    PurchaseOrderStatusCountsResponse getStatusCounts(PurchaseOrderFilter filter);
 
     List<PurchaseOrderResponse> getPendingPurchaseRequests();
 

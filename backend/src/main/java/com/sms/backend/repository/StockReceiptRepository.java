@@ -22,6 +22,15 @@ public interface StockReceiptRepository extends JpaRepository<StockReceipt, Long
 
     List<StockReceipt> findByPurchaseOrder(PurchaseOrder purchaseOrder);
 
+    @Query("""
+            SELECT sr
+            FROM StockReceipt sr
+            JOIN FETCH sr.createdBy
+            WHERE sr.purchaseOrder = :purchaseOrder
+            ORDER BY sr.createdAt DESC
+            """)
+    List<StockReceipt> findByPurchaseOrderWithCreatedBy(@Param("purchaseOrder") PurchaseOrder purchaseOrder);
+
     List<StockReceipt> findByStatus(StockReceiptStatus status);
 
     boolean existsByReceiptNumber(String receiptNumber);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
     Plus,
@@ -6,14 +6,20 @@ import {
     AlertCircle,
     ShoppingBag,
     Eye,
-    Calendar,
     Building2,
     Clock,
-    X
+    X,
+    RotateCw,
+    Search,
+    Calendar,
+    Filter
 } from 'lucide-react';
 import PurchaseOrderService from '../../services/purchaseOrderService';
+import SupplierService from '../../services/supplierService';
+import Pagination from '../../components/ui/Pagination';
+import './PurchaseOrderListPage.css';
 
-// Consistent VND currency formatting matching project standard
+// VND currency formatter matching SMS standard
 function formatCurrency(amount) {
     if (amount == null || isNaN(amount)) return '0 ₫';
     return new Intl.NumberFormat('vi-VN', {
@@ -23,124 +29,224 @@ function formatCurrency(amount) {
     }).format(amount);
 }
 
-function formatDate(iso) {
+// Date/Time formatter
+function formatDateTime(iso) {
     if (!iso) return '—';
     try {
         const d = new Date(iso);
-        return d.toLocaleDateString('en-GB'); // DD/MM/YYYY
+        return d.toLocaleString('en-GB', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
     } catch {
         return iso;
     }
 }
 
-// Status badge styling helper
+// 8 Status Tabs specified in SRS Section 3.15.5.1 and SDD Section 4.15.6.1
+const STATUS_TABS = [
+    { key: 'ALL', label: 'All', countKey: 'all' },
+    { key: 'PENDING_APPROVAL', label: 'Pending Approval', countKey: 'pendingApproval' },
+    { key: 'REJECTED_BY_MANAGER', label: 'Rejected by Manager', countKey: 'rejectedByManager' },
+    { key: 'SENT', label: 'Sent', countKey: 'sent' },
+    { key: 'ACCEPTED', label: 'Accepted', countKey: 'accepted' },
+    { key: 'REJECTED_BY_SUPPLIER', label: 'Rejected by Supplier', countKey: 'rejectedBySupplier' },
+    { key: 'PARTIALLY_FULFILLED', label: 'Partially Fulfilled', countKey: 'partiallyFulfilled' },
+    { key: 'FULFILLED', label: 'Fulfilled', countKey: 'fulfilled' },
+];
+
 function getStatusBadge(status) {
     switch (status) {
         case 'PENDING_APPROVAL':
-            return { label: 'Pending Approval', bg: '#fef3c7', color: '#92400e', border: '#fde68a' };
+            return { label: 'Pending Approval', className: 'po-badge po-badge-pending' };
         case 'REJECTED_BY_MANAGER':
-            return { label: 'Rejected by Manager', bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' };
+            return { label: 'Rejected by Manager', className: 'po-badge po-badge-rejected-mgr' };
         case 'SENT':
-            return { label: 'Sent to Supplier', bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd' };
+            return { label: 'Sent to Supplier', className: 'po-badge po-badge-sent' };
         case 'ACCEPTED':
-            return { label: 'Accepted by Supplier', bg: '#ecfdf5', color: '#065f46', border: '#a7f3d0' };
+            return { label: 'Accepted by Supplier', className: 'po-badge po-badge-accepted' };
         case 'REJECTED_BY_SUPPLIER':
-            return { label: 'Rejected by Supplier', bg: '#fff1f2', color: '#be123c', border: '#fecdd3' };
+            return { label: 'Rejected by Supplier', className: 'po-badge po-badge-rejected-sup' };
         case 'PARTIALLY_FULFILLED':
-            return { label: 'Partially Fulfilled', bg: '#fef9c3', color: '#854d0e', border: '#fef08a' };
+            return { label: 'Partially Fulfilled', className: 'po-badge po-badge-partial' };
         case 'FULFILLED':
-            return { label: 'Fulfilled', bg: '#dcfce7', color: '#166534', border: '#bbf7d0' };
+            return { label: 'Fulfilled', className: 'po-badge po-badge-fulfilled' };
         default:
-            return { label: status || 'Unknown', bg: '#f1f5f9', color: '#475569', border: '#cbd5e1' };
+            return { label: status || 'Unknown', className: 'po-badge po-badge-default' };
     }
 }
 
 export default function PurchaseOrderListPage() {
     const location = useLocation();
 
-    // Success confirmation from post-submit navigation (UC46)
+    // Success banner from navigation (e.g. UC46 create request)
     const [successBanner, setSuccessBanner] = useState(location.state?.successMessage || '');
 
+    // Active status tab
+    const [activeTab, setActiveTab] = useState('ALL');
+
+    // Filters
+    const [keyword, setKeyword] = useState('');
+    const [debouncedKeyword, setDebouncedKeyword] = useState('');
+    const [supplierId, setSupplierId] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+
+    // Suppliers for dropdown
+    const [suppliers, setSuppliers] = useState([]);
+
+    // Data state
     const [orders, setOrders] = useState([]);
+    const [statusCounts, setStatusCounts] = useState({
+        all: 0,
+        pendingApproval: 0,
+        rejectedByManager: 0,
+        sent: 0,
+        accepted: 0,
+        rejectedBySupplier: 0,
+        partiallyFulfilled: 0,
+        fulfilled: 0
+    });
+
+    // Pagination state
+    const [page, setPage] = useState(0);
+    const [size, setSize] = useState(10);
+    const [totalElements, setTotalElements] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
+    // Debounce keyword input
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedKeyword(keyword);
+            setPage(0);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [keyword]);
+
+    // Load supplier list for filter dropdown
     useEffect(() => {
         let isMounted = true;
-        setLoading(true);
-
-        PurchaseOrderService.getAll()
+        SupplierService.getAll()
             .then(res => {
                 if (!isMounted) return;
-                setOrders(res.data?.data || []);
+                const list = res.data?.data || [];
+                setSuppliers(list);
             })
-            .catch(err => {
-                if (!isMounted) return;
-                setError(err.response?.data?.message || 'Failed to load purchase orders and requests.');
-            })
-            .finally(() => {
-                if (isMounted) setLoading(false);
+            .catch(() => {
+                // Non-critical if suppliers fail to load
             });
-
         return () => { isMounted = false; };
     }, []);
 
+    // Main fetch function
+    const fetchOrders = useCallback(async () => {
+        setLoading(true);
+        setError('');
+        try {
+            const params = {
+                page,
+                size,
+                keyword: debouncedKeyword.trim() || undefined,
+                supplierId: supplierId ? Number(supplierId) : undefined,
+                status: activeTab !== 'ALL' ? activeTab : undefined,
+                startDate: startDate || undefined,
+                endDate: endDate || undefined
+            };
+
+            const res = await PurchaseOrderService.getAll(params);
+            const pageData = res.data?.data;
+            if (pageData) {
+                setOrders(pageData.content || []);
+                setTotalElements(pageData.totalElements || 0);
+                setTotalPages(pageData.totalPages || 0);
+                if (pageData.statusCounts) {
+                    setStatusCounts(pageData.statusCounts);
+                }
+            } else {
+                setOrders([]);
+                setTotalElements(0);
+                setTotalPages(0);
+            }
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to load purchase orders and requests.');
+        } finally {
+            setLoading(false);
+        }
+    }, [activeTab, debouncedKeyword, supplierId, startDate, endDate, page, size]);
+
+    useEffect(() => {
+        fetchOrders();
+    }, [fetchOrders]);
+
+    // Handle tab change
+    const handleTabChange = (tabKey) => {
+        setActiveTab(tabKey);
+        setPage(0);
+    };
+
+    // Clear filters
+    const handleClearFilters = () => {
+        setKeyword('');
+        setDebouncedKeyword('');
+        setSupplierId('');
+        setStartDate('');
+        setEndDate('');
+        setPage(0);
+    };
+
+    const hasActiveFilters = Boolean(keyword.trim() || supplierId || startDate || endDate);
+
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '2.5rem' }}>
+        <div className="po-list-page">
             {/* Header */}
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '1rem',
-                borderBottom: '1px solid #e2e8f0',
-                paddingBottom: '0.75rem'
-            }}>
+            <div className="po-header">
                 <div>
-                    <h1 style={{ margin: '0 0 0.25rem 0', fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>
-                        Purchase Orders & Requests
-                    </h1>
-                    <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem' }}>
-                        Track and review purchase requests and official supplier purchase orders
+                    <h1 className="po-title">Purchase Orders & Requests</h1>
+                    <p className="po-subtitle">
+                        Track the status of submitted purchase requests and official supplier purchase orders (UC50)
                     </p>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div className="po-header-actions">
+                    <button
+                        type="button"
+                        className="po-btn po-btn-secondary"
+                        onClick={fetchOrders}
+                        title="Reload latest records and status counts"
+                    >
+                        <RotateCw size={16} />
+                        <span>Refresh</span>
+                    </button>
                     <Link
                         to="/purchase-orders/pending"
-                        style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            padding: '0.6rem 1.15rem',
-                            backgroundColor: '#ffffff',
-                            color: '#1d4ed8',
-                            border: '1px solid #bfdbfe',
-                            borderRadius: '6px',
-                            fontWeight: 600,
-                            fontSize: '0.875rem',
-                            textDecoration: 'none',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                        }}
+                        className="po-btn po-btn-outline"
+                        title="View pending requests requiring Manager decision (UC47)"
                     >
                         <Clock size={16} />
                         <span>Pending Approvals</span>
+                        {statusCounts.pendingApproval > 0 && (
+                            <span style={{
+                                padding: '0.1rem 0.45rem',
+                                backgroundColor: '#fef3c7',
+                                color: '#92400e',
+                                borderRadius: '9999px',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                marginLeft: '0.2rem'
+                            }}>
+                                {statusCounts.pendingApproval}
+                            </span>
+                        )}
                     </Link>
                     <Link
                         to="/purchase-orders/create"
-                        style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            padding: '0.6rem 1.25rem',
-                            backgroundColor: '#2563eb',
-                            color: '#ffffff',
-                            borderRadius: '6px',
-                            fontWeight: 600,
-                            fontSize: '0.875rem',
-                            textDecoration: 'none',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                        }}
+                        className="po-btn po-btn-primary"
+                        title="Create a new purchase request (UC46)"
                     >
                         <Plus size={18} />
                         <span>Create Purchase Request</span>
@@ -148,7 +254,7 @@ export default function PurchaseOrderListPage() {
                 </div>
             </div>
 
-            {/* Post-submit Success Confirmation Banner */}
+            {/* Success Banner */}
             {successBanner && (
                 <div style={{
                     display: 'flex',
@@ -195,173 +301,254 @@ export default function PurchaseOrderListPage() {
                 </div>
             )}
 
-            {/* Content Table / Empty State */}
-            {loading ? (
-                <div style={{ padding: '3rem 1rem', textAlign: 'center', color: '#64748b' }}>
-                    <div style={{
-                        width: '32px',
-                        height: '32px',
-                        border: '3px solid #bfdbfe',
-                        borderTopColor: '#2563eb',
-                        borderRadius: '50%',
-                        animation: 'spin 0.7s linear infinite',
-                        margin: '0 auto 0.75rem auto'
-                    }} />
-                    <p style={{ margin: 0 }}>Loading purchase orders & requests...</p>
-                </div>
-            ) : orders.length === 0 ? (
-                <div style={{
-                    background: '#ffffff',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    padding: '3rem 1.5rem',
-                    textAlign: 'center',
-                    color: '#64748b'
-                }}>
-                    <ShoppingBag size={48} style={{ margin: '0 auto 1rem auto', color: '#94a3b8' }} />
-                    <h3 style={{ margin: '0 0 0.5rem 0', color: '#1e293b' }}>No Purchase Requests or Orders Found</h3>
-                    <p style={{ margin: '0 0 1.5rem 0', maxWidth: '500px', display: 'inline-block' }}>
-                        You can create the first purchase request for stock replenishment using the button below.
-                    </p>
-                    <div>
-                        <Link
-                            to="/purchase-orders/create"
-                            style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                padding: '0.55rem 1.15rem',
-                                backgroundColor: '#eff6ff',
-                                color: '#2563eb',
-                                border: '1px solid #bfdbfe',
-                                borderRadius: '6px',
-                                fontWeight: 600,
-                                fontSize: '0.875rem',
-                                textDecoration: 'none'
+            {/* Status Tabs */}
+            <div className="po-tabs-container">
+                {STATUS_TABS.map(tab => {
+                    const count = statusCounts[tab.countKey] || 0;
+                    const isActive = activeTab === tab.key;
+                    return (
+                        <button
+                            key={tab.key}
+                            type="button"
+                            className={`po-tab-btn ${isActive ? 'active' : ''}`}
+                            onClick={() => handleTabChange(tab.key)}
+                        >
+                            <span>{tab.label}</span>
+                            <span className="po-tab-count">{count}</span>
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* Search & Filters */}
+            <div className="po-filter-card">
+                <div className="po-filter-grid">
+                    {/* Search */}
+                    <div className="po-filter-group">
+                        <label className="po-filter-label" htmlFor="po-search">Search</label>
+                        <div className="po-search-wrap">
+                            <Search size={16} className="po-search-icon" />
+                            <input
+                                id="po-search"
+                                type="text"
+                                className="po-input"
+                                placeholder="PO/Request #, Supplier, Requester..."
+                                value={keyword}
+                                onChange={(e) => setKeyword(e.target.value)}
+                            />
+                            {keyword && (
+                                <button
+                                    type="button"
+                                    onClick={() => setKeyword('')}
+                                    style={{
+                                        position: 'absolute',
+                                        right: '0.6rem',
+                                        background: 'none',
+                                        border: 'none',
+                                        color: '#94a3b8',
+                                        cursor: 'pointer',
+                                        padding: '0.2rem'
+                                    }}
+                                    title="Clear search"
+                                >
+                                    <X size={14} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Supplier Filter */}
+                    <div className="po-filter-group">
+                        <label className="po-filter-label" htmlFor="po-supplier-select">Supplier</label>
+                        <select
+                            id="po-supplier-select"
+                            className="po-select"
+                            value={supplierId}
+                            onChange={(e) => {
+                                setSupplierId(e.target.value);
+                                setPage(0);
                             }}
                         >
-                            <Plus size={16} />
-                            <span>Create Purchase Request</span>
-                        </Link>
-                    </div>
-                </div>
-            ) : (
-                <div style={{
-                    background: '#ffffff',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                    overflow: 'hidden'
-                }}>
-                    <div style={{
-                        padding: '0.85rem 1.25rem',
-                        backgroundColor: '#f8fafc',
-                        borderBottom: '1px solid #e2e8f0',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                    }}>
-                        <span style={{ fontWeight: 600, fontSize: '0.95rem', color: '#1e293b' }}>
-                            All Submitted Requests & Orders ({orders.length})
-                        </span>
-                        <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                            Showing requests across all statuses
-                        </span>
+                            <option value="">All Suppliers</option>
+                            {suppliers.map(s => (
+                                <option key={s.supplierId} value={s.supplierId}>
+                                    {s.supplierName}
+                                </option>
+                            ))}
+                        </select>
                     </div>
 
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                            <thead>
-                                <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
-                                    <th style={{ padding: '0.75rem 1rem', color: '#475569', fontWeight: 600 }}>Request / PO #</th>
-                                    <th style={{ padding: '0.75rem 1rem', color: '#475569', fontWeight: 600 }}>Supplier</th>
-                                    <th style={{ padding: '0.75rem 1rem', color: '#475569', fontWeight: 600 }}>Requested By</th>
-                                    <th style={{ padding: '0.75rem 1rem', color: '#475569', fontWeight: 600 }}>Expected Delivery</th>
-                                    <th style={{ padding: '0.75rem 1rem', color: '#475569', fontWeight: 600, textAlign: 'right' }}>Total Estimated (₫)</th>
-                                    <th style={{ padding: '0.75rem 1rem', color: '#475569', fontWeight: 600, textAlign: 'center' }}>Status</th>
-                                    <th style={{ padding: '0.75rem 1rem', color: '#475569', fontWeight: 600, textAlign: 'center' }}>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {orders.map(order => {
-                                    const badge = getStatusBadge(order.status);
-                                    return (
-                                        <tr key={order.orderId} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                            <td style={{ padding: '0.75rem 1rem', fontFamily: 'monospace', fontWeight: 700, color: '#0369a1' }}>
-                                                {order.poNumber}
-                                            </td>
-                                            <td style={{ padding: '0.75rem 1rem', color: '#1e293b' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                                    <Building2 size={14} style={{ color: '#64748b' }} />
-                                                    <span>{order.supplierName}</span>
-                                                </div>
-                                            </td>
-                                            <td style={{ padding: '0.75rem 1rem', color: '#475569' }}>
-                                                {order.requestedByUsername || '—'}
-                                            </td>
-                                            <td style={{ padding: '0.75rem 1rem', color: '#475569' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                                    <Calendar size={14} style={{ color: '#64748b' }} />
-                                                    <span>{formatDate(order.expectedDeliveryDate)}</span>
-                                                </div>
-                                            </td>
-                                            <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 700, color: '#1e3a8a', fontFamily: 'monospace, sans-serif' }}>
-                                                {formatCurrency(order.totalAmount)}
-                                            </td>
-                                            <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
-                                                <span style={{
-                                                    display: 'inline-block',
-                                                    padding: '0.2rem 0.65rem',
-                                                    borderRadius: '9999px',
-                                                    fontSize: '0.75rem',
-                                                    fontWeight: 600,
-                                                    backgroundColor: badge.bg,
-                                                    color: badge.color,
-                                                    border: `1px solid ${badge.border}`
-                                                }}>
-                                                    {badge.label}
-                                                </span>
-                                            </td>
-                                            <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
-                                                <Link
-                                                    to={`/purchase-orders/${order.orderId}`}
-                                                    style={{
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: '0.25rem',
-                                                        padding: '0.3rem 0.6rem',
-                                                        backgroundColor: '#f1f5f9',
-                                                        color: '#334155',
-                                                        borderRadius: '4px',
-                                                        fontSize: '0.775rem',
-                                                        fontWeight: 500,
-                                                        textDecoration: 'none'
-                                                    }}
-                                                    title="View Details"
-                                                >
-                                                    <Eye size={13} />
-                                                    <span>View</span>
-                                                </Link>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                    {/* Date Range Filter (Last Updated) */}
+                    <div className="po-filter-group">
+                        <label className="po-filter-label">Last Updated Range</label>
+                        <div className="po-date-range">
+                            <input
+                                type="date"
+                                className="po-date-input"
+                                value={startDate}
+                                onChange={(e) => {
+                                    setStartDate(e.target.value);
+                                    setPage(0);
+                                }}
+                                title="Start Date"
+                            />
+                            <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>to</span>
+                            <input
+                                type="date"
+                                className="po-date-input"
+                                value={endDate}
+                                onChange={(e) => {
+                                    setEndDate(e.target.value);
+                                    setPage(0);
+                                }}
+                                title="End Date"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Clear Button */}
+                    <div className="po-filter-actions">
+                        {hasActiveFilters && (
+                            <button
+                                type="button"
+                                className="po-btn-clear"
+                                onClick={handleClearFilters}
+                                title="Clear all search and filter conditions"
+                            >
+                                <X size={14} />
+                                <span>Clear Filters</span>
+                            </button>
+                        )}
                     </div>
                 </div>
-            )}
+            </div>
 
-            {/* Shared Module Boundary Note */}
-            <div style={{
-                padding: '0.75rem 1rem',
-                backgroundColor: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                borderRadius: '6px',
-                fontSize: '0.8rem',
-                color: '#64748b'
-            }}>
-                <em>Integration Notice:</em> This view lists submitted requests across all statuses for UC46 post-submission review. The full Purchase Order Status screen (status count metrics, advanced filtering by date/supplier, and detailed audit history) is specified under <strong>UC50 (Author: TungNP)</strong>.
+            {/* Content Table / States */}
+            <div className="po-table-card">
+                <div className="po-table-header-bar">
+                    <span className="po-table-header-title">
+                        {activeTab === 'ALL'
+                            ? `All Purchase Requests & Orders (${totalElements})`
+                            : `${STATUS_TABS.find(t => t.key === activeTab)?.label} (${totalElements})`}
+                    </span>
+                    <span className="po-table-header-subtitle">
+                        Showing page {totalPages > 0 ? page + 1 : 0} of {totalPages}
+                    </span>
+                </div>
+
+                {loading ? (
+                    <div style={{ padding: '3.5rem 1rem', textAlign: 'center', color: '#64748b' }}>
+                        <div className="po-spinner" />
+                        <p style={{ margin: 0 }}>Loading purchase orders & requests...</p>
+                    </div>
+                ) : orders.length === 0 ? (
+                    <div className="po-empty-state">
+                        <ShoppingBag size={48} className="po-empty-icon" />
+                        <h3 className="po-empty-title">No Purchase Requests or Orders Found</h3>
+                        <p className="po-empty-desc">
+                            {hasActiveFilters || activeTab !== 'ALL'
+                                ? 'No records match the current filter criteria or status tab. Try clearing filters or switching tabs.'
+                                : 'You have not submitted any purchase requests yet. Create your first purchase request below.'}
+                        </p>
+                        {hasActiveFilters ? (
+                            <button
+                                type="button"
+                                className="po-btn po-btn-secondary"
+                                onClick={handleClearFilters}
+                            >
+                                Clear Filters
+                            </button>
+                        ) : (
+                            <Link to="/purchase-orders/create" className="po-btn po-btn-primary">
+                                <Plus size={16} />
+                                <span>Create Purchase Request</span>
+                            </Link>
+                        )}
+                    </div>
+                ) : (
+                    <>
+                        <div className="po-table-responsive">
+                            <table className="po-table">
+                                <thead>
+                                    <tr>
+                                        <th>Request / PO #</th>
+                                        <th>Supplier</th>
+                                        <th>Requested By</th>
+                                        <th style={{ textAlign: 'center' }}>Items</th>
+                                        <th style={{ textAlign: 'right' }}>Total (₫)</th>
+                                        <th style={{ textAlign: 'center' }}>Status</th>
+                                        <th>Last Updated</th>
+                                        <th style={{ textAlign: 'center', width: '90px' }}>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {orders.map(order => {
+                                        const badge = getStatusBadge(order.status);
+                                        const itemCount = order.details ? order.details.length : 0;
+                                        return (
+                                            <tr key={order.orderId}>
+                                                <td className="po-number">
+                                                    {order.poNumber}
+                                                </td>
+                                                <td>
+                                                    <div className="po-supplier-cell">
+                                                        <Building2 size={14} style={{ color: '#64748b', flexShrink: 0 }} />
+                                                        <span>{order.supplierName}</span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    {order.requestedByUsername || '—'}
+                                                </td>
+                                                <td style={{ textAlign: 'center', color: '#475569' }}>
+                                                    {itemCount} item{itemCount === 1 ? '' : 's'}
+                                                </td>
+                                                <td className="po-total-cell">
+                                                    {formatCurrency(order.totalAmount)}
+                                                </td>
+                                                <td style={{ textAlign: 'center' }}>
+                                                    <span className={badge.className}>
+                                                        {badge.label}
+                                                    </span>
+                                                </td>
+                                                <td style={{ color: '#475569', fontSize: '0.825rem' }}>
+                                                    {formatDateTime(order.updatedAt || order.createdAt)}
+                                                </td>
+                                                <td style={{ textAlign: 'center' }}>
+                                                    <Link
+                                                        to={`/purchase-orders/${order.orderId}`}
+                                                        className="po-btn-view"
+                                                        title="View Details & Status Timeline"
+                                                    >
+                                                        <Eye size={13} />
+                                                        <span>View</span>
+                                                    </Link>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Shared Reusable Pagination */}
+                        <div style={{ padding: '0.75rem 1.25rem', borderTop: '1px solid #e2e8f0' }}>
+                            <Pagination
+                                page={page}
+                                size={size}
+                                totalElements={totalElements}
+                                totalPages={totalPages}
+                                onPageChange={(newPage) => setPage(newPage)}
+                                onSizeChange={(newSize) => {
+                                    setSize(newSize);
+                                    setPage(0);
+                                }}
+                                pageSizeOptions={[5, 10, 20, 50]}
+                                itemLabel="records"
+                                idPrefix="po-list"
+                            />
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     );

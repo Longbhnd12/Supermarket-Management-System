@@ -1,0 +1,319 @@
+/* ─── Purchase Order Detail Page Styles (UC50) ─── */
+
+.po-detail-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding-bottom: 3rem;
+}
+
+/* Header & Navigation */
+.po-detail-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    border-bottom: 1px solid var(--sms-border, #e2e8f0);
+    padding-bottom: 0.75rem;
+}
+
+.po-detail-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.po-detail-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--sms-text-heading, #0f172a);
+}
+
+.po-detail-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+/* Cards */
+.po-detail-card {
+    background-color: #ffffff;
+    border: 1px solid var(--sms-border, #e2e8f0);
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+}
+
+.po-detail-card-header {
+    padding: 0.85rem 1.25rem;
+    background-color: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.po-detail-card-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.po-detail-card-body {
+    padding: 1.25rem;
+}
+
+/* Info Grid */
+.po-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.25rem;
+}
+
+.po-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.po-info-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #64748b;
+}
+
+.po-info-val {
+    font-size: 0.925rem;
+    font-weight: 500;
+    color: #1e293b;
+}
+
+.po-info-val.highlight {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #1e3a8a;
+    font-family: monospace, sans-serif;
+}
+
+/* Notes Section */
+.po-notes-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f1f5f9;
+}
+
+@media (max-width: 768px) {
+    .po-notes-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.po-note-box {
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+}
+
+.po-note-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #475569;
+    margin-bottom: 0.35rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.po-note-content {
+    font-size: 0.85rem;
+    color: #334155;
+    margin: 0;
+    line-height: 1.45;
+}
+
+/* Timeline Styles (5 Stages) */
+.po-timeline {
+    position: relative;
+    padding: 0.5rem 0;
+}
+
+.po-timeline-item {
+    position: relative;
+    display: flex;
+    gap: 1.25rem;
+    padding-bottom: 1.75rem;
+}
+
+.po-timeline-item:last-child {
+    padding-bottom: 0;
+}
+
+.po-timeline-line {
+    position: absolute;
+    left: 17px;
+    top: 36px;
+    bottom: 0;
+    width: 2px;
+    background-color: #e2e8f0;
+}
+
+.po-timeline-item:last-child .po-timeline-line {
+    display: none;
+}
+
+.po-timeline-icon-wrap {
+    position: relative;
+    z-index: 1;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 4px #ffffff;
+}
+
+/* Timeline Stage Status Colors */
+.po-stage-completed {
+    background-color: #dcfce7;
+    color: #15803d;
+    border: 2px solid #86efac;
+}
+
+.po-stage-current {
+    background-color: #eff6ff;
+    color: #2563eb;
+    border: 2px solid #60a5fa;
+    animation: po-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.po-stage-warning {
+    background-color: #fef3c7;
+    color: #b45309;
+    border: 2px solid #fcd34d;
+}
+
+.po-stage-rejected {
+    background-color: #fee2e2;
+    color: #b91c1c;
+    border: 2px solid #fca5a5;
+}
+
+.po-stage-upcoming {
+    background-color: #f1f5f9;
+    color: #94a3b8;
+    border: 2px solid #cbd5e1;
+}
+
+.po-timeline-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.po-timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.po-timeline-stage-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.po-timeline-time {
+    font-size: 0.775rem;
+    color: #64748b;
+    font-family: monospace, sans-serif;
+}
+
+.po-timeline-desc {
+    font-size: 0.85rem;
+    color: #475569;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.po-timeline-actor {
+    font-size: 0.775rem;
+    color: #64748b;
+    font-style: italic;
+}
+
+/* Provenance Notice */
+.po-provenance-box {
+    margin-top: 1.25rem;
+    padding: 0.75rem 1rem;
+    background-color: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.775rem;
+    color: #64748b;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+/* Items Table */
+.po-detail-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.po-detail-table th {
+    padding: 0.75rem 1rem;
+    background-color: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.po-detail-table td {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    vertical-align: middle;
+}
+
+.po-detail-table tfoot td {
+    padding: 1rem;
+    background-color: #f8fafc;
+    border-top: 2px solid #e2e8f0;
+    font-weight: 700;
+}
+
+@keyframes po-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 6px rgba(37, 99, 235, 0);
+    }
+}
+
