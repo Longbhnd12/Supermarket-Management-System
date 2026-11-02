@@ -31,6 +31,13 @@ const InventoryService = {
     getReceiptById: (id) => API.get('/inventory/receipts/' + id),
     confirmReceipt: (id) => API.post('/inventory/receipts/' + id + '/confirm'),
 
+    // UC34 - Stock History
+    /**
+     * Retrieves paginated stock movement history with optional search, product, type, and date range filters.
+     * @param {Object} params - { productId, keyword, movementType, startDate, endDate, page, size }
+     */
+    getStockHistory: (params) => API.get('/inventory/history', { params }),
+
     // Stock Movements
     getMovements: (params) => API.get('/inventory/movements', { params }),
 

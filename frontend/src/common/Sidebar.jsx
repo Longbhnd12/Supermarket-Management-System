@@ -18,6 +18,7 @@ import {
     FileInput,
     FileText,
     FileCheck,
+    History,
     X
 } from 'lucide-react';
 
@@ -62,6 +63,12 @@ const menuGroups = [
                 label: 'Stock Receipts',
                 icon: FileInput,
                 path: '/inventory/stock-receipts'
+            },
+            {
+                label: 'Stock History',
+                icon: History,
+                path: '/inventory/stock-history',
+                end: true
             },
             {
                 label: 'Sales & POS',

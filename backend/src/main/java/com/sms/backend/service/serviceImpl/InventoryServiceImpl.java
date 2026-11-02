@@ -8,6 +8,8 @@ import com.sms.backend.dto.inventory.InventoryResponse;
 import com.sms.backend.dto.inventory.StockAdjustmentRequest;
 import com.sms.backend.dto.inventory.StockAdjustmentResponse;
 import com.sms.backend.dto.inventory.StockCheckResponse;
+import com.sms.backend.dto.inventory.StockHistoryFilter;
+import com.sms.backend.dto.inventory.StockMovementPageResponse;
 import com.sms.backend.dto.inventory.StockMovementResponse;
 import com.sms.backend.dto.inventory.StockReceiptDetailResponse;
 import com.sms.backend.dto.inventory.StockReceiptFilter;
@@ -53,6 +55,7 @@ import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -595,6 +598,47 @@ public class InventoryServiceImpl implements InventoryService {
     ) {}
 
     // =========================================================================
+    // UC34 - Stock History
+    // =========================================================================
+
+    @Override
+    public StockMovementPageResponse getStockHistory(StockHistoryFilter filter) {
+        if (filter.startDate() != null && filter.endDate() != null && filter.startDate().isAfter(filter.endDate())) {
+            throw new BadRequestException("Start date cannot be after end date");
+        }
+
+        LocalDateTime dateFrom = filter.startDate() != null ? filter.startDate().atStartOfDay() : null;
+        LocalDateTime dateTo = filter.endDate() != null ? filter.endDate().atTime(LocalTime.MAX) : null;
+
+        String keyword = filter.keyword() != null && !filter.keyword().isBlank()
+                ? filter.keyword().trim()
+                : null;
+
+        PageRequest pageRequest = PageRequest.of(filter.page(), filter.size());
+
+        Page<StockMovement> page = stockMovementRepository.findAllByFilter(
+                filter.productId(),
+                keyword,
+                filter.movementType(),
+                dateFrom,
+                dateTo,
+                pageRequest
+        );
+
+        List<StockMovementResponse> content = page.getContent().stream()
+                .map(this::toMovementResponse)
+                .toList();
+
+        return new StockMovementPageResponse(
+                content,
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages()
+        );
+    }
+
+    // =========================================================================
     // StockMovement
     // =========================================================================
 
@@ -704,18 +748,48 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     private StockMovementResponse toMovementResponse(StockMovement sm) {
+        String referenceCode;
+        if (sm.getReferenceType() == StockReferenceType.STOCK_RECEIPT) {
+            String receiptNum = null;
+            try {
+                if (sm.getStockReceiptDetail() != null && sm.getStockReceiptDetail().getStockReceipt() != null) {
+                    receiptNum = sm.getStockReceiptDetail().getStockReceipt().getReceiptNumber();
+                }
+            } catch (Exception ignored) {}
+            referenceCode = receiptNum != null ? receiptNum : ("SR#" + sm.getReferenceId());
+        } else if (sm.getReferenceType() == StockReferenceType.SALE_ITEM) {
+            referenceCode = "SALE#" + sm.getReferenceId();
+        } else if (sm.getReferenceType() == StockReferenceType.STOCK_CHECK) {
+            if (sm.getReferenceId() != null && sm.getReferenceId() > 0) {
+                referenceCode = "SC#" + sm.getReferenceId();
+            } else {
+                referenceCode = "ADJ#" + sm.getMovementId();
+            }
+        } else {
+            referenceCode = sm.getReferenceType() != null
+                    ? (sm.getReferenceType() + "#" + sm.getReferenceId())
+                    : ("#" + sm.getReferenceId());
+        }
+
+        Product p = sm.getProduct();
+        User u = sm.getCreatedBy();
+
         return new StockMovementResponse(
                 sm.getMovementId(),
-                sm.getProduct().getProductId(),
-                sm.getProduct().getProductName(),
-                sm.getProduct().getProductCode(),
+                p != null ? p.getProductId() : null,
+                p != null ? p.getProductName() : null,
+                p != null ? p.getProductCode() : null,
+                p != null ? p.getBarcode() : null,
+                p != null ? p.getUnit() : null,
+                p != null ? p.getStockQuantity() : null,
                 sm.getMovementType(),
                 sm.getQuantityChange(),
                 sm.getReferenceType(),
                 sm.getReferenceId(),
+                referenceCode,
                 sm.getReason(),
-                sm.getCreatedBy().getUserId(),
-                sm.getCreatedBy().getUsername(),
+                u != null ? u.getUserId() : null,
+                u != null ? u.getUsername() : null,
                 sm.getCreatedAt()
         );
     }

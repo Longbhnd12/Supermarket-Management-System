@@ -114,4 +114,47 @@ class InventoryControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
     }
+
+    // =========================================================================
+    // UC34 - Stock History Controller Tests
+    // =========================================================================
+
+    @Test
+    @DisplayName("GET /api/v1/inventory/history - Returns 200 with paginated stock movement history")
+    void testGetStockHistoryEndpoint() throws Exception {
+        mockMvc.perform(get("/api/v1/inventory/history")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Stock history retrieved"))
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(10))
+                .andExpect(jsonPath("$.data.totalElements").isNumber())
+                .andExpect(jsonPath("$.data.totalPages").isNumber());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/inventory/history?productId=1 - Filters by product")
+    void testGetStockHistoryByProductEndpoint() throws Exception {
+        mockMvc.perform(get("/api/v1/inventory/history")
+                        .param("productId", "1")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content").isArray());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/inventory/history?startDate=2026-12-31&endDate=2026-01-01 - Returns 400 Bad Request (AT3)")
+    void testGetStockHistoryInvalidDateRangeEndpoint() throws Exception {
+        mockMvc.perform(get("/api/v1/inventory/history")
+                        .param("startDate", "2026-12-31")
+                        .param("endDate", "2026-01-01")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Start date cannot be after end date"));
+    }
 }

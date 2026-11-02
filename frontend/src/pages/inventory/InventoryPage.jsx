@@ -343,11 +343,11 @@ export default function InventoryPage() {
                                                 >
                                                     Adjust
                                                 </button>
-                                                {/* UC34 – Stock History: route not yet implemented */}
+                                                {/* UC34 – Stock History */}
                                                 <button
                                                     className="inv-action-btn inv-action-btn--ghost"
-                                                    title="Stock History (not yet implemented)"
-                                                    disabled
+                                                    title={`View stock history for ${item.productName}`}
+                                                    onClick={() => navigate(`/inventory/stock-history?productId=${item.productId}`)}
                                                 >
                                                     History
                                                 </button>
