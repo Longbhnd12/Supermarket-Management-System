@@ -38,4 +38,19 @@ public interface StockReceiptDetailRepository
             LocalDate toDate,
             BigDecimal remainingQuantity
     );
+
+    // UC35: Find active receipt batch details with expiry tracking for confirmed receipts only
+    @Query("""
+        SELECT d
+        FROM StockReceiptDetail d
+        JOIN FETCH d.product p
+        LEFT JOIN FETCH p.category c
+        JOIN FETCH d.stockReceipt r
+        WHERE r.status = com.sms.backend.enums.StockReceiptStatus.CONFIRMED
+          AND d.remainingQuantity > 0
+          AND d.expirationDate IS NOT NULL
+          AND p.trackExpiry = true
+        ORDER BY d.expirationDate ASC
+        """)
+    List<StockReceiptDetail> findActiveExpiringBatches();
 }

@@ -33,6 +33,7 @@ import PendingPurchaseRequestsPage from './pages/purchaseOrder/PendingPurchaseRe
 import InventoryPage from './pages/inventory/InventoryPage';
 import AdjustStockPage from './pages/inventory/AdjustStockPage';
 import StockHistoryPage from './pages/inventory/StockHistoryPage';
+import StockAlertsPage from './pages/inventory/StockAlertsPage';
 import StockReceiptListPage from './pages/inventory/StockReceiptListPage';
 import StockReceiptDetailPage from './pages/inventory/StockReceiptDetailPage';
 import CreateStockReceiptPage from './pages/inventory/CreateStockReceiptPage';
@@ -77,6 +78,8 @@ export default function App() {
                     <Route path="/inventory/adjust" element={<AdjustStockPage />} />
                     <Route path="/inventory/stock-history" element={<StockHistoryPage />} />
                     <Route path="/inventory/history" element={<StockHistoryPage />} />
+                    <Route path="/inventory/stock-alerts" element={<StockAlertsPage />} />
+                    <Route path="/inventory/alerts" element={<StockAlertsPage />} />
                     <Route path="/inventory/stock-receipts" element={<StockReceiptListPage />} />
                     <Route path="/inventory/stock-receipts/create" element={<CreateStockReceiptPage />} />
                     <Route path="/inventory/stock-receipts/:id" element={<StockReceiptDetailPage />} />

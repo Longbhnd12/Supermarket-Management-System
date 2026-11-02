@@ -38,6 +38,13 @@ const InventoryService = {
      */
     getStockHistory: (params) => API.get('/inventory/history', { params }),
 
+    // UC35 - Stock Alerts
+    /**
+     * Retrieves stock alert summary counts and paginated alert items.
+     * @param {Object} params - { keyword, categoryId, alertType, page, size }
+     */
+    getStockAlerts: (params) => API.get('/inventory/alerts', { params }),
+
     // Stock Movements
     getMovements: (params) => API.get('/inventory/movements', { params }),
 

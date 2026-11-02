@@ -157,4 +157,41 @@ class InventoryControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Start date cannot be after end date"));
     }
+
+    // =========================================================================
+    // UC35 - Stock Alerts Tests
+    // =========================================================================
+
+    @Test
+    @DisplayName("GET /api/v1/inventory/alerts - Returns 200 with StockAlertSummaryResponse")
+    void testGetStockAlertsEndpoint() throws Exception {
+        mockMvc.perform(get("/api/v1/inventory/alerts")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Stock alerts retrieved"))
+                .andExpect(jsonPath("$.data.lowStockCount").isNumber())
+                .andExpect(jsonPath("$.data.outOfStockCount").isNumber())
+                .andExpect(jsonPath("$.data.nearExpiryCount").isNumber())
+                .andExpect(jsonPath("$.data.expiredCount").isNumber())
+                .andExpect(jsonPath("$.data.totalAlerts").isNumber())
+                .andExpect(jsonPath("$.data.alerts").isArray())
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(10))
+                .andExpect(jsonPath("$.data.totalElements").isNumber())
+                .andExpect(jsonPath("$.data.totalPages").isNumber());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/inventory/stock-alerts?alertType=LOW_STOCK - Filters by alertType")
+    void testGetStockAlertsFilteredByTypeEndpoint() throws Exception {
+        mockMvc.perform(get("/api/v1/inventory/stock-alerts")
+                        .param("alertType", "LOW_STOCK")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.alerts").isArray());
+    }
 }

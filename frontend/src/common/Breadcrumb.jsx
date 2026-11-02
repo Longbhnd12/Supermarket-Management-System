@@ -9,6 +9,8 @@ const routeLabels = {
     'stock-check': 'Stock Check',
     'stock-history': 'Stock History',
     history: 'Stock History',
+    'stock-alerts': 'Stock Alerts',
+    alerts: 'Stock Alerts',
     'stock-receipts': 'Stock Receipts',
     sales: 'Sales Management',
     pos: 'POS',

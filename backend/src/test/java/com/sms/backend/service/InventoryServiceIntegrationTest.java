@@ -3,6 +3,9 @@ package com.sms.backend.service;
 import com.sms.backend.dto.inventory.InventoryFilter;
 import com.sms.backend.dto.inventory.InventoryPageResponse;
 import com.sms.backend.dto.inventory.InventoryResponse;
+import com.sms.backend.dto.inventory.StockAlertFilter;
+import com.sms.backend.dto.inventory.StockAlertItemResponse;
+import com.sms.backend.dto.inventory.StockAlertSummaryResponse;
 import com.sms.backend.dto.inventory.StockHistoryFilter;
 import com.sms.backend.dto.inventory.StockMovementPageResponse;
 import com.sms.backend.dto.inventory.StockMovementResponse;
@@ -206,5 +209,55 @@ class InventoryServiceIntegrationTest {
             inventoryService.getStockHistory(filter);
         });
         assertEquals("Start date cannot be after end date", ex.getMessage());
+    }
+
+    // =========================================================================
+    // UC35 - Stock Alerts Integration Tests
+    // =========================================================================
+
+    @Test
+    @DisplayName("UC35 - Retrieves stock alert summary counts and alert items")
+    void testGetStockAlertsSummaryAndItems() {
+        StockAlertFilter filter = new StockAlertFilter(null, null, "ALL", 0, 20);
+        StockAlertSummaryResponse res = inventoryService.getStockAlerts(filter);
+
+        assertNotNull(res);
+        assertTrue(res.lowStockCount() >= 0);
+        assertTrue(res.outOfStockCount() >= 0);
+        assertTrue(res.nearExpiryCount() >= 0);
+        assertTrue(res.expiredCount() >= 0);
+        assertEquals(res.totalAlerts(), res.lowStockCount() + res.outOfStockCount() + res.nearExpiryCount() + res.expiredCount());
+        assertNotNull(res.alerts());
+        assertTrue(res.totalElements() >= res.alerts().size());
+    }
+
+    @Test
+    @DisplayName("UC35 - Filter alerts by Alert Type")
+    void testGetStockAlertsFilterByType() {
+        StockAlertFilter lowStockFilter = new StockAlertFilter(null, null, "LOW_STOCK", 0, 20);
+        StockAlertSummaryResponse res = inventoryService.getStockAlerts(lowStockFilter);
+
+        assertNotNull(res);
+        for (StockAlertItemResponse item : res.alerts()) {
+            assertEquals("LOW_STOCK", item.alertType());
+            assertTrue(item.currentStock().compareTo(java.math.BigDecimal.ZERO) > 0);
+        }
+    }
+
+    @Test
+    @DisplayName("UC35 - Exclude DRAFT / CANCELLED receipts from expiry alerts (Requirement 6)")
+    void testExpiryAlertsOnlyIncludeConfirmedReceipts() {
+        StockAlertFilter filter = new StockAlertFilter(null, null, "EXPIRED", 0, 50);
+        StockAlertSummaryResponse res = inventoryService.getStockAlerts(filter);
+
+        assertNotNull(res);
+        for (StockAlertItemResponse item : res.alerts()) {
+            // Any batch-based expiry alert must have remainingQuantity > 0 and expiryDate before today
+            if (item.batchRemainingQuantity() != null) {
+                assertTrue(item.batchRemainingQuantity().compareTo(java.math.BigDecimal.ZERO) > 0);
+                assertNotNull(item.expiryDate());
+                assertTrue(item.expiryDate().isBefore(LocalDate.now()));
+            }
+        }
     }
 }

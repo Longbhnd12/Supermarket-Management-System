@@ -19,6 +19,7 @@ import {
     FileText,
     FileCheck,
     History,
+    AlertTriangle,
     X
 } from 'lucide-react';
 
@@ -68,6 +69,12 @@ const menuGroups = [
                 label: 'Stock History',
                 icon: History,
                 path: '/inventory/stock-history',
+                end: true
+            },
+            {
+                label: 'Stock Alerts',
+                icon: AlertTriangle,
+                path: '/inventory/stock-alerts',
                 end: true
             },
             {

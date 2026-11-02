@@ -7,6 +7,9 @@ import com.sms.backend.dto.inventory.InventoryPageResponse;
 import com.sms.backend.dto.inventory.InventoryResponse;
 import com.sms.backend.dto.inventory.StockAdjustmentRequest;
 import com.sms.backend.dto.inventory.StockAdjustmentResponse;
+import com.sms.backend.dto.inventory.StockAlertFilter;
+import com.sms.backend.dto.inventory.StockAlertItemResponse;
+import com.sms.backend.dto.inventory.StockAlertSummaryResponse;
 import com.sms.backend.dto.inventory.StockCheckResponse;
 import com.sms.backend.dto.inventory.StockHistoryFilter;
 import com.sms.backend.dto.inventory.StockMovementPageResponse;
@@ -39,6 +42,7 @@ import com.sms.backend.repository.StockMovementRepository;
 import com.sms.backend.repository.StockReceiptDetailRepository;
 import com.sms.backend.repository.StockReceiptRepository;
 import com.sms.backend.repository.SupplierRepository;
+import com.sms.backend.repository.SystemSettingRepository;
 import com.sms.backend.repository.UserRepository;
 import com.sms.backend.service.InventoryService;
 import lombok.RequiredArgsConstructor;
@@ -56,7 +60,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -67,9 +73,7 @@ import java.util.stream.Collectors;
 public class InventoryServiceImpl implements InventoryService {
 
     /**
-     * Days-ahead window for NEAR_EXPIRY detection.
-     * LIMITATION: SRS/SDD says this is a system_setting. Hard-coded to 30 days
-     * until UC35 (system settings) is implemented.
+     * Days-ahead window for NEAR_EXPIRY detection fallback.
      */
     private static final int NEAR_EXPIRY_DAYS = 30;
 
@@ -81,6 +85,7 @@ public class InventoryServiceImpl implements InventoryService {
     private final SupplierRepository supplierRepository;
     private final UserRepository userRepository;
     private final PurchaseOrderRepository purchaseOrderRepository;
+    private final SystemSettingRepository systemSettingRepository;
 
     // =========================================================================
     // UC31 - Inventory List
@@ -165,15 +170,45 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     // =========================================================================
-    // Stock status derivation (SRS Â§3.10.1)
+    // Stock status derivation (SRS §3.10.1 & UC35)
     // =========================================================================
+
+    private int getNearExpiryThresholdDays() {
+        if (systemSettingRepository == null) return NEAR_EXPIRY_DAYS;
+        return systemSettingRepository.findBySettingKey("NEAR_EXPIRY_DAYS")
+                .or(() -> systemSettingRepository.findBySettingKey("EXPIRY_WARNING_DAYS"))
+                .or(() -> systemSettingRepository.findBySettingKey("NEAR_EXPIRY_WARNING_DAYS"))
+                .or(() -> systemSettingRepository.findBySettingKey("EXPIRATION_WARNING_DAYS"))
+                .map(s -> {
+                    try {
+                        return Integer.parseInt(s.getSettingValue().trim());
+                    } catch (Exception e) {
+                        return NEAR_EXPIRY_DAYS;
+                    }
+                })
+                .orElse(NEAR_EXPIRY_DAYS);
+    }
+
+    private BigDecimal getDefaultLowStockThreshold() {
+        if (systemSettingRepository == null) return BigDecimal.ZERO;
+        return systemSettingRepository.findBySettingKey("DEFAULT_LOW_STOCK_THRESHOLD")
+                .or(() -> systemSettingRepository.findBySettingKey("LOW_STOCK_THRESHOLD"))
+                .map(s -> {
+                    try {
+                        return new BigDecimal(s.getSettingValue().trim());
+                    } catch (Exception e) {
+                        return BigDecimal.ZERO;
+                    }
+                })
+                .orElse(BigDecimal.ZERO);
+    }
 
     private String deriveStockStatus(Product p) {
         BigDecimal qty = p.getStockQuantity();
         BigDecimal minLevel = p.getMinimumStockLevel();
         if (qty.compareTo(BigDecimal.ZERO) <= 0) return "OUT_OF_STOCK";
         if (Boolean.TRUE.equals(p.getTrackExpiry())) {
-            LocalDate threshold = LocalDate.now().plusDays(NEAR_EXPIRY_DAYS);
+            LocalDate threshold = LocalDate.now().plusDays(getNearExpiryThresholdDays());
             boolean nearExpiry = stockReceiptDetailRepository.findByProduct(p).stream()
                     .filter(d -> d.getStockReceipt().getStatus() == StockReceiptStatus.CONFIRMED)
                     .filter(d -> d.getRemainingQuantity() != null
@@ -810,5 +845,193 @@ public class InventoryServiceImpl implements InventoryService {
                 sc.getStatus(),
                 sc.getCheckedAt()
         );
+    }
+
+    // =========================================================================
+    // UC35 - Stock Alerts
+    // =========================================================================
+
+    @Override
+    public StockAlertSummaryResponse getStockAlerts(StockAlertFilter filter) {
+        LocalDate today = LocalDate.now();
+        int warningDays = getNearExpiryThresholdDays();
+        LocalDate nearExpiryThreshold = today.plusDays(warningDays);
+
+        List<StockAlertItemResponse> allAlerts = new ArrayList<>();
+
+        // 1. Evaluate Product stock level alerts (OUT_OF_STOCK, LOW_STOCK)
+        List<Product> products = productRepository.findAll();
+        for (Product p : products) {
+            if (p.getStatus() != GeneralStatus.ACTIVE) continue;
+
+            BigDecimal stock = p.getStockQuantity() == null ? BigDecimal.ZERO : p.getStockQuantity();
+            BigDecimal minLevel = p.getMinimumStockLevel();
+            if (minLevel == null || minLevel.compareTo(BigDecimal.ZERO) <= 0) {
+                minLevel = getDefaultLowStockThreshold();
+            }
+
+            if (stock.compareTo(BigDecimal.ZERO) <= 0) {
+                allAlerts.add(new StockAlertItemResponse(
+                        "STOCK-" + p.getProductId() + "-OUT_OF_STOCK",
+                        p.getProductId(),
+                        p.getProductCode(),
+                        p.getBarcode(),
+                        p.getProductName(),
+                        p.getCategory() != null ? p.getCategory().getCategoryId() : null,
+                        p.getCategory() != null ? p.getCategory().getCategoryName() : "Uncategorized",
+                        p.getUnit(),
+                        "OUT_OF_STOCK",
+                        stock,
+                        minLevel,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
+                ));
+            } else if (minLevel.compareTo(BigDecimal.ZERO) > 0 && stock.compareTo(minLevel) <= 0) {
+                allAlerts.add(new StockAlertItemResponse(
+                        "STOCK-" + p.getProductId() + "-LOW_STOCK",
+                        p.getProductId(),
+                        p.getProductCode(),
+                        p.getBarcode(),
+                        p.getProductName(),
+                        p.getCategory() != null ? p.getCategory().getCategoryId() : null,
+                        p.getCategory() != null ? p.getCategory().getCategoryName() : "Uncategorized",
+                        p.getUnit(),
+                        "LOW_STOCK",
+                        stock,
+                        minLevel,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
+                ));
+            }
+        }
+
+        // 2. Evaluate batch expiration alerts (EXPIRED, NEAR_EXPIRY)
+        // Confirmed receipts only, remaining quantity > 0, trackExpiry = true
+        List<StockReceiptDetail> expiringBatches = stockReceiptDetailRepository.findActiveExpiringBatches();
+        for (StockReceiptDetail d : expiringBatches) {
+            Product p = d.getProduct();
+            if (p == null || p.getStatus() != GeneralStatus.ACTIVE) continue;
+            LocalDate exp = d.getExpirationDate();
+            if (exp == null) continue;
+
+            long days = ChronoUnit.DAYS.between(today, exp);
+
+            if (exp.isBefore(today)) {
+                allAlerts.add(new StockAlertItemResponse(
+                        "BATCH-" + d.getStockReceiptItemId() + "-EXPIRED",
+                        p.getProductId(),
+                        p.getProductCode(),
+                        p.getBarcode(),
+                        p.getProductName(),
+                        p.getCategory() != null ? p.getCategory().getCategoryId() : null,
+                        p.getCategory() != null ? p.getCategory().getCategoryName() : "Uncategorized",
+                        p.getUnit(),
+                        "EXPIRED",
+                        p.getStockQuantity(),
+                        p.getMinimumStockLevel(),
+                        d.getBatchNumber(),
+                        d.getRemainingQuantity(),
+                        exp,
+                        days,
+                        d.getStockReceipt() != null ? d.getStockReceipt().getReceiptNumber() : null
+                ));
+            } else if (!exp.isAfter(nearExpiryThreshold)) {
+                allAlerts.add(new StockAlertItemResponse(
+                        "BATCH-" + d.getStockReceiptItemId() + "-NEAR_EXPIRY",
+                        p.getProductId(),
+                        p.getProductCode(),
+                        p.getBarcode(),
+                        p.getProductName(),
+                        p.getCategory() != null ? p.getCategory().getCategoryId() : null,
+                        p.getCategory() != null ? p.getCategory().getCategoryName() : "Uncategorized",
+                        p.getUnit(),
+                        "NEAR_EXPIRY",
+                        p.getStockQuantity(),
+                        p.getMinimumStockLevel(),
+                        d.getBatchNumber(),
+                        d.getRemainingQuantity(),
+                        exp,
+                        days,
+                        d.getStockReceipt() != null ? d.getStockReceipt().getReceiptNumber() : null
+                ));
+            }
+        }
+
+        // 3. Category filtering for counts and items
+        Long catId = filter.categoryId();
+        List<StockAlertItemResponse> categoryAlerts = catId != null
+                ? allAlerts.stream().filter(a -> catId.equals(a.categoryId())).toList()
+                : allAlerts;
+
+        long lowStockCount = categoryAlerts.stream().filter(a -> "LOW_STOCK".equalsIgnoreCase(a.alertType())).count();
+        long outOfStockCount = categoryAlerts.stream().filter(a -> "OUT_OF_STOCK".equalsIgnoreCase(a.alertType())).count();
+        long nearExpiryCount = categoryAlerts.stream().filter(a -> "NEAR_EXPIRY".equalsIgnoreCase(a.alertType())).count();
+        long expiredCount = categoryAlerts.stream().filter(a -> "EXPIRED".equalsIgnoreCase(a.alertType())).count();
+        long totalAlerts = categoryAlerts.size();
+
+        // 4. Apply Alert Type and Keyword Filters
+        String kw = filter.normalizedKeyword();
+        String kwLower = kw != null ? kw.toLowerCase() : null;
+        String alertType = filter.alertType();
+
+        List<StockAlertItemResponse> filtered = categoryAlerts.stream()
+                .filter(a -> {
+                    if (alertType != null && !alertType.isBlank() && !"ALL".equalsIgnoreCase(alertType)) {
+                        if (!alertType.equalsIgnoreCase(a.alertType())) {
+                            return false;
+                        }
+                    }
+                    if (kwLower != null) {
+                        boolean matchName = a.productName() != null && a.productName().toLowerCase().contains(kwLower);
+                        boolean matchCode = a.productCode() != null && a.productCode().toLowerCase().contains(kwLower);
+                        boolean matchBarcode = a.barcode() != null && a.barcode().toLowerCase().contains(kwLower);
+                        if (!matchName && !matchCode && !matchBarcode) {
+                            return false;
+                        }
+                    }
+                    return true;
+                })
+                .sorted(Comparator
+                        .comparing((StockAlertItemResponse a) -> getAlertSeverityOrder(a.alertType()))
+                        .thenComparing(a -> a.expiryDate() != null ? a.expiryDate() : LocalDate.MAX)
+                        .thenComparing(a -> a.productName() != null ? a.productName() : "")
+                )
+                .collect(Collectors.toList());
+
+        long totalElements = filtered.size();
+        int size = filter.size();
+        int page = filter.page();
+        int totalPages = (int) Math.ceil((double) totalElements / size);
+
+        int fromIndex = Math.min(page * size, (int) totalElements);
+        int toIndex = Math.min(fromIndex + size, (int) totalElements);
+        List<StockAlertItemResponse> pageAlerts = filtered.subList(fromIndex, toIndex);
+
+        return new StockAlertSummaryResponse(
+                lowStockCount,
+                outOfStockCount,
+                nearExpiryCount,
+                expiredCount,
+                totalAlerts,
+                pageAlerts,
+                page,
+                size,
+                totalElements,
+                totalPages
+        );
+    }
+
+    private int getAlertSeverityOrder(String alertType) {
+        if ("EXPIRED".equalsIgnoreCase(alertType)) return 1;
+        if ("OUT_OF_STOCK".equalsIgnoreCase(alertType)) return 2;
+        if ("NEAR_EXPIRY".equalsIgnoreCase(alertType)) return 3;
+        if ("LOW_STOCK".equalsIgnoreCase(alertType)) return 4;
+        return 5;
     }
 }

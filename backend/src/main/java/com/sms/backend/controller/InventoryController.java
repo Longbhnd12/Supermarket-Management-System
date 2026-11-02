@@ -5,6 +5,8 @@ import com.sms.backend.dto.inventory.InventoryFilter;
 import com.sms.backend.dto.inventory.InventoryPageResponse;
 import com.sms.backend.dto.inventory.StockAdjustmentRequest;
 import com.sms.backend.dto.inventory.StockAdjustmentResponse;
+import com.sms.backend.dto.inventory.StockAlertFilter;
+import com.sms.backend.dto.inventory.StockAlertSummaryResponse;
 import com.sms.backend.dto.inventory.StockCheckResponse;
 import com.sms.backend.dto.inventory.StockHistoryFilter;
 import com.sms.backend.dto.inventory.StockMovementPageResponse;
@@ -150,6 +152,36 @@ public class InventoryController {
         );
         StockMovementPageResponse result = inventoryService.getStockHistory(filter);
         return ResponseEntity.ok(ApiResponse.success("Stock history retrieved", result));
+    }
+
+    // =========================================================================
+    // UC35 - Stock Alerts
+    // =========================================================================
+
+    /**
+     * GET /api/v1/inventory/alerts
+     * GET /api/v1/inventory/stock-alerts
+     *
+     * Retrieves stock alert summary counts and paginated alert items (Low Stock, Out of Stock, Near Expiry, Expired).
+     *
+     * Query params:
+     *   keyword    - search by product name, SKU, or barcode
+     *   categoryId - filter by category ID
+     *   alertType  - ALL | LOW_STOCK | OUT_OF_STOCK | NEAR_EXPIRY | EXPIRED
+     *   page       - 0-based page index (default 0)
+     *   size       - page size (default 20)
+     */
+    @GetMapping({"/alerts", "/stock-alerts"})
+    public ResponseEntity<ApiResponse<StockAlertSummaryResponse>> getStockAlerts(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) String alertType,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        StockAlertFilter filter = new StockAlertFilter(keyword, categoryId, alertType, page, size);
+        StockAlertSummaryResponse result = inventoryService.getStockAlerts(filter);
+        return ResponseEntity.ok(ApiResponse.success("Stock alerts retrieved", result));
     }
 
     // =========================================================================
