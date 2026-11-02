@@ -1,4 +1,4 @@
-package com.sms.backend.service.impl;
+package com.sms.backend.service.serviceImpl;
 
 import com.sms.backend.dto.response.PageResponse;
 import com.sms.backend.dto.response.SystemLogResponse;
