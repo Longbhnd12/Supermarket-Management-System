@@ -4,9 +4,15 @@ const saleService = {
     getSales: async (params = {}) => (await API.get('/sales', { params })).data,
     getById: (id) => API.get(`/sales/${id}`),
     getBySaleNumber: (saleNumber) => API.get(`/sales/number/${saleNumber}`),
-    create: () => API.post('/sales'),
+    create: (data) => API.post('/sales', data),                   // { cashierId }
+    searchProducts: (params) => API.get('/sales/products', { params }), // { barcode } or { keyword }
     addItem: (saleId, itemData) => API.post(`/sales/${saleId}/items`, itemData),
+    updateItemQuantity: (saleId, saleItemId, quantity) =>
+        API.patch(`/sales/${saleId}/items/${saleItemId}`, { quantity }),
     removeItem: (saleId, saleItemId) => API.delete(`/sales/${saleId}/items/${saleItemId}`),
+    calculateTotal: (saleId) => API.post(`/sales/${saleId}/calculate`),
+    invoice: (saleId) => API.get(`/sales/${saleId}/invoice`),
+    invoicePdf: (saleId) => API.get(`/sales/${saleId}/invoice/pdf`, { responseType: 'blob' }),
     complete: (saleId) => API.post(`/sales/${saleId}/complete`),
     cancel: (saleId) => API.post(`/sales/${saleId}/cancel`)
 };
