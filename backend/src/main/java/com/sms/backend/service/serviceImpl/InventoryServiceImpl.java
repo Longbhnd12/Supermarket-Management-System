@@ -7,7 +7,14 @@ import com.sms.backend.dto.inventory.InventoryPageResponse;
 import com.sms.backend.dto.inventory.InventoryResponse;
 import com.sms.backend.dto.inventory.StockAdjustmentRequest;
 import com.sms.backend.dto.inventory.StockAdjustmentResponse;
+import com.sms.backend.dto.inventory.StockAlertFilter;
+import com.sms.backend.dto.inventory.StockAlertItemResponse;
+import com.sms.backend.dto.inventory.StockAlertSummaryResponse;
+import com.sms.backend.dto.inventory.StockCheckItemRequest;
 import com.sms.backend.dto.inventory.StockCheckResponse;
+import com.sms.backend.dto.inventory.StockCheckSessionRequest;
+import com.sms.backend.dto.inventory.StockCheckSessionResponse;
+import com.sms.backend.dto.inventory.UpdateStockCheckCountRequest;
 import com.sms.backend.dto.inventory.StockHistoryFilter;
 import com.sms.backend.dto.inventory.StockMovementPageResponse;
 import com.sms.backend.dto.inventory.StockMovementResponse;
@@ -39,6 +46,7 @@ import com.sms.backend.repository.StockMovementRepository;
 import com.sms.backend.repository.StockReceiptDetailRepository;
 import com.sms.backend.repository.StockReceiptRepository;
 import com.sms.backend.repository.SupplierRepository;
+import com.sms.backend.repository.SystemSettingRepository;
 import com.sms.backend.repository.UserRepository;
 import com.sms.backend.service.InventoryService;
 import lombok.RequiredArgsConstructor;
@@ -56,9 +64,14 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -67,9 +80,7 @@ import java.util.stream.Collectors;
 public class InventoryServiceImpl implements InventoryService {
 
     /**
-     * Days-ahead window for NEAR_EXPIRY detection.
-     * LIMITATION: SRS/SDD says this is a system_setting. Hard-coded to 30 days
-     * until UC35 (system settings) is implemented.
+     * Days-ahead window for NEAR_EXPIRY detection fallback.
      */
     private static final int NEAR_EXPIRY_DAYS = 30;
 
@@ -81,6 +92,7 @@ public class InventoryServiceImpl implements InventoryService {
     private final SupplierRepository supplierRepository;
     private final UserRepository userRepository;
     private final PurchaseOrderRepository purchaseOrderRepository;
+    private final SystemSettingRepository systemSettingRepository;
 
     // =========================================================================
     // UC31 - Inventory List
@@ -165,15 +177,45 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     // =========================================================================
-    // Stock status derivation (SRS Â§3.10.1)
+    // Stock status derivation (SRS §3.10.1 & UC35)
     // =========================================================================
+
+    private int getNearExpiryThresholdDays() {
+        if (systemSettingRepository == null) return NEAR_EXPIRY_DAYS;
+        return systemSettingRepository.findBySettingKey("NEAR_EXPIRY_DAYS")
+                .or(() -> systemSettingRepository.findBySettingKey("EXPIRY_WARNING_DAYS"))
+                .or(() -> systemSettingRepository.findBySettingKey("NEAR_EXPIRY_WARNING_DAYS"))
+                .or(() -> systemSettingRepository.findBySettingKey("EXPIRATION_WARNING_DAYS"))
+                .map(s -> {
+                    try {
+                        return Integer.parseInt(s.getSettingValue().trim());
+                    } catch (Exception e) {
+                        return NEAR_EXPIRY_DAYS;
+                    }
+                })
+                .orElse(NEAR_EXPIRY_DAYS);
+    }
+
+    private BigDecimal getDefaultLowStockThreshold() {
+        if (systemSettingRepository == null) return BigDecimal.ZERO;
+        return systemSettingRepository.findBySettingKey("DEFAULT_LOW_STOCK_THRESHOLD")
+                .or(() -> systemSettingRepository.findBySettingKey("LOW_STOCK_THRESHOLD"))
+                .map(s -> {
+                    try {
+                        return new BigDecimal(s.getSettingValue().trim());
+                    } catch (Exception e) {
+                        return BigDecimal.ZERO;
+                    }
+                })
+                .orElse(BigDecimal.ZERO);
+    }
 
     private String deriveStockStatus(Product p) {
         BigDecimal qty = p.getStockQuantity();
         BigDecimal minLevel = p.getMinimumStockLevel();
         if (qty.compareTo(BigDecimal.ZERO) <= 0) return "OUT_OF_STOCK";
         if (Boolean.TRUE.equals(p.getTrackExpiry())) {
-            LocalDate threshold = LocalDate.now().plusDays(NEAR_EXPIRY_DAYS);
+            LocalDate threshold = LocalDate.now().plusDays(getNearExpiryThresholdDays());
             boolean nearExpiry = stockReceiptDetailRepository.findByProduct(p).stream()
                     .filter(d -> d.getStockReceipt().getStatus() == StockReceiptStatus.CONFIRMED)
                     .filter(d -> d.getRemainingQuantity() != null
@@ -281,19 +323,36 @@ public class InventoryServiceImpl implements InventoryService {
         }
 
         // 4. Validate Stock Check reference if provided (prevent duplicate update for same discrepancy)
+        StockCheck linkedStockCheck = null;
         if (request.stockCheckId() != null) {
             if (stockMovementRepository.existsByReferenceTypeAndReferenceId(StockReferenceType.STOCK_CHECK, request.stockCheckId())) {
-                throw new BusinessException("Stock adjustment has already been applied for stock check session: " + request.stockCheckId());
+                throw new BusinessException("Stock adjustment has already been applied for stock check item: " + request.stockCheckId());
             }
-            Optional<StockCheck> scOpt = stockCheckRepository.findById(request.stockCheckId());
-            if (scOpt.isPresent()) {
-                StockCheck sc = scOpt.get();
-                if (!sc.getProduct().getProductId().equals(request.productId())) {
-                    throw new BadRequestException("Stock check session does not match the specified product");
-                }
-                sc.setStatus("COMPLETED");
-                stockCheckRepository.save(sc);
+            StockCheck sc = stockCheckRepository.findById(request.stockCheckId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Stock check record not found with ID: " + request.stockCheckId()));
+
+            if (!sc.getProduct().getProductId().equals(request.productId())) {
+                throw new BadRequestException("Stock check session does not match the specified product");
             }
+            if ("COMPLETED".equalsIgnoreCase(sc.getStatus()) || "ADJUSTED".equalsIgnoreCase(sc.getStatus())) {
+                throw new BusinessException("Stock adjustment has already been applied for this stock check item");
+            }
+
+            // Verify discrepancy exists and matches requested adjustment type and quantity
+            BigDecimal diff = sc.getDifference() != null ? sc.getDifference() : BigDecimal.ZERO;
+            if (diff.compareTo(BigDecimal.ZERO) == 0) {
+                throw new BadRequestException("Cannot adjust stock for a balanced stock check record (variance is 0)");
+            }
+            String expectedType = diff.compareTo(BigDecimal.ZERO) < 0 ? "DECREASE" : "INCREASE";
+            if (!expectedType.equalsIgnoreCase(typeStr)) {
+                throw new BadRequestException("Adjustment type must be " + expectedType + " for this stock check discrepancy");
+            }
+            BigDecimal expectedQty = diff.abs();
+            if (qty.compareTo(expectedQty) != 0) {
+                throw new BadRequestException("Adjustment quantity (" + qty + ") does not match audited discrepancy (" + expectedQty + ")");
+            }
+
+            linkedStockCheck = sc;
         }
 
         // 5. Lock product and fetch current stock (pessimistic write lock for concurrency safety)
@@ -305,6 +364,17 @@ public class InventoryServiceImpl implements InventoryService {
         }
 
         BigDecimal previousStock = product.getStockQuantity() != null ? product.getStockQuantity() : BigDecimal.ZERO;
+
+        // Conflict detection: If current stock has changed since counting, do not blindly apply an outdated variance
+        if (linkedStockCheck != null && linkedStockCheck.getSystemQuantity() != null) {
+            if (previousStock.compareTo(linkedStockCheck.getSystemQuantity()) != 0) {
+                throw new BusinessException("Stock conflict: Current stock (" + previousStock
+                        + ") has changed from counted system balance (" + linkedStockCheck.getSystemQuantity()
+                        + "). Master stock has moved since the audit. Please re-verify the count before adjusting.");
+            }
+            linkedStockCheck.setStatus("COMPLETED");
+            stockCheckRepository.save(linkedStockCheck);
+        }
         BigDecimal newStock;
         BigDecimal quantityChange;
 
@@ -795,20 +865,429 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     private StockCheckResponse toCheckResponse(StockCheck sc) {
+        Product p = sc.getProduct();
+        BigDecimal price = (p != null && p.getSellingPrice() != null) ? p.getSellingPrice() : BigDecimal.ZERO;
+        BigDecimal financialImpact = (sc.getDifference() != null && price != null)
+                ? sc.getDifference().multiply(price)
+                : BigDecimal.ZERO;
+
+        BigDecimal currentStock = (p != null && p.getStockQuantity() != null) ? p.getStockQuantity() : BigDecimal.ZERO;
+        boolean isReconciled = "COMPLETED".equalsIgnoreCase(sc.getStatus()) || "ADJUSTED".equalsIgnoreCase(sc.getStatus());
+        boolean hasDiscrepancy = sc.getDifference() != null && sc.getDifference().compareTo(BigDecimal.ZERO) != 0;
+        boolean isStale = !isReconciled && hasDiscrepancy && sc.getSystemQuantity() != null && currentStock.compareTo(sc.getSystemQuantity()) != 0;
+
         return new StockCheckResponse(
                 sc.getStockCheckId(),
                 sc.getCheckNumber(),
-                sc.getProduct().getProductId(),
-                sc.getProduct().getProductName(),
-                sc.getProduct().getProductCode(),
-                sc.getCheckedBy().getUserId(),
-                sc.getCheckedBy().getUsername(),
+                p != null ? p.getProductId() : null,
+                p != null ? p.getProductName() : null,
+                p != null ? p.getProductCode() : null,
+                p != null ? p.getBarcode() : null,
+                (p != null && p.getCategory() != null) ? p.getCategory().getCategoryName() : "Uncategorized",
+                p != null ? p.getUnit() : null,
+                sc.getCheckedBy() != null ? sc.getCheckedBy().getUserId() : null,
+                sc.getCheckedBy() != null ? sc.getCheckedBy().getUsername() : null,
                 sc.getSystemQuantity(),
                 sc.getActualQuantity(),
                 sc.getDifference(),
+                currentStock,
+                isStale,
+                price,
+                financialImpact,
                 sc.getReason(),
                 sc.getStatus(),
                 sc.getCheckedAt()
         );
+    }
+
+    // =========================================================================
+    // UC32 - Stock Check & Stock Difference
+    // =========================================================================
+
+    @Override
+    public String getNextStockCheckSessionNumber() {
+        String todayStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        long nextId = stockCheckRepository.findTopByOrderByStockCheckIdDesc()
+                .map(sc -> sc.getStockCheckId() + 1)
+                .orElse(1L);
+        String candidate = String.format("SC-%s-%03d", todayStr, nextId % 1000 == 0 ? 1 : nextId % 1000);
+        int counter = 1;
+        while (stockCheckRepository.existsByCheckNumber(candidate)) {
+            candidate = String.format("SC-%s-%03d", todayStr, counter++);
+        }
+        return candidate;
+    }
+
+    @Override
+    @Transactional
+    public StockCheckSessionResponse performStockCheck(StockCheckSessionRequest request) {
+        if (request == null || request.items() == null || request.items().isEmpty()) {
+            throw new BadRequestException("At least one product item must be counted in the stock check session");
+        }
+
+        String sessionNumber = request.checkNumber() != null && !request.checkNumber().isBlank()
+                ? request.checkNumber().trim()
+                : getNextStockCheckSessionNumber();
+
+        // Prevent duplicate products in the same audit session (BR-04)
+        Set<Long> seenProductIds = new HashSet<>();
+        for (StockCheckItemRequest item : request.items()) {
+            if (item.productId() == null) {
+                throw new BadRequestException("Product ID is required for all counted items");
+            }
+            if (!seenProductIds.add(item.productId())) {
+                throw new BadRequestException("An item can only appear once per audit session. Duplicate product ID: " + item.productId());
+            }
+            if (item.actualQuantity() == null || item.actualQuantity().compareTo(BigDecimal.ZERO) < 0) {
+                throw new BadRequestException("Physical Count values must be non-negative integers (>= 0)");
+            }
+            if (item.actualQuantity().remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) != 0) {
+                throw new BadRequestException("Physical Count values must be non-negative integers");
+            }
+        }
+
+        User currentUser = resolveCurrentUser();
+        LocalDateTime now = LocalDateTime.now();
+        List<StockCheck> savedChecks = new ArrayList<>();
+
+        for (StockCheckItemRequest item : request.items()) {
+            Product product = productRepository.findById(item.productId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + item.productId()));
+
+            if (product.getStatus() != GeneralStatus.ACTIVE) {
+                throw new BadRequestException("Cannot perform stock check on inactive product: " + product.getProductName());
+            }
+
+            BigDecimal systemQty = product.getStockQuantity() != null ? product.getStockQuantity() : BigDecimal.ZERO;
+            BigDecimal actualQty = item.actualQuantity();
+            BigDecimal diff = actualQty.subtract(systemQty);
+            String status = diff.compareTo(BigDecimal.ZERO) == 0 ? "MATCHED" : "PENDING_ADJUSTMENT";
+
+            StockCheck sc = new StockCheck();
+            sc.setCheckNumber(sessionNumber);
+            sc.setProduct(product);
+            sc.setCheckedBy(currentUser);
+            sc.setSystemQuantity(systemQty);
+            sc.setActualQuantity(actualQty);
+            sc.setDifference(diff);
+            sc.setReason(item.reason() != null && !item.reason().isBlank() ? item.reason().trim() : null);
+            sc.setStatus(status);
+            sc.setCheckedAt(now);
+
+            // Note: UC32 only records physical counts and calculates discrepancies.
+            // Master Product.stockQuantity is NOT altered, and StockMovement is NOT created here (BR-05).
+            savedChecks.add(stockCheckRepository.save(sc));
+        }
+
+        return buildSessionResponse(sessionNumber, currentUser != null ? currentUser.getUsername() : "System", now, savedChecks);
+    }
+
+    @Override
+    public StockCheckSessionResponse getStockCheckSession(String checkNumber) {
+        if (checkNumber == null || checkNumber.isBlank()) {
+            throw new BadRequestException("Session check number is required");
+        }
+        List<StockCheck> list = stockCheckRepository.findByCheckNumber(checkNumber.trim());
+        if (list.isEmpty()) {
+            throw new ResourceNotFoundException("Stock check session not found: " + checkNumber);
+        }
+
+        StockCheck first = list.get(0);
+        String username = first.getCheckedBy() != null ? first.getCheckedBy().getUsername() : "System";
+        LocalDateTime checkedAt = first.getCheckedAt() != null ? first.getCheckedAt() : LocalDateTime.now();
+
+        return buildSessionResponse(checkNumber.trim(), username, checkedAt, list);
+    }
+
+    @Override
+    public List<StockCheckSessionResponse> getAllStockCheckSessions() {
+        List<StockCheck> all = stockCheckRepository.findAllWithDetails();
+        java.util.Map<String, List<StockCheck>> grouped = all.stream()
+                .collect(Collectors.groupingBy(StockCheck::getCheckNumber, java.util.LinkedHashMap::new, Collectors.toList()));
+
+        List<StockCheckSessionResponse> result = new ArrayList<>();
+        for (java.util.Map.Entry<String, List<StockCheck>> entry : grouped.entrySet()) {
+            String checkNumber = entry.getKey();
+            List<StockCheck> checks = entry.getValue();
+            StockCheck first = checks.get(0);
+            String username = first.getCheckedBy() != null ? first.getCheckedBy().getUsername() : "System";
+            LocalDateTime checkedAt = first.getCheckedAt() != null ? first.getCheckedAt() : LocalDateTime.now();
+            result.add(buildSessionResponse(checkNumber, username, checkedAt, checks));
+        }
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public StockCheckResponse updateStockCheckItemCount(Long stockCheckId, UpdateStockCheckCountRequest request) {
+        if (stockCheckId == null) {
+            throw new BadRequestException("Stock check ID is required");
+        }
+        if (request == null || request.actualQuantity() == null) {
+            throw new BadRequestException("Physical count quantity is required");
+        }
+        if (request.actualQuantity().compareTo(BigDecimal.ZERO) < 0) {
+            throw new BadRequestException("Physical count must be non-negative (>= 0)");
+        }
+        if (request.actualQuantity().remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) != 0) {
+            throw new BadRequestException("Physical count must be a whole integer");
+        }
+
+        StockCheck sc = stockCheckRepository.findById(stockCheckId)
+                .orElseThrow(() -> new ResourceNotFoundException("Stock check record not found with ID: " + stockCheckId));
+
+        // Reject if item has already been reconciled/adjusted through UC33
+        if ("COMPLETED".equalsIgnoreCase(sc.getStatus()) || "ADJUSTED".equalsIgnoreCase(sc.getStatus())
+                || stockMovementRepository.existsByReferenceTypeAndReferenceId(StockReferenceType.STOCK_CHECK, stockCheckId)) {
+            throw new BusinessException("Cannot edit physical count for an item that has already been reconciled/adjusted through UC33");
+        }
+
+        BigDecimal systemQty = sc.getSystemQuantity() != null ? sc.getSystemQuantity() : BigDecimal.ZERO;
+        BigDecimal newActualQty = request.actualQuantity();
+        BigDecimal newDiff = newActualQty.subtract(systemQty);
+        String newStatus = newDiff.compareTo(BigDecimal.ZERO) == 0 ? "MATCHED" : "PENDING_ADJUSTMENT";
+
+        sc.setActualQuantity(newActualQty);
+        sc.setDifference(newDiff);
+        sc.setStatus(newStatus);
+        if (request.reason() != null && !request.reason().isBlank()) {
+            sc.setReason(request.reason().trim());
+        }
+
+        // Master Product.stockQuantity remains untouched and no StockMovement is created
+        StockCheck saved = stockCheckRepository.save(sc);
+        return toCheckResponse(saved);
+    }
+
+    private StockCheckSessionResponse buildSessionResponse(String checkNumber, String username, LocalDateTime checkedAt, List<StockCheck> checks) {
+        int totalSkus = checks.size();
+        int matchedCount = 0;
+        int discrepancyCount = 0;
+        int staleCount = 0;
+        BigDecimal netQtyVariance = BigDecimal.ZERO;
+        BigDecimal netFinancialVariance = BigDecimal.ZERO;
+        List<StockCheckResponse> itemResponses = new ArrayList<>();
+
+        for (StockCheck sc : checks) {
+            StockCheckResponse resp = toCheckResponse(sc);
+            itemResponses.add(resp);
+
+            BigDecimal diff = sc.getDifference() != null ? sc.getDifference() : BigDecimal.ZERO;
+            netQtyVariance = netQtyVariance.add(diff);
+            if (resp.financialImpact() != null) {
+                netFinancialVariance = netFinancialVariance.add(resp.financialImpact());
+            }
+
+            if (diff.compareTo(BigDecimal.ZERO) == 0) {
+                matchedCount++;
+            } else {
+                discrepancyCount++;
+            }
+
+            if (Boolean.TRUE.equals(resp.isStale())) {
+                staleCount++;
+            }
+        }
+
+        return new StockCheckSessionResponse(
+                checkNumber,
+                username,
+                checkedAt,
+                totalSkus,
+                matchedCount,
+                discrepancyCount,
+                staleCount,
+                netQtyVariance,
+                netFinancialVariance,
+                itemResponses
+        );
+    }
+
+    // =========================================================================
+    // UC35 - Stock Alerts
+    // =========================================================================
+
+    @Override
+    public StockAlertSummaryResponse getStockAlerts(StockAlertFilter filter) {
+        LocalDate today = LocalDate.now();
+        int warningDays = getNearExpiryThresholdDays();
+        LocalDate nearExpiryThreshold = today.plusDays(warningDays);
+
+        List<StockAlertItemResponse> allAlerts = new ArrayList<>();
+
+        // 1. Evaluate Product stock level alerts (OUT_OF_STOCK, LOW_STOCK)
+        List<Product> products = productRepository.findAll();
+        for (Product p : products) {
+            if (p.getStatus() != GeneralStatus.ACTIVE) continue;
+
+            BigDecimal stock = p.getStockQuantity() == null ? BigDecimal.ZERO : p.getStockQuantity();
+            BigDecimal minLevel = p.getMinimumStockLevel();
+            if (minLevel == null || minLevel.compareTo(BigDecimal.ZERO) <= 0) {
+                minLevel = getDefaultLowStockThreshold();
+            }
+
+            if (stock.compareTo(BigDecimal.ZERO) <= 0) {
+                allAlerts.add(new StockAlertItemResponse(
+                        "STOCK-" + p.getProductId() + "-OUT_OF_STOCK",
+                        p.getProductId(),
+                        p.getProductCode(),
+                        p.getBarcode(),
+                        p.getProductName(),
+                        p.getCategory() != null ? p.getCategory().getCategoryId() : null,
+                        p.getCategory() != null ? p.getCategory().getCategoryName() : "Uncategorized",
+                        p.getUnit(),
+                        "OUT_OF_STOCK",
+                        stock,
+                        minLevel,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
+                ));
+            } else if (minLevel.compareTo(BigDecimal.ZERO) > 0 && stock.compareTo(minLevel) <= 0) {
+                allAlerts.add(new StockAlertItemResponse(
+                        "STOCK-" + p.getProductId() + "-LOW_STOCK",
+                        p.getProductId(),
+                        p.getProductCode(),
+                        p.getBarcode(),
+                        p.getProductName(),
+                        p.getCategory() != null ? p.getCategory().getCategoryId() : null,
+                        p.getCategory() != null ? p.getCategory().getCategoryName() : "Uncategorized",
+                        p.getUnit(),
+                        "LOW_STOCK",
+                        stock,
+                        minLevel,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
+                ));
+            }
+        }
+
+        // 2. Evaluate batch expiration alerts (EXPIRED, NEAR_EXPIRY)
+        // Confirmed receipts only, remaining quantity > 0, trackExpiry = true
+        List<StockReceiptDetail> expiringBatches = stockReceiptDetailRepository.findActiveExpiringBatches();
+        for (StockReceiptDetail d : expiringBatches) {
+            Product p = d.getProduct();
+            if (p == null || p.getStatus() != GeneralStatus.ACTIVE) continue;
+            LocalDate exp = d.getExpirationDate();
+            if (exp == null) continue;
+
+            long days = ChronoUnit.DAYS.between(today, exp);
+
+            if (exp.isBefore(today)) {
+                allAlerts.add(new StockAlertItemResponse(
+                        "BATCH-" + d.getStockReceiptItemId() + "-EXPIRED",
+                        p.getProductId(),
+                        p.getProductCode(),
+                        p.getBarcode(),
+                        p.getProductName(),
+                        p.getCategory() != null ? p.getCategory().getCategoryId() : null,
+                        p.getCategory() != null ? p.getCategory().getCategoryName() : "Uncategorized",
+                        p.getUnit(),
+                        "EXPIRED",
+                        p.getStockQuantity(),
+                        p.getMinimumStockLevel(),
+                        d.getBatchNumber(),
+                        d.getRemainingQuantity(),
+                        exp,
+                        days,
+                        d.getStockReceipt() != null ? d.getStockReceipt().getReceiptNumber() : null
+                ));
+            } else if (!exp.isAfter(nearExpiryThreshold)) {
+                allAlerts.add(new StockAlertItemResponse(
+                        "BATCH-" + d.getStockReceiptItemId() + "-NEAR_EXPIRY",
+                        p.getProductId(),
+                        p.getProductCode(),
+                        p.getBarcode(),
+                        p.getProductName(),
+                        p.getCategory() != null ? p.getCategory().getCategoryId() : null,
+                        p.getCategory() != null ? p.getCategory().getCategoryName() : "Uncategorized",
+                        p.getUnit(),
+                        "NEAR_EXPIRY",
+                        p.getStockQuantity(),
+                        p.getMinimumStockLevel(),
+                        d.getBatchNumber(),
+                        d.getRemainingQuantity(),
+                        exp,
+                        days,
+                        d.getStockReceipt() != null ? d.getStockReceipt().getReceiptNumber() : null
+                ));
+            }
+        }
+
+        // 3. Category filtering for counts and items
+        Long catId = filter.categoryId();
+        List<StockAlertItemResponse> categoryAlerts = catId != null
+                ? allAlerts.stream().filter(a -> catId.equals(a.categoryId())).toList()
+                : allAlerts;
+
+        long lowStockCount = categoryAlerts.stream().filter(a -> "LOW_STOCK".equalsIgnoreCase(a.alertType())).count();
+        long outOfStockCount = categoryAlerts.stream().filter(a -> "OUT_OF_STOCK".equalsIgnoreCase(a.alertType())).count();
+        long nearExpiryCount = categoryAlerts.stream().filter(a -> "NEAR_EXPIRY".equalsIgnoreCase(a.alertType())).count();
+        long expiredCount = categoryAlerts.stream().filter(a -> "EXPIRED".equalsIgnoreCase(a.alertType())).count();
+        long totalAlerts = categoryAlerts.size();
+
+        // 4. Apply Alert Type and Keyword Filters
+        String kw = filter.normalizedKeyword();
+        String kwLower = kw != null ? kw.toLowerCase() : null;
+        String alertType = filter.alertType();
+
+        List<StockAlertItemResponse> filtered = categoryAlerts.stream()
+                .filter(a -> {
+                    if (alertType != null && !alertType.isBlank() && !"ALL".equalsIgnoreCase(alertType)) {
+                        if (!alertType.equalsIgnoreCase(a.alertType())) {
+                            return false;
+                        }
+                    }
+                    if (kwLower != null) {
+                        boolean matchName = a.productName() != null && a.productName().toLowerCase().contains(kwLower);
+                        boolean matchCode = a.productCode() != null && a.productCode().toLowerCase().contains(kwLower);
+                        boolean matchBarcode = a.barcode() != null && a.barcode().toLowerCase().contains(kwLower);
+                        if (!matchName && !matchCode && !matchBarcode) {
+                            return false;
+                        }
+                    }
+                    return true;
+                })
+                .sorted(Comparator
+                        .comparing((StockAlertItemResponse a) -> getAlertSeverityOrder(a.alertType()))
+                        .thenComparing(a -> a.expiryDate() != null ? a.expiryDate() : LocalDate.MAX)
+                        .thenComparing(a -> a.productName() != null ? a.productName() : "")
+                )
+                .collect(Collectors.toList());
+
+        long totalElements = filtered.size();
+        int size = filter.size();
+        int page = filter.page();
+        int totalPages = (int) Math.ceil((double) totalElements / size);
+
+        int fromIndex = Math.min(page * size, (int) totalElements);
+        int toIndex = Math.min(fromIndex + size, (int) totalElements);
+        List<StockAlertItemResponse> pageAlerts = filtered.subList(fromIndex, toIndex);
+
+        return new StockAlertSummaryResponse(
+                lowStockCount,
+                outOfStockCount,
+                nearExpiryCount,
+                expiredCount,
+                totalAlerts,
+                pageAlerts,
+                page,
+                size,
+                totalElements,
+                totalPages
+        );
+    }
+
+    private int getAlertSeverityOrder(String alertType) {
+        if ("EXPIRED".equalsIgnoreCase(alertType)) return 1;
+        if ("OUT_OF_STOCK".equalsIgnoreCase(alertType)) return 2;
+        if ("NEAR_EXPIRY".equalsIgnoreCase(alertType)) return 3;
+        if ("LOW_STOCK".equalsIgnoreCase(alertType)) return 4;
+        return 5;
     }
 }

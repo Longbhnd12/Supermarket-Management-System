@@ -170,6 +170,20 @@ export default function InventoryPage() {
                             <><DownloadIcon /> Export CSV</>
                         )}
                     </button>
+                    {/* UC35 – Stock Alerts */}
+                    <button
+                        id="inv-stock-alerts-btn"
+                        className="inv-btn inv-btn--secondary"
+                        onClick={() => navigate('/inventory/stock-alerts')}
+                        title="View stock alerts (UC35)"
+                    >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+                            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                            <line x1="12" y1="9" x2="12" y2="13" />
+                            <line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                        Stock Alerts
+                    </button>
                     {/* UC33 – Adjust Stock */}
                     <button
                         id="inv-adjust-stock-btn"
@@ -182,12 +196,12 @@ export default function InventoryPage() {
                         </svg>
                         Adjust Stock
                     </button>
-                    {/* UC32 – Stock Check: route not yet implemented */}
+                    {/* UC32 – Stock Check */}
                     <button
                         id="inv-stock-check-btn"
-                        className="inv-btn inv-btn--primary inv-btn--disabled"
-                        title="Stock Check (not yet implemented)"
-                        disabled
+                        className="inv-btn inv-btn--primary"
+                        onClick={() => navigate('/inventory/stock-check')}
+                        title="Start physical stock audit (UC32)"
                     >
                         <ClipboardIcon /> Start Stock Check
                     </button>

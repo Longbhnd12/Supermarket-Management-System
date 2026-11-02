@@ -23,6 +23,10 @@ export default function AdjustStockPage() {
     const [searchParams] = useSearchParams();
     const urlProductId = searchParams.get('productId');
     const urlStockCheckId = searchParams.get('stockCheckId');
+    const urlType = searchParams.get('type');
+    const urlQuantity = searchParams.get('quantity');
+    const urlReason = searchParams.get('reason');
+    const urlSession = searchParams.get('session');
 
     // ── Products cache & selection ──
     const [allProducts, setAllProducts] = useState([]);
@@ -38,14 +42,22 @@ export default function AdjustStockPage() {
     const dropdownRef = useRef(null);
 
     // ── Form State ──
-    const [adjustmentType, setAdjustmentType] = useState('INCREASE'); // 'INCREASE' | 'DECREASE'
-    const [quantityInput, setQuantityInput] = useState('');
-    const [reason, setReason] = useState('');
+    const [adjustmentType, setAdjustmentType] = useState(urlType === 'DECREASE' ? 'DECREASE' : 'INCREASE'); // 'INCREASE' | 'DECREASE'
+    const [quantityInput, setQuantityInput] = useState(urlQuantity || '');
+    const [reason, setReason] = useState(urlReason || '');
     const [stockCheckId, setStockCheckId] = useState(urlStockCheckId || '');
+
+    // ── Stock Check Link & Conflict State (UC32 -> UC33) ──
+    const [linkedStockCheck, setLinkedStockCheck] = useState(null);
+    const [loadingStockCheck, setLoadingStockCheck] = useState(false);
+    const [stockCheckConflict, setStockCheckConflict] = useState('');
+    const [alreadyAdjustedError, setAlreadyAdjustedError] = useState('');
+    const isStockCheckLocked = Boolean(stockCheckId);
 
     // ── UI / Error / Modal State ──
     const [fieldErrors, setFieldErrors] = useState({});
     const [apiError, setApiError] = useState('');
+    const [manualSwitchWarning, setManualSwitchWarning] = useState('');
     const [successData, setSuccessData] = useState(null);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -79,6 +91,97 @@ export default function AdjustStockPage() {
 
         return () => { isMounted = false; };
     }, [urlProductId]);
+
+    // Synchronize form when query parameters change
+    useEffect(() => {
+        if (urlType) setAdjustmentType(urlType);
+        if (urlQuantity) setQuantityInput(urlQuantity);
+        if (urlReason) setReason(urlReason);
+        if (urlStockCheckId) setStockCheckId(urlStockCheckId);
+    }, [urlType, urlQuantity, urlReason, urlStockCheckId]);
+
+    // Fetch and validate Stock Check reference if linked (UC32 -> UC33)
+    useEffect(() => {
+        if (!stockCheckId) {
+            setLinkedStockCheck(null);
+            setStockCheckConflict('');
+            setAlreadyAdjustedError('');
+            return;
+        }
+
+        let isMounted = true;
+        setLoadingStockCheck(true);
+        setStockCheckConflict('');
+        setAlreadyAdjustedError('');
+
+        InventoryService.getCheckById(stockCheckId)
+            .then(res => {
+                if (!isMounted) return;
+                const sc = res.data?.data;
+                if (!sc) return;
+
+                setLinkedStockCheck(sc);
+
+                // Check if already adjusted
+                if (sc.status === 'COMPLETED' || sc.status === 'ADJUSTED') {
+                    setAlreadyAdjustedError(`This Stock Check discrepancy (Check #${stockCheckId}) has already been adjusted into inventory.`);
+                }
+
+                // Preselect Product if available
+                if (sc.productId && (!selectedProduct || selectedProduct.productId !== sc.productId)) {
+                    const match = allProducts.find(p => String(p.productId) === String(sc.productId));
+                    if (match) {
+                        setSelectedProduct(match);
+                    } else {
+                        ProductService.getById(sc.productId).then(pRes => {
+                            if (isMounted && pRes.data?.data) {
+                                setSelectedProduct(pRes.data.data);
+                            }
+                        }).catch(() => {});
+                    }
+                }
+
+                // Determine adjustment type from variance:
+                // Negative variance -> DECREASE; Positive variance -> INCREASE
+                const diff = sc.difference != null ? Number(sc.difference) : 0;
+                const expectedType = diff < 0 ? 'DECREASE' : 'INCREASE';
+                const expectedQty = Math.abs(diff);
+
+                setAdjustmentType(expectedType);
+                setQuantityInput(String(expectedQty));
+
+                if (sc.reason && !reason) {
+                    setReason(sc.reason);
+                }
+            })
+            .catch(() => {
+                if (!isMounted) return;
+                setApiError(`Failed to load Stock Check #${stockCheckId} details.`);
+            })
+            .finally(() => {
+                if (isMounted) setLoadingStockCheck(false);
+            });
+
+        return () => { isMounted = false; };
+    }, [stockCheckId, allProducts]);
+
+    // Conflict detection: verify current stock still matches recorded system balance before audit
+    useEffect(() => {
+        if (linkedStockCheck && selectedProduct) {
+            const recordedSysQty = linkedStockCheck.systemQuantity != null ? Number(linkedStockCheck.systemQuantity) : null;
+            const currentMasterQty = selectedProduct.stockQuantity != null ? Number(selectedProduct.stockQuantity) : null;
+
+            if (recordedSysQty !== null && currentMasterQty !== null && recordedSysQty !== currentMasterQty) {
+                setStockCheckConflict(
+                    `Stock Conflict Detected: Current master stock on hand (${formatQty(currentMasterQty)}) has changed from the system balance recorded during the audit (${formatQty(recordedSysQty)}). Master stock has moved since the audit. Revalidation is required before adjusting.`
+                );
+            } else {
+                setStockCheckConflict('');
+            }
+        } else {
+            setStockCheckConflict('');
+        }
+    }, [linkedStockCheck, selectedProduct]);
 
     // Close dropdown on outside click
     useEffect(() => {
@@ -152,12 +255,23 @@ export default function AdjustStockPage() {
         selectedProduct &&
         isValidPositiveInt &&
         !isStockNegative &&
-        reason.trim().length > 0
+        reason.trim().length > 0 &&
+        !stockCheckConflict &&
+        !alreadyAdjustedError &&
+        !loadingStockCheck
     );
 
     // ── Validation before Opening Modal ──
     const validateForm = () => {
         const errors = {};
+
+        if (alreadyAdjustedError) {
+            errors.stockCheck = alreadyAdjustedError;
+        }
+
+        if (stockCheckConflict) {
+            errors.stockCheck = stockCheckConflict;
+        }
 
         if (!selectedProduct) {
             errors.product = 'Please search and select a product to adjust.';
@@ -239,6 +353,28 @@ export default function AdjustStockPage() {
         }
     };
 
+    const handleSwitchToManual = () => {
+        const prevSession = urlSession || linkedStockCheck?.checkNumber || '';
+        const prevItemId = stockCheckId;
+
+        // Unlink Stock Check association
+        setStockCheckId('');
+        setLinkedStockCheck(null);
+        setStockCheckConflict('');
+        setAlreadyAdjustedError('');
+
+        // Reset Type, Quantity, Reason to defaults
+        setAdjustmentType('INCREASE');
+        setQuantityInput('');
+        setReason('');
+        setFieldErrors({});
+
+        // Display warning banner that original audit discrepancy remains unresolved
+        setManualSwitchWarning(
+            `Switched to Manual Adjustment: The discrepancy for Audit Session ${prevSession ? `"${prevSession}" ` : ''}(Item #${prevItemId}) remains unresolved and pending in Stock Difference. This manual adjustment will not reconcile or complete that audit item.`
+        );
+    };
+
     const handleResetForAnother = () => {
         setSelectedProduct(null);
         setAdjustmentType('INCREASE');
@@ -248,6 +384,7 @@ export default function AdjustStockPage() {
         setSuccessData(null);
         setApiError('');
         setFieldErrors({});
+        setManualSwitchWarning('');
     };
 
     return (
@@ -276,6 +413,71 @@ export default function AdjustStockPage() {
                 </div>
             )}
 
+            {/* ── Already Adjusted Warning Banner ── */}
+            {alreadyAdjustedError && (
+                <div className="adj-alert adj-alert--error" role="alert">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    <div style={{ flex: 1 }}>
+                        <strong>Discrepancy Already Adjusted:</strong>
+                        <div>{alreadyAdjustedError}</div>
+                    </div>
+                    {urlSession && (
+                        <button
+                            type="button"
+                            className="adj-btn adj-btn--secondary adj-btn--sm"
+                            onClick={() => navigate(`/inventory/stock-difference?session=${encodeURIComponent(urlSession)}`)}
+                        >
+                            Back to Stock Difference
+                        </button>
+                    )}
+                </div>
+            )}
+
+            {/* ── Stock Conflict Error Banner ── */}
+            {stockCheckConflict && (
+                <div className="adj-alert adj-alert--error" role="alert">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <div style={{ flex: 1 }}>
+                        <strong>Stale Discrepancy / Stock Conflict:</strong>
+                        <div>{stockCheckConflict}</div>
+                    </div>
+                    {urlSession && (
+                        <button
+                            type="button"
+                            className="adj-btn adj-btn--secondary adj-btn--sm"
+                            onClick={() => navigate(`/inventory/stock-difference?session=${encodeURIComponent(urlSession)}`)}
+                        >
+                            Return to Revalidate
+                        </button>
+                    )}
+                </div>
+            )}
+
+            {/* ── Manual Switch Warning Banner ── */}
+            {manualSwitchWarning && (
+                <div className="adj-alert adj-alert--warning" role="alert">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <div style={{ flex: 1 }}>
+                        <strong>⚠️ Discrepancy Unresolved Warning:</strong>
+                        <div>{manualSwitchWarning}</div>
+                    </div>
+                    <button
+                        type="button"
+                        className="adj-alert__close"
+                        onClick={() => setManualSwitchWarning('')}
+                        title="Dismiss warning"
+                    >
+                        ×
+                    </button>
+                </div>
+            )}
+
             {/* ── Success Alert Banner ── */}
             {successData && (
                 <div className="adj-alert adj-alert--success" role="status">
@@ -290,6 +492,15 @@ export default function AdjustStockPage() {
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
+                        {urlSession && (
+                            <button
+                                type="button"
+                                className="adj-btn adj-btn--secondary"
+                                onClick={() => navigate(`/inventory/stock-difference?session=${encodeURIComponent(urlSession)}`)}
+                            >
+                                Back to Stock Difference
+                            </button>
+                        )}
                         <button type="button" className="adj-btn adj-btn--ghost" onClick={handleResetForAnother}>
                             Adjust Another
                         </button>
@@ -313,89 +524,113 @@ export default function AdjustStockPage() {
                         </h2>
                         {stockCheckId && (
                             <span className="adj-session-badge" title="Audit session reference">
-                                Stock Check #{stockCheckId}
+                                {urlSession || linkedStockCheck?.checkNumber ? `Session: ${urlSession || linkedStockCheck?.checkNumber} • ` : ''}Item #{stockCheckId}
                             </span>
                         )}
                     </div>
 
-                    {/* Search Method Switcher */}
+                    {/* Search Method Switcher or Stock Check Locked Banner */}
                     <div className="adj-search-wrap">
-                        <div className="adj-search-tabs">
-                            <button
-                                type="button"
-                                className={`adj-tab-btn ${searchMode === 'keyword' ? 'adj-tab-btn--active' : ''}`}
-                                onClick={() => setSearchMode('keyword')}
-                            >
-                                Name / SKU Search
-                            </button>
-                            <button
-                                type="button"
-                                className={`adj-tab-btn ${searchMode === 'barcode' ? 'adj-tab-btn--active' : ''}`}
-                                onClick={() => setSearchMode('barcode')}
-                            >
-                                Barcode Scanner
-                            </button>
-                        </div>
-
-                        {searchMode === 'keyword' ? (
-                            <div className="adj-input-group" ref={dropdownRef}>
-                                <input
-                                    type="text"
-                                    id="adj-product-search"
-                                    className={`adj-input ${fieldErrors.product ? 'adj-input--error' : ''}`}
-                                    placeholder={loadingProducts ? 'Loading products…' : 'Type product name, SKU or barcode…'}
-                                    value={keyword}
-                                    onChange={(e) => {
-                                        setKeyword(e.target.value);
-                                        setIsDropdownOpen(true);
-                                    }}
-                                    onFocus={() => setIsDropdownOpen(true)}
-                                    disabled={loadingProducts}
-                                />
-                                {isDropdownOpen && searchResults.length > 0 && (
-                                    <ul className="adj-search-dropdown" role="listbox">
-                                        {searchResults.map(p => (
-                                            <li
-                                                key={p.productId}
-                                                className="adj-search-item"
-                                                onClick={() => handleSelectProduct(p)}
-                                                role="option"
-                                                aria-selected={selectedProduct?.productId === p.productId}
-                                            >
-                                                <div className="adj-search-item__main">
-                                                    <span className="adj-search-item__name">{p.productName}</span>
-                                                    <span className="adj-search-item__code">SKU: {p.productCode} {p.barcode ? `• Barcode: ${p.barcode}` : ''}</span>
-                                                </div>
-                                                <span className="adj-search-item__stock">
-                                                    On Hand: {formatQty(p.stockQuantity)} {p.unit}
-                                                </span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
+                        {isStockCheckLocked ? (
+                            <div className="adj-lock-banner">
+                                <div className="adj-lock-banner__body">
+                                    <span className="adj-lock-banner__title">🔒 Locked to Audited Stock Discrepancy</span>
+                                    <p className="adj-lock-banner__desc">
+                                        Session: <strong>{urlSession || linkedStockCheck?.checkNumber || '—'}</strong> • Item ID: <strong>#{stockCheckId}</strong>
+                                        <br />
+                                        Adjusting audited variance for <strong>{selectedProduct?.productName || 'the selected product'}</strong>.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    id="adj-switch-manual-btn"
+                                    className="adj-btn adj-btn--secondary adj-btn--sm"
+                                    onClick={handleSwitchToManual}
+                                    title="Unlink from Stock Check and switch to manual adjustment mode"
+                                >
+                                    Switch to Manual Adjustment
+                                </button>
                             </div>
                         ) : (
-                            <form onSubmit={handleBarcodeSubmit} className="adj-input-group">
-                                <input
-                                    type="text"
-                                    id="adj-barcode-input"
-                                    className={`adj-input ${barcodeError ? 'adj-input--error' : ''}`}
-                                    placeholder="Scan barcode or press Enter to lookup…"
-                                    value={barcodeInput}
-                                    onChange={(e) => setBarcodeInput(e.target.value)}
-                                    autoFocus
-                                />
-                                <button type="submit" className="adj-btn adj-btn--primary" style={{ marginLeft: '8px' }}>
-                                    Find
-                                </button>
-                            </form>
-                        )}
+                            <>
+                                <div className="adj-search-tabs">
+                                    <button
+                                        type="button"
+                                        className={`adj-tab-btn ${searchMode === 'keyword' ? 'adj-tab-btn--active' : ''}`}
+                                        onClick={() => setSearchMode('keyword')}
+                                    >
+                                        Name / SKU Search
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`adj-tab-btn ${searchMode === 'barcode' ? 'adj-tab-btn--active' : ''}`}
+                                        onClick={() => setSearchMode('barcode')}
+                                    >
+                                        Barcode Scanner
+                                    </button>
+                                </div>
 
-                        {barcodeError && (
-                            <span className="adj-field-error">{barcodeError}</span>
-                        )}
-                        {fieldErrors.product && (
-                            <span className="adj-field-error">{fieldErrors.product}</span>
+                                {searchMode === 'keyword' ? (
+                                    <div className="adj-input-group" ref={dropdownRef}>
+                                        <input
+                                            type="text"
+                                            id="adj-product-search"
+                                            className={`adj-input ${fieldErrors.product ? 'adj-input--error' : ''}`}
+                                            placeholder={loadingProducts ? 'Loading products…' : 'Type product name, SKU or barcode…'}
+                                            value={keyword}
+                                            onChange={(e) => {
+                                                setKeyword(e.target.value);
+                                                setIsDropdownOpen(true);
+                                            }}
+                                            onFocus={() => setIsDropdownOpen(true)}
+                                            disabled={loadingProducts}
+                                        />
+                                        {isDropdownOpen && searchResults.length > 0 && (
+                                            <ul className="adj-search-dropdown" role="listbox">
+                                                {searchResults.map(p => (
+                                                    <li
+                                                        key={p.productId}
+                                                        className="adj-search-item"
+                                                        onClick={() => handleSelectProduct(p)}
+                                                        role="option"
+                                                        aria-selected={selectedProduct?.productId === p.productId}
+                                                    >
+                                                        <div className="adj-search-item__main">
+                                                            <span className="adj-search-item__name">{p.productName}</span>
+                                                            <span className="adj-search-item__code">SKU: {p.productCode} {p.barcode ? `• Barcode: ${p.barcode}` : ''}</span>
+                                                        </div>
+                                                        <span className="adj-search-item__stock">
+                                                            On Hand: {formatQty(p.stockQuantity)} {p.unit}
+                                                        </span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <form onSubmit={handleBarcodeSubmit} className="adj-input-group">
+                                        <input
+                                            type="text"
+                                            id="adj-barcode-input"
+                                            className={`adj-input ${barcodeError ? 'adj-input--error' : ''}`}
+                                            placeholder="Scan barcode or press Enter to lookup…"
+                                            value={barcodeInput}
+                                            onChange={(e) => setBarcodeInput(e.target.value)}
+                                            autoFocus
+                                        />
+                                        <button type="submit" className="adj-btn adj-btn--primary" style={{ marginLeft: '8px' }}>
+                                            Find
+                                        </button>
+                                    </form>
+                                )}
+
+                                {barcodeError && (
+                                    <span className="adj-field-error">{barcodeError}</span>
+                                )}
+                                {fieldErrors.product && (
+                                    <span className="adj-field-error">{fieldErrors.product}</span>
+                                )}
+                            </>
                         )}
                     </div>
 
@@ -462,14 +697,23 @@ export default function AdjustStockPage() {
 
                     {/* Adjustment Type Selector */}
                     <div className="adj-form-group">
-                        <label className="adj-label">
-                            Adjustment Type <span className="adj-req">*</span>
-                        </label>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                            <label className="adj-label" style={{ margin: 0 }}>
+                                Adjustment Type <span className="adj-req">*</span>
+                            </label>
+                            {isStockCheckLocked && (
+                                <span className="adj-lock-tag" title="Locked to audited discrepancy">
+                                    🔒 Locked ({adjustmentType})
+                                </span>
+                            )}
+                        </div>
                         <div className="adj-type-toggle">
                             <button
                                 type="button"
-                                className={`adj-type-btn adj-type-btn--inc ${adjustmentType === 'INCREASE' ? 'adj-type-btn--active' : ''}`}
-                                onClick={() => setAdjustmentType('INCREASE')}
+                                className={`adj-type-btn adj-type-btn--inc ${adjustmentType === 'INCREASE' ? 'adj-type-btn--active' : ''} ${isStockCheckLocked ? 'adj-type-btn--locked' : ''}`}
+                                onClick={() => !isStockCheckLocked && setAdjustmentType('INCREASE')}
+                                disabled={isStockCheckLocked}
+                                title={isStockCheckLocked ? "Locked to audited Stock Check discrepancy" : "Increase stock"}
                             >
                                 <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
                                     <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
@@ -478,8 +722,10 @@ export default function AdjustStockPage() {
                             </button>
                             <button
                                 type="button"
-                                className={`adj-type-btn adj-type-btn--dec ${adjustmentType === 'DECREASE' ? 'adj-type-btn--active' : ''}`}
-                                onClick={() => setAdjustmentType('DECREASE')}
+                                className={`adj-type-btn adj-type-btn--dec ${adjustmentType === 'DECREASE' ? 'adj-type-btn--active' : ''} ${isStockCheckLocked ? 'adj-type-btn--locked' : ''}`}
+                                onClick={() => !isStockCheckLocked && setAdjustmentType('DECREASE')}
+                                disabled={isStockCheckLocked}
+                                title={isStockCheckLocked ? "Locked to audited Stock Check discrepancy" : "Decrease stock"}
                             >
                                 <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
                                     <path fillRule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
@@ -491,25 +737,43 @@ export default function AdjustStockPage() {
 
                     {/* Adjustment Quantity Input */}
                     <div className="adj-form-group">
-                        <label htmlFor="adj-qty-input" className="adj-label">
-                            Adjustment Quantity <span className="adj-req">*</span>
-                            <span style={{ fontWeight: 400, color: '#64748b', marginLeft: '6px' }}>
-                                (Whole positive integer)
-                            </span>
-                        </label>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                            <label htmlFor="adj-qty-input" className="adj-label" style={{ margin: 0 }}>
+                                Adjustment Quantity <span className="adj-req">*</span>
+                                {!isStockCheckLocked && (
+                                    <span style={{ fontWeight: 400, color: '#64748b', marginLeft: '6px' }}>
+                                        (Whole positive integer)
+                                    </span>
+                                )}
+                            </label>
+                            {isStockCheckLocked && (
+                                <span className="adj-lock-tag" title="Locked to audited discrepancy">
+                                    🔒 Locked ({quantityInput} {selectedProduct?.unit || 'items'})
+                                </span>
+                            )}
+                        </div>
                         <input
                             type="number"
                             id="adj-qty-input"
                             min="1"
                             step="1"
-                            className={`adj-input ${fieldErrors.quantity ? 'adj-input--error' : ''}`}
+                            className={`adj-input ${fieldErrors.quantity ? 'adj-input--error' : ''} ${isStockCheckLocked ? 'adj-input--locked' : ''}`}
                             placeholder="e.g. 5"
                             value={quantityInput}
                             onChange={(e) => {
-                                setQuantityInput(e.target.value);
-                                setFieldErrors(prev => ({ ...prev, quantity: null }));
+                                if (!isStockCheckLocked) {
+                                    setQuantityInput(e.target.value);
+                                    setFieldErrors(prev => ({ ...prev, quantity: null }));
+                                }
                             }}
+                            readOnly={isStockCheckLocked}
+                            disabled={isStockCheckLocked}
                         />
+                        {isStockCheckLocked && (
+                            <span className="adj-lock-hint">
+                                🔒 Quantity is locked to the audited variance from Stock Check #{stockCheckId}.
+                            </span>
+                        )}
                         {fieldErrors.quantity && (
                             <span className="adj-field-error">{fieldErrors.quantity}</span>
                         )}
@@ -547,21 +811,22 @@ export default function AdjustStockPage() {
                         )}
                     </div>
 
-                    {/* Audit Session Reference (Optional) */}
+                    {/* Audit Session Reference */}
                     <div className="adj-form-group">
                         <label htmlFor="adj-session-ref" className="adj-label">
-                            Audit Session Reference (Optional)
+                            Audit Session Reference
                             <span style={{ fontWeight: 400, color: '#64748b', marginLeft: '6px' }}>
-                                (Linked Stock Check session ID)
+                                {isStockCheckLocked ? '(Read-only reference to audit session item)' : '(Direct manual mode - no audit session linked)'}
                             </span>
                         </label>
                         <input
                             type="text"
                             id="adj-session-ref"
-                            className="adj-input"
-                            placeholder="Leave blank for direct manual adjustment"
-                            value={stockCheckId}
-                            onChange={(e) => setStockCheckId(e.target.value)}
+                            className={`adj-input ${isStockCheckLocked ? 'adj-input--locked' : ''}`}
+                            placeholder="Direct manual adjustment (no audit session linked)"
+                            value={stockCheckId ? `Session: ${urlSession || linkedStockCheck?.checkNumber || 'Audit'} • Item #${stockCheckId}` : ''}
+                            readOnly
+                            disabled
                         />
                     </div>
 

@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
@@ -156,5 +157,182 @@ class InventoryControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Start date cannot be after end date"));
+    }
+
+    // =========================================================================
+    // UC35 - Stock Alerts Tests
+    // =========================================================================
+
+    @Test
+    @DisplayName("GET /api/v1/inventory/alerts - Returns 200 with StockAlertSummaryResponse")
+    void testGetStockAlertsEndpoint() throws Exception {
+        mockMvc.perform(get("/api/v1/inventory/alerts")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Stock alerts retrieved"))
+                .andExpect(jsonPath("$.data.lowStockCount").isNumber())
+                .andExpect(jsonPath("$.data.outOfStockCount").isNumber())
+                .andExpect(jsonPath("$.data.nearExpiryCount").isNumber())
+                .andExpect(jsonPath("$.data.expiredCount").isNumber())
+                .andExpect(jsonPath("$.data.totalAlerts").isNumber())
+                .andExpect(jsonPath("$.data.alerts").isArray())
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(10))
+                .andExpect(jsonPath("$.data.totalElements").isNumber())
+                .andExpect(jsonPath("$.data.totalPages").isNumber());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/inventory/stock-alerts?alertType=LOW_STOCK - Filters by alertType")
+    void testGetStockAlertsFilteredByTypeEndpoint() throws Exception {
+        mockMvc.perform(get("/api/v1/inventory/stock-alerts")
+                        .param("alertType", "LOW_STOCK")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.alerts").isArray());
+    }
+
+    // =========================================================================
+    // UC32 - Stock Check & Stock Difference Controller Tests
+    // =========================================================================
+
+    @Test
+    @DisplayName("GET /api/v1/inventory/checks/next-session - Generates valid next session number")
+    void testGetNextStockCheckSessionEndpoint() throws Exception {
+        mockMvc.perform(get("/api/v1/inventory/checks/next-session")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data", startsWith("SC-")));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/inventory/checks - Creates stock check session and returns 201 Created")
+    void testPerformStockCheckEndpointSuccess() throws Exception {
+        String jsonPayload = """
+                {
+                    "checkNumber": "SC-TEST-001",
+                    "items": [
+                        {
+                            "productId": 1,
+                            "actualQuantity": 150,
+                            "reason": "Normal physical count"
+                        }
+                    ]
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/inventory/checks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.checkNumber").value("SC-TEST-001"))
+                .andExpect(jsonPath("$.data.totalSkus").value(1))
+                .andExpect(jsonPath("$.data.items", hasSize(1)))
+                .andExpect(jsonPath("$.data.items[0].productId").value(1));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/inventory/checks - Fails 400 when items are empty")
+    void testPerformStockCheckEndpointEmptyItems() throws Exception {
+        String jsonPayload = """
+                {
+                    "checkNumber": "SC-EMPTY-001",
+                    "items": []
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/inventory/checks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("At least one product item must be counted"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/inventory/checks/session/{checkNumber} - Returns session details")
+    void testGetStockCheckSessionEndpoint() throws Exception {
+        // First create a session
+        String jsonPayload = """
+                {
+                    "checkNumber": "SC-FETCH-001",
+                    "items": [
+                        {
+                            "productId": 1,
+                            "actualQuantity": 100,
+                            "reason": "Initial test check"
+                        }
+                    ]
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/inventory/checks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload))
+                .andExpect(status().isCreated());
+
+        // Then retrieve session
+        mockMvc.perform(get("/api/v1/inventory/checks/session/SC-FETCH-001")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.checkNumber").value("SC-FETCH-001"))
+                .andExpect(jsonPath("$.data.totalSkus").value(1));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/inventory/checks/sessions - Returns list of audit sessions")
+    void testGetAllStockCheckSessionsEndpoint() throws Exception {
+        mockMvc.perform(get("/api/v1/inventory/checks/sessions")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isArray());
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/inventory/checks/{id} - Updates physical count for unreconciled item")
+    void testUpdateStockCheckCountEndpoint() throws Exception {
+        String sessionPayload = """
+                {
+                    "checkNumber": "SC-UPDATE-001",
+                    "items": [
+                        {
+                            "productId": 1,
+                            "actualQuantity": 50,
+                            "reason": "Initial miscount"
+                        }
+                    ]
+                }
+                """;
+
+        String postResponse = mockMvc.perform(post("/api/v1/inventory/checks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(sessionPayload))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        // Extract stockCheckId
+        Integer stockCheckId = com.jayway.jsonpath.JsonPath.read(postResponse, "$.data.items[0].stockCheckId");
+
+        String updatePayload = """
+                {
+                    "actualQuantity": 125,
+                    "reason": "Corrected physical count"
+                }
+                """;
+
+        mockMvc.perform(put("/api/v1/inventory/checks/" + stockCheckId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updatePayload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.actualQuantity").value(125))
+                .andExpect(jsonPath("$.data.reason").value("Corrected physical count"));
     }
 }
