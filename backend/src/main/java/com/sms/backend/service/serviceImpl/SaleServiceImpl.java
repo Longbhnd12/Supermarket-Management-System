@@ -57,6 +57,7 @@ public class SaleServiceImpl implements SaleService {
     private final UserRepository userRepository;
     private final PaymentRepository paymentRepository;
     private final com.sms.backend.service.SaleCompletionService completion;
+    private final com.sms.backend.service.SalePromotionCalculator promotions;
 
     @Override
     public PageResponse<SaleListItemResponse> getSales(String search, String status, LocalDateTime fromDate, LocalDateTime toDate, int page, int size) {
@@ -155,7 +156,7 @@ public class SaleServiceImpl implements SaleService {
                 || itemRequest.quantity().compareTo(new BigDecimal("999999999.999")) > 0) {
             throw new BadRequestException("Invalid product ID or quantity");
         }
-        if (itemRequest.promotionId() != null) throw new BadRequestException("Promotions belong to UC27 and are not supported by UC24");
+        if (itemRequest.promotionId() != null) throw new BadRequestException("Promotions are selected automatically; omit promotionId");
         Product product = productRepository.findById(itemRequest.productId())
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + itemRequest.productId()));
         if (product.getStatus() != GeneralStatus.ACTIVE) throw new BadRequestException("Product must be active");
@@ -177,15 +178,12 @@ public class SaleServiceImpl implements SaleService {
             item.setDiscountAmount(new BigDecimal("0.00"));
             items.add(item);
         } else {
-            if (item.getPromotion() != null || item.getDiscountAmount().signum() != 0) {
-                throw new BadRequestException("Quantity changes on discounted items require UC27 promotion recalculation");
-            }
             BigDecimal quantity = item.getQuantity().add(itemRequest.quantity());
             validateQuantity(quantity);
             item.setQuantity(quantity);
         }
         recalculateTotals(sale, items);
-        saleItemRepository.save(item);
+        saleItemRepository.saveAll(items);
         return toResponse(saleRepository.save(sale));
     }
 
@@ -197,16 +195,13 @@ public class SaleServiceImpl implements SaleService {
         validateQuantity(request.quantity());
         List<SaleItem> items = saleItemRepository.findBySale(sale);
         SaleItem item = findItem(items, saleItemId);
-        if (item.getPromotion() != null || item.getDiscountAmount().signum() != 0) {
-            throw new BadRequestException("Quantity changes on discounted items require UC27 promotion recalculation");
-        }
         validateStock(item.getProduct(), items, item, request.quantity());
         BigDecimal lineTotal = item.getUnitPrice().multiply(request.quantity()).setScale(2, RoundingMode.HALF_UP);
         validateMoney(lineTotal);
         item.setQuantity(request.quantity());
         item.setSubtotal(lineTotal);
         recalculateTotals(sale, items);
-        saleItemRepository.save(item);
+        saleItemRepository.saveAll(items);
         return toResponse(saleRepository.save(sale));
     }
 
@@ -219,6 +214,7 @@ public class SaleServiceImpl implements SaleService {
         items.remove(item);
         recalculateTotals(sale, items);
         saleItemRepository.delete(item);
+        saleItemRepository.saveAll(items);
         return toResponse(saleRepository.save(sale));
     }
 
@@ -300,17 +296,17 @@ public class SaleServiceImpl implements SaleService {
         for (SaleItem item : items) {
             validateQuantity(item.getQuantity());
             validateMoney(item.getUnitPrice());
-            validateMoney(item.getDiscountAmount());
             BigDecimal lineSubtotal = item.getUnitPrice().multiply(item.getQuantity()).setScale(2, RoundingMode.HALF_UP);
             validateMoney(lineSubtotal);
-            if (item.getDiscountAmount().compareTo(lineSubtotal) > 0) {
-                throw new BadRequestException("Item discount cannot exceed its subtotal");
-            }
             item.setSubtotal(lineSubtotal);
             subtotal = subtotal.add(lineSubtotal);
-            discount = discount.add(item.getDiscountAmount());
         }
         validateMoney(subtotal);
+        promotions.apply(items);
+        for (SaleItem item : items) {
+            validateMoney(item.getDiscountAmount());
+            discount = discount.add(item.getDiscountAmount());
+        }
         validateMoney(discount);
         BigDecimal total = subtotal.subtract(discount);
         validateMoney(total);

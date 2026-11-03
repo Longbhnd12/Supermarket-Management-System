@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
+import java.time.*;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -23,9 +24,14 @@ class SaleServiceImplTest {
     @Mock ProductRepository products;
     @Mock UserRepository users;
     @Mock PaymentRepository payments;
+    @Mock PromotionRepository promotions;
     SaleServiceImpl service;
 
-    @BeforeEach void setup() { service = new SaleServiceImpl(sales, items, products, users, payments, org.mockito.Mockito.mock(com.sms.backend.service.SaleCompletionService.class)); }
+    @BeforeEach void setup() {
+        service = new SaleServiceImpl(sales, items, products, users, payments,
+                mock(SaleCompletionService.class), new SalePromotionCalculator(promotions,
+                Clock.fixed(Instant.parse("2026-11-03T03:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh"))));
+    }
 
     @Test void createsEmptyDraftWithoutInvoice() {
         User user = new User(); user.setUserId(1L); user.setUsername("operator");
@@ -57,7 +63,11 @@ class SaleServiceImplTest {
         SaleItem existing = line(1L, "10.00", "1"); existing.getProduct().setProductId(3L);
         lines.add(existing);
         when(items.findBySale(sale)).thenReturn(lines);
-        doAnswer(i -> { lines.add(i.getArgument(0)); return i.getArgument(0); }).when(items).save(any());
+        doAnswer(i -> {
+            List<SaleItem> saved = i.getArgument(0);
+            saved.stream().filter(line -> !lines.contains(line)).forEach(lines::add);
+            return saved;
+        }).when(items).saveAll(any());
         SaleResponse result = service.addItemToSale(7L, new SaleItemRequest(2L, null, new BigDecimal("0.125")));
         assertEquals(new BigDecimal("11.54"), result.totalAmount());
         assertEquals(new BigDecimal("12.35"), result.items().get(1).unitPrice());
@@ -80,7 +90,7 @@ class SaleServiceImplTest {
         assertEquals(1, thirdScan.items().size());
         assertEquals(new BigDecimal("3"), thirdScan.items().getFirst().quantity());
         assertEquals(new BigDecimal("37.05"), thirdScan.totalAmount());
-        verify(items, times(2)).save(existing);
+        verify(items, times(2)).saveAll(List.of(existing));
     }
 
     @Test void repeatedAddRejectsCombinedQuantityOverflow() {
@@ -197,22 +207,20 @@ class SaleServiceImplTest {
         assertEquals(new BigDecimal("0.00"), result.subtotal());
     }
 
-    @Test void calculationUsesStoredDiscountsWithoutResolvingPromotions() {
+    @Test void calculationClearsStaleDiscountsWhenNoPromotionIsEligible() {
         SaleItem item = line(1L, "10.00", "2"); item.setDiscountAmount(new BigDecimal("3.00"));
         Sale sale = draftWithItems(List.of(item));
         when(sales.save(sale)).thenReturn(sale);
         SaleResponse result = service.calculateSaleTotal(7L);
         assertEquals(new BigDecimal("20.00"), result.subtotal());
-        assertEquals(new BigDecimal("3.00"), result.discountAmount());
-        assertEquals(new BigDecimal("17.00"), result.totalAmount());
+        assertEquals(new BigDecimal("0.00"), result.discountAmount());
+        assertEquals(new BigDecimal("20.00"), result.totalAmount());
     }
 
-    @Test void calculationRejectsOverflowAndDiscountLargerThanLine() {
+    @Test void calculationRejectsOverflowBeforeSaving() {
         SaleItem first = line(1L, "9999999999999.99", "1");
         SaleItem second = line(2L, "1.00", "1");
         draftWithItems(List.of(first, second));
-        assertThrows(BadRequestException.class, () -> service.calculateSaleTotal(7L));
-        first.setUnitPrice(BigDecimal.ONE); first.setDiscountAmount(new BigDecimal("2.00"));
         assertThrows(BadRequestException.class, () -> service.calculateSaleTotal(7L));
         verify(sales, never()).save(any()); verify(items, never()).saveAll(any());
     }
@@ -265,5 +273,49 @@ class SaleServiceImplTest {
         assertThrows(BadRequestException.class, () -> service.removeItemFromSale(7L, 1L));
         assertThrows(BadRequestException.class, () -> service.calculateSaleTotal(7L));
         verifyNoInteractions(items, products);
+    }
+
+    private Promotion fixedPromotion(Product product, String value) {
+        Promotion p = new Promotion(); p.setPromotionId(1L); p.setProduct(product);
+        p.setPromotionType(PromotionType.FIXED_AMOUNT); p.setDiscountValue(new BigDecimal(value));
+        p.setStartAt(LocalDateTime.of(2026, 11, 1, 0, 0)); p.setEndAt(LocalDateTime.of(2026, 11, 30, 0, 0));
+        return p;
+    }
+
+    @Test void discountedLineCanBeScannedAgainAndFixedDiscountAppliesOnlyOnce() {
+        SaleItem line = line(11L, "100.00", "1"); line.getProduct().setProductId(2L);
+        line.getProduct().setSellingPrice(new BigDecimal("999.00"));
+        line.setPromotion(fixedPromotion(line.getProduct(), "20")); line.setDiscountAmount(new BigDecimal("20.00"));
+        Sale sale = draftWithItems(List.of(line)); when(sales.save(sale)).thenReturn(sale);
+        when(products.findById(2L)).thenReturn(Optional.of(line.getProduct()));
+        when(promotions.findEffective(eq(GeneralStatus.ACTIVE), any())).thenReturn(List.of(line.getPromotion()));
+        var result = service.addItemToSale(7L, new SaleItemRequest(2L, null, BigDecimal.ONE));
+        assertEquals(11L, result.items().getFirst().saleItemId());
+        assertEquals(new BigDecimal("100.00"), result.items().getFirst().unitPrice());
+        assertEquals(new BigDecimal("20.00"), result.discountAmount());
+        assertEquals(new BigDecimal("180.00"), result.totalAmount());
+        verify(items).saveAll(List.of(line));
+    }
+
+    @Test void quantityChangeRefreshesDiscountOnEveryLineAndCalculateIsIdempotent() {
+        SaleItem a = line(1L, "100.00", "2"), b = line(2L, "100.00", "1");
+        a.setDiscountAmount(new BigDecimal("999.00")); b.setDiscountAmount(new BigDecimal("50.00"));
+        Sale sale = draftWithItems(List.of(a, b)); when(sales.save(sale)).thenReturn(sale);
+        when(promotions.findEffective(eq(GeneralStatus.ACTIVE), any())).thenReturn(List.of(fixedPromotion(a.getProduct(), "20")));
+        var result = service.updateItemQuantity(7L, 1L, new UpdateSaleItemRequest(new BigDecimal("0.125")));
+        assertEquals(new BigDecimal("12.50"), a.getDiscountAmount());
+        assertEquals(new BigDecimal("0.00"), b.getDiscountAmount());
+        assertEquals(new BigDecimal("100.00"), result.totalAmount());
+        assertEquals(result, service.calculateSaleTotal(7L));
+        verify(items, times(2)).saveAll(List.of(a, b));
+    }
+
+    @Test void removalReevaluatesRemainingPromotionsAndPersistsThem() {
+        SaleItem a = line(1L, "100.00", "1"), b = line(2L, "100.00", "1");
+        Sale sale = draftWithItems(new ArrayList<>(List.of(a, b))); when(sales.save(sale)).thenReturn(sale);
+        when(promotions.findEffective(eq(GeneralStatus.ACTIVE), any())).thenReturn(List.of(fixedPromotion(b.getProduct(), "20")));
+        var result = service.removeItemFromSale(7L, 1L);
+        assertEquals(new BigDecimal("80.00"), result.totalAmount());
+        verify(items).saveAll(List.of(b));
     }
 }

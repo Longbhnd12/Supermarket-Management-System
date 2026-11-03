@@ -26,9 +26,12 @@ class SaleCompletionDatabaseTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired PlatformTransactionManager manager;
     @Autowired Clock clock;
+    @Autowired SaleService sales;
+    @Autowired PaymentService payments;
     @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
     com.sms.backend.repository.SystemLogRepository logs;
     Long productId, categoryId, supplierId, userId, receiptId;
+    Long promotionId;
     List<Long> saleIds = new ArrayList<>();
     List<Long> batchIds = new ArrayList<>();
 
@@ -77,12 +80,37 @@ class SaleCompletionDatabaseTest {
             jdbc.update("delete from dbo.sale_item where sale_id=?", id); jdbc.update("delete from dbo.sale where sale_id=?", id);
         }
         if (receiptId != null) { jdbc.update("delete from dbo.stock_receipt_detail where stock_receipt_id=?", receiptId); jdbc.update("delete from dbo.stock_receipt where stock_receipt_id=?", receiptId); }
+        if (promotionId != null) jdbc.update("delete from dbo.promotion where promotion_id=?", promotionId);
         if (productId != null) jdbc.update("delete from dbo.product where product_id=?", productId);
         if (supplierId != null) jdbc.update("delete from dbo.supplier where supplier_id=?", supplierId);
         if (categoryId != null) jdbc.update("delete from dbo.category where category_id=?", categoryId);
         if (userId != null) jdbc.update("delete from dbo.[user] where user_id=?", userId);
     }
     BigDecimal remaining(Long id) { return jdbc.queryForObject("select remaining_quantity from dbo.stock_receipt_detail where stock_receipt_item_id=?", BigDecimal.class, id); }
+
+    @Test void discountedPaymentCompletesAndInvoiceKeepsDiscountAfterPromotionChanges() {
+        fixture("22", "1.5");
+        Long saleId = saleIds.getFirst();
+        new TransactionTemplate(manager).executeWithoutResult(status -> {
+            em.createQuery("delete from Payment p where p.sale.saleId = :id").setParameter("id", saleId).executeUpdate();
+            Promotion p = new Promotion(); p.setPromotionName("UC27 snapshot fixture");
+            p.setProduct(em.find(Product.class, productId)); p.setCreatedBy(em.find(User.class, userId));
+            p.setPromotionType(PromotionType.FIXED_AMOUNT); p.setDiscountValue(new BigDecimal("20"));
+            p.setStartAt(LocalDateTime.now(clock).minusDays(1)); p.setEndAt(LocalDateTime.now(clock).plusDays(1));
+            em.persist(p); promotionId = p.getPromotionId();
+            assertEquals(new BigDecimal("130.00"), sales.calculateSaleTotal(saleId).totalAmount());
+            payments.create(saleId, new com.sms.backend.dto.payment.CreatePaymentRequest(PaymentMethod.CASH,
+                    new BigDecimal("130"), new BigDecimal("150"), null, "uc27-" + UUID.randomUUID()), "127.0.0.1");
+        });
+        InvoiceResponse invoice = completion.complete(saleId);
+        assertEquals(new BigDecimal("20.00"), invoice.discountAmount());
+        assertEquals(new BigDecimal("130.00"), invoice.totalAmount());
+        assertEquals(new BigDecimal("20.00"), invoice.items().getFirst().discountAmount());
+        jdbc.update("update dbo.promotion set discount_value=99, status='INACTIVE' where promotion_id=?", promotionId);
+        assertEquals(invoice, completion.invoice(saleId));
+        assertEquals(invoice, completion.complete(saleId));
+        assertTrue(pdf.render(invoice).length > 0);
+    }
 
     @Test void fefoFractionalSplitImmutableInvoiceAndIdempotentRetry() throws Exception {
         fixture("22", "1.5");
