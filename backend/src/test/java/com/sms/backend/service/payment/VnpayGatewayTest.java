@@ -48,6 +48,28 @@ class VnpayGatewayTest {
         assertThrows(BadRequestException.class, () -> gateway.minorUnits(new BigDecimal("10000000000")));
         assertThrows(BadRequestException.class, () -> gateway.minorUnits(new BigDecimal("1.001")));
     }
+    @Test void sandboxMethodSelectionSignsFinalQueryWithoutChangingStoredBankCode() throws Exception {
+        for (String bank : List.of("VNPAYQR", "VNBANK", "INTCARD")) {
+            Payment payment = attempt(); payment.setBankCode(bank);
+            config.setSandboxOmitBankCode(false);
+            String original = gateway.createUrl(payment, "127.0.0.1");
+            assertTrue(original.contains("vnp_BankCode=" + bank));
+            config.setSandboxOmitBankCode(true);
+            String url = gateway.createUrl(payment, "127.0.0.1");
+            assertFalse(url.contains("vnp_BankCode"));
+            assertTrue(url.contains("vnp_TmnCode=TESTCODE"));
+            assertTrue(url.contains("vnp_Version=2.1.0"));
+            String[] parts = URI.create(url).getRawQuery().split("&vnp_SecureHash=", -1);
+            assertEquals(2, parts.length);
+            var mac = javax.crypto.Mac.getInstance("HmacSHA512");
+            mac.init(new javax.crypto.spec.SecretKeySpec("test-only-secret".getBytes(StandardCharsets.UTF_8), "HmacSHA512"));
+            assertEquals(HexFormat.of().formatHex(mac.doFinal(parts[0].getBytes(StandardCharsets.UTF_8))), parts[1]);
+            assertNotEquals(URI.create(original).getRawQuery().split("&vnp_SecureHash=")[1], parts[1]);
+            assertEquals(bank, payment.getBankCode());
+        }
+        config.setEnabledBankCodes(Set.of());
+        assertThrows(BadRequestException.class, () -> gateway.createUrl(attempt(), "127.0.0.1"));
+    }
     @Test void signatureAndMerchantMustMatchAndBothStatusCodesMustSucceed() {
         var p = callback(); assertTrue(gateway.verifyIpn(p).success());
         p.put("vnp_Amount", "1"); assertThrows(BadRequestException.class, () -> gateway.verifyIpn(p));

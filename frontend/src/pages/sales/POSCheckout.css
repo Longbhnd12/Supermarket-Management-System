@@ -186,3 +186,8 @@
 .pos-page .pos-cash-received-input:disabled { color: #475569; background: #f1f5f9; opacity: 1; }
 .pos-cash-received-input::-webkit-inner-spin-button, .pos-cash-received-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .pos-cash-received-formatted { display: block; text-align: right; color: #334155; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+.pos-pending-details { display: grid; gap: 8px; margin: 12px 0; }
+.pos-pending-details > div { display: grid; gap: 3px; }
+.pos-pending-details dt { font-size: 11px; }
+.pos-pending-details dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }

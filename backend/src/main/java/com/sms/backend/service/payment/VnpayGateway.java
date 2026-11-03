@@ -65,7 +65,8 @@ public class VnpayGateway implements PaymentGateway {
         p.put("vnp_Version", "2.1.0"); p.put("vnp_Command", "pay"); p.put("vnp_TmnCode", config.getTmnCode());
         p.put("vnp_Amount", minorUnits(payment.getAmount())); p.put("vnp_CurrCode", "VND");
         p.put("vnp_TxnRef", payment.getTxnRef()); p.put("vnp_OrderInfo", "Thanh toan don hang " + payment.getSale().getSaleId());
-        p.put("vnp_OrderType", "other"); p.put("vnp_Locale", "vn"); p.put("vnp_BankCode", payment.getBankCode());
+        p.put("vnp_OrderType", "other"); p.put("vnp_Locale", "vn");
+        if (!config.isSandboxOmitBankCode()) p.put("vnp_BankCode", payment.getBankCode());
         p.put("vnp_CreateDate", DATE.format(payment.getCreatedAt())); p.put("vnp_ExpireDate", DATE.format(payment.getExpiresAt()));
         p.put("vnp_IpAddr", customerIp); p.put("vnp_ReturnUrl", config.getReturnUrl());
         String query = canonical(p);

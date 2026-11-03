@@ -3,18 +3,12 @@ import SaleCompletionStatus from './SaleCompletionStatus';
 import PaymentService from '../../services/paymentService';
 import { getErrorMessage } from '../../utils/errorUtils';
 import useCashChangePreview from './useCashChangePreview';
-import { Banknote, CreditCard, QrCode, Wallet, ExternalLink, RefreshCw } from 'lucide-react';
+import { sandboxPaymentUrl, paymentExpiry, resumablePaymentUrl } from './paymentNavigation';
+import { Banknote, CreditCard, QrCode, ExternalLink, RefreshCw } from 'lucide-react';
 
-const methodIcons = { CASH: Banknote, CARD: CreditCard, QR: QrCode, EWALLET: Wallet };
+const methodIcons = { CASH: Banknote, CARD: CreditCard, QR: QrCode };
 
 const money = (value) => `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value ?? 0)} ₫`;
-function sandboxUrl(value) {
-    try {
-        const url = new URL(value);
-        return url.origin === 'https://sandbox.vnpayment.vn' && url.pathname === '/paymentv2/vpcpay.html' ? url.href : null;
-    } catch { return null; }
-}
-
 export default function PaymentPanel({ sale, busy, runAction, onLock, onCompleted }) {
     const [options, setOptions] = useState([]);
     const [methodsError, setMethodsError] = useState('');
@@ -27,6 +21,7 @@ export default function PaymentPanel({ sale, busy, runAction, onLock, onComplete
     const [error, setError] = useState('');
     const [paymentError, setPaymentError] = useState('');
     const [version, setVersion] = useState(0);
+    const [now, setNow] = useState(() => Date.now());
     const pendingRequest = useRef(null);
     const alive = useRef(false);
     const lockCallback = useRef(onLock);
@@ -38,7 +33,12 @@ export default function PaymentPanel({ sale, busy, runAction, onLock, onComplete
     useEffect(() => {
         let active = true;
         PaymentService.methods().then(({ data }) => {
-            if (active) { setOptions(data.data); setMethodsError(''); }
+            if (active) {
+                setOptions(data.data.filter((option) => option.method === 'CASH'
+                    || option.method === 'CARD' && option.bankCode === 'VNBANK'
+                    || option.method === 'QR' && option.bankCode === 'VNPAYQR'));
+                setMethodsError('');
+            }
         }).catch((err) => { if (active) setMethodsError(getErrorMessage(err)); })
             .finally(() => { if (active) setMethodsLoading(false); });
         return () => { active = false; };
@@ -70,10 +70,21 @@ export default function PaymentPanel({ sale, busy, runAction, onLock, onComplete
 
     const success = overview?.attempts.find((attempt) => attempt.status === 'SUCCESS');
     const latest = success ?? overview?.attempts[0];
+    useEffect(() => {
+        if (latest?.status !== 'PENDING') return;
+        const timer = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(timer);
+    }, [latest?.status, latest?.paymentId]);
+    const resumeUrl = !statusUnavailable && !busy && sale.status === 'DRAFT'
+        ? resumablePaymentUrl(latest, now) : null;
+    const expiresAt = paymentExpiry(latest?.expiresAt);
+    const locallyExpired = latest?.status === 'PENDING' && Number.isFinite(expiresAt) && expiresAt <= now;
+    const remainingSeconds = Number.isFinite(expiresAt) ? Math.max(0, Math.ceil((expiresAt - now) / 1000)) : 0;
     const selected = options.find((option) => `${option.method}:${option.bankCode ?? ''}` === selection);
     const locked = !overview || overview.locked || statusUnavailable;
     const disabled = busy || locked || sale.status !== 'DRAFT' || methodsLoading || Boolean(methodsError);
     const cashSelected = selected?.method === 'CASH';
+    const qrSelected = selected?.method === 'QR';
     const cashPreview = useCashChangePreview({ saleId: sale.saleId, total: sale.totalAmount, received,
         enabled: cashSelected && !locked && sale.status === 'DRAFT' && Number(sale.totalAmount) > 0 && sale.items.length > 0,
         revision: `${version}:${selection}` });
@@ -115,7 +126,7 @@ export default function PaymentPanel({ sale, busy, runAction, onLock, onComplete
                 setVersion((value) => value + 1);
                 if (payment.paymentUrl) {
                     // Only accept the exact Sandbox hosted origin; no arbitrary redirect from API data.
-                    const url = sandboxUrl(payment.paymentUrl);
+                    const url = sandboxPaymentUrl(payment.paymentUrl);
                     if (!url) {
                         setPaymentError('URL thanh toán không hợp lệ. Vui lòng tải lại trạng thái.'); return;
                     }
@@ -146,11 +157,25 @@ export default function PaymentPanel({ sale, busy, runAction, onLock, onComplete
             {success.changeAmount != null && <p>Tiền thừa: <strong>{money(success.changeAmount)}</strong></p>}
             {success.reconciliationRequired && <p>Có xung đột thanh toán đến muộn. Cần đối soát thủ công, không thu thêm tiền.</p>}
         </div> : latest && <div className="pos-payment-state" role="status">
-            <strong>{latest.status === 'PENDING' ? 'Đang chờ VNPay xác nhận' : latest.reconciliationRequired ? 'Cần đối soát kết quả thanh toán'
+            <strong>{latest.reconciliationRequired ? 'Cần đối soát kết quả thanh toán' : locallyExpired ? 'Đã hết thời hạn mở trang thanh toán' : latest.status === 'PENDING' ? 'Đang chờ VNPay xác nhận'
                 : latest.status === 'TIMEOUT' ? 'Giao dịch đã hết hạn' : 'Thanh toán không thành công'}</strong>
             <p>{latest.reconciliationRequired ? 'Chưa rõ kết quả thu tiền. Đơn tạm khóa để tránh thanh toán hai lần.'
                 : overview.locked ? 'Chưa thể thay đổi đơn hoặc thanh toán lại.' : 'Đơn vẫn được giữ. Có thể chọn phương thức và thử lại.'}</p>
-            {sandboxUrl(latest.paymentUrl) && <a className="pos-gateway-link" href={sandboxUrl(latest.paymentUrl)}><ExternalLink size={14} /> Tiếp tục tại VNPay Sandbox</a>}
+                        {latest.paymentMethod !== 'CASH' && <>
+                <dl className="pos-pending-details">
+                    <div><dt>Số tiền</dt><dd>{money(latest.amount)}</dd></div>
+                    <div><dt>Mã giao dịch</dt><dd>{latest.txnRef}</dd></div>
+                    {Number.isFinite(expiresAt) && <div><dt>Hạn thanh toán</dt><dd>{new Intl.DateTimeFormat('vi-VN', {
+                        timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'medium',
+                    }).format(expiresAt)} (giờ Việt Nam)</dd></div>}
+                </dl>
+                {resumeUrl && <>
+                    <p>Còn {Math.floor(remainingSeconds / 60)} phút {remainingSeconds % 60} giây để mở lại giao dịch này.</p>
+                    <a className="pos-gateway-link" href={resumeUrl}><ExternalLink size={14} />
+                        {latest.paymentMethod === 'QR' ? 'Mở lại trang QR VNPay' : 'Tiếp tục tại VNPay Sandbox'}</a>
+                </>}
+                {locallyExpired && <p>Không mở lại link đã hết hạn. Chờ máy chủ xác minh hoặc bấm Đối soát VNPay; không thu thêm tiền khi chưa rõ kết quả.</p>}
+            </>}
         </div>}
         {!success && <form onSubmit={submit}>
             <div className="pos-method-grid" role="group" aria-label="Chọn phương thức thanh toán">
@@ -159,8 +184,8 @@ export default function PaymentPanel({ sale, busy, runAction, onLock, onComplete
                     const Icon = methodIcons[option.method] ?? CreditCard;
                     return <button key={value} type="button" aria-pressed={selection === value}
                         disabled={disabled || !option.enabled} className="pos-method-option" onClick={() => setSelection(value)}>
-                        <Icon size={19} /><span>{option.label}<small>{option.enabled ? option.method === 'CASH' ? 'Tại quầy' : 'Qua VNPay Sandbox'
-                            : option.method === 'EWALLET' ? 'Chưa có provider' : 'Chưa được bật trên BE'}</small></span>
+                        <Icon size={19} /><span>{option.label}<small>{option.enabled ? option.method === 'CASH' ? 'Tại quầy' : option.method === 'QR' ? 'Quét mã trên trang VNPay' : 'Qua VNPay Sandbox'
+                            : 'Chưa được bật trên BE'}</small></span>
                     </button>;
                 })}
             </div>
@@ -184,9 +209,9 @@ export default function PaymentPanel({ sale, busy, runAction, onLock, onComplete
             </>}
             {!cashSelected && selected?.enabled && <div className="pos-electronic-info"><ExternalLink size={15} />
                 <p>Bạn sẽ chuyển sang VNPay Sandbox để thanh toán {money(sale.totalAmount)} bằng {selected.label.toLowerCase()}.
-                    Khi quay lại, hệ thống đọc kết quả từ máy chủ; đơn được khóa trong lúc chờ xác nhận.</p></div>}
+                    {qrSelected && 'Trang VNPay sẽ hiển thị mã QR của giao dịch để khách thanh toán. '}Khi quay lại, hệ thống đọc kết quả từ máy chủ; đơn được khóa trong lúc chờ xác nhận.</p></div>}
             <button className="pos-primary" disabled={disabled || !selected?.enabled || Number(sale.totalAmount) <= 0 || !sale.items.length || cashSelected && !canConfirmCash}>
-                {cashSelected ? 'Xác nhận tiền mặt' : 'Thanh toán qua VNPay'} · {money(sale.totalAmount)}</button>
+                {cashSelected ? 'Xác nhận tiền mặt' : qrSelected ? 'Mở trang QR VNPay' : 'Thanh toán qua VNPay'} · {money(sale.totalAmount)}</button>
         </form>}
         <div className="pos-payment-actions"><button disabled={busy} onClick={() => setVersion((value) => value + 1)}>Tải lại trạng thái</button>
             <button type="button" disabled={busy || methodsLoading} onClick={() => { setMethodsLoading(true); setMethodsVersion((value) => value + 1); }}>
@@ -199,3 +224,4 @@ export default function PaymentPanel({ sale, busy, runAction, onLock, onComplete
                 })}>Đối soát VNPay</button>}</div>
     </section>;
 }
+
