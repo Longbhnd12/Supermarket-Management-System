@@ -7,7 +7,7 @@ import { getErrorMessage } from '../../utils/errorUtils';
 import './POSCheckout.css';
 
 /**
- * POS integration for UC24/UC25/UC26. Payments are handled by later use cases.
+ * POS integration for UC24–30, including automatic line promotions.
  */
 const storageKey = 'sms.pos.currentSaleId';
 const money = (value) => `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(Number(value ?? 0))} ₫`;
@@ -270,7 +270,11 @@ export default function POSPage() {
                                     onSave={(id, quantity) => perform(async () => {
                                         acceptSale(await SaleService.updateItemQuantity(sale.saleId, id, Number(quantity)));
                                         setNotice('Đã cập nhật số lượng và tổng tiền.');
-                                    })} /></td><td className="pos-line-total">{money(item.subtotal)}</td>
+                                    })} /></td><td className="pos-line-total">{money(Number(item.subtotal) - Number(item.discountAmount))}
+                                        {Number(item.discountAmount) > 0 && <small className="pos-line-discount">
+                                            Trước giảm: {money(item.subtotal)}<br />Giảm: −{money(item.discountAmount)}
+                                        </small>}
+                                    </td>
                                 <td><button className="pos-remove" title="Xóa mặt hàng" aria-label={`Xóa ${item.productName}`} disabled={disabled || !editable}
                                     onClick={() => perform(async () => {
                                         acceptSale(await SaleService.removeItem(sale.saleId, item.saleItemId)); setNotice('Đã xóa mặt hàng và cập nhật tổng tiền.');
@@ -285,14 +289,16 @@ export default function POSPage() {
                     <header className="pos-receipt-heading"><div><span>ĐƠN BÁN HÀNG</span><strong>{sale ? `Đơn #${sale.saleId}` : 'Chưa tạo đơn'}</strong></div>
                         <span className="pos-status">{!sale ? 'Chờ tạo đơn' : editable ? 'Đang thực hiện' : sale.status === 'COMPLETED' ? 'Hoàn tất' : sale.status === 'CANCELLED' ? 'Đã hủy' : 'Đơn đang khóa'}</span></header>
                     <div className="pos-receipt-operator"><Store size={17} /><div><small>Thu ngân</small><strong>{sale?.cashierUsername ?? 'Chưa chọn người thao tác'}</strong></div></div>
-                    <dl className="pos-totals"><div><dt>Tổng tiền hàng (Subtotal):</dt><dd>{money(sale?.subtotal)}</dd></div></dl>
-                    <div className="pos-formula">Thành tiền mỗi dòng = Đơn giá × Số lượng</div>
+                    <dl className="pos-totals"><div><dt>Tổng tiền hàng (Subtotal):</dt><dd>{money(sale?.subtotal)}</dd></div>
+                        <div className="pos-discount-total"><dt>Giảm giá khuyến mãi:</dt><dd>−{money(sale?.discountAmount)}</dd></div></dl>
+                    <div className="pos-formula">Tổng phải trả = Tiền hàng − Giảm giá</div>
                     <div className="pos-final-total"><span>TỔNG TIỀN ĐƠN HÀNG</span><strong>{money(sale?.totalAmount)}</strong><small>VND · Tính từ các mặt hàng trong đơn</small></div>
                     {sale && <PaymentPanel key={sale.saleId} sale={sale} busy={busy} runAction={perform} onCompleted={setSale}
                         onLock={(locked) => setPaymentGate({ saleId: sale.saleId, locked })} />}
                     <button className="pos-primary pos-recalculate" disabled={disabled || !editable} onClick={() => perform(async () => {
                         acceptSale(await SaleService.calculateTotal(sale.saleId)); setNotice('Đã tính lại tổng tiền.');
-                    })}><RefreshCw size={16} /> Tính lại tổng tiền</button>
+                    })}><RefreshCw size={16} /> Tính lại tổng tiền và khuyến mãi</button>
+                    {editable && <p className="pos-promotion-note">Khuyến mãi có thể thay đổi theo thời gian. Nếu thanh toán báo tổng tiền thay đổi, bấm tính lại rồi xác nhận số tiền mới.</p>}
                     <button className="pos-soft-button pos-draft-action" disabled={disabled} aria-expanded={showDrafts} onClick={() => setShowDrafts((value) => !value)}>
                         <ClipboardList size={15} /> {showDrafts ? 'Đóng danh sách đơn' : 'Xem đơn đang bán dở'}</button>
                 </section>

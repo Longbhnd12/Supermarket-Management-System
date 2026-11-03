@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 
 /**
  * A single item line when creating or adding to a sale.
- * TODO (SDD): Confirm whether promotionId is resolved automatically or user-specified.
+ * Promotions are resolved automatically by UC27; promotionId must be omitted/null.
  */
 public record SaleItemRequest(
 
