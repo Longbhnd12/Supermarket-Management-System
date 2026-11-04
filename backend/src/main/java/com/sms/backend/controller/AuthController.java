@@ -13,35 +13,29 @@ import com.sms.backend.exception.BadRequestException;
 import com.sms.backend.exception.UnauthorizedException;
 import com.sms.backend.repository.RoleRepository;
 import com.sms.backend.repository.UserRepository;
+import com.sms.backend.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.AuthenticationException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDateTime;
 import java.util.Locale;
 
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 public class AuthController {
-    private final AuthenticationManager authenticationManager;
-    private final SecurityContextRepository securityContextRepository;
+    private final AuthService authService;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
@@ -69,25 +63,15 @@ public class AuthController {
                 .body(ApiResponse.success("Registration successful. Please sign in.", response(savedUser)));
     }
 
+    /**
+     * UC01 - Login. Business rules live in {@link AuthService}.
+     */
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthenticatedUserResponse>> login(
             @Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse
     ) {
-        try {
-            Authentication authentication = authenticationManager.authenticate(
-                    UsernamePasswordAuthenticationToken.unauthenticated(request.identifier().trim(), request.password())
-            );
-            SecurityContext context = SecurityContextHolder.createEmptyContext();
-            context.setAuthentication(authentication);
-            SecurityContextHolder.setContext(context);
-            securityContextRepository.saveContext(context, httpRequest, httpResponse);
-            User user = userByUsername(authentication.getName());
-            user.setLastLoginAt(LocalDateTime.now());
-            userRepository.save(user);
-            return ResponseEntity.ok(ApiResponse.success("Login successful", response(user)));
-        } catch (AuthenticationException exception) {
-            throw new UnauthorizedException("Invalid username or password");
-        }
+        AuthenticatedUserResponse user = authService.login(request, httpRequest, httpResponse);
+        return ResponseEntity.ok(ApiResponse.success("Login successful", user));
     }
 
     @GetMapping("/me")

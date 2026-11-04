@@ -78,6 +78,18 @@ public class GlobalExceptionHandler {
         );
     }
 
+    // UC01 - Login: account is INACTIVE or LOCKED
+    @ExceptionHandler(AccountAccessException.class)
+    public ResponseEntity<ApiErrorResponse> handleAccountAccess(
+            AccountAccessException ex
+    ) {
+        return buildError(
+                HttpStatus.FORBIDDEN,
+                ex.getErrorCode(),
+                ex.getMessage()
+        );
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiErrorResponse> handleValidation(
             MethodArgumentNotValidException ex
