@@ -11,7 +11,8 @@ import './MainLayout.css';
 export default function MainLayout() {
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
-    const { currentUser } = useOutletContext() ?? {};
+    const outletContext = useOutletContext() ?? {};
+    const { currentUser } = outletContext;
 
     return (
         <div className="sms-app-layout">
@@ -34,7 +35,7 @@ export default function MainLayout() {
                     <Breadcrumb />
 
                     <div className="sms-page-container">
-                        <Outlet />
+                        <Outlet context={outletContext} />
                     </div>
                 </main>
 

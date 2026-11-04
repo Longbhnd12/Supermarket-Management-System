@@ -1,11 +1,13 @@
 package com.sms.backend.service.serviceImpl;
 
+import com.sms.backend.dto.request.ChangePasswordRequest;
 import com.sms.backend.dto.request.LoginRequest;
 import com.sms.backend.dto.response.AuthenticatedUserResponse;
 import com.sms.backend.entity.SystemSetting;
 import com.sms.backend.entity.User;
 import com.sms.backend.enums.AccountStatus;
 import com.sms.backend.exception.AccountAccessException;
+import com.sms.backend.exception.BadRequestException;
 import com.sms.backend.exception.UnauthorizedException;
 import com.sms.backend.repository.SystemSettingRepository;
 import com.sms.backend.repository.UserRepository;
@@ -49,6 +51,10 @@ public class AuthServiceImpl implements AuthService {
 
     public static final String MSG03_INVALID_CREDENTIALS = "Incorrect username or password. Please check again.";
     public static final String MSG_ACCOUNT_INACTIVE = "Account is inactive. Please contact the administrator.";
+    public static final String MSG_IDENTIFIER_MISMATCH = "Username/email does not match your account";
+    public static final String MSG04_CURRENT_PASSWORD_INCORRECT = "Current password is incorrect.";
+    public static final String MSG_CONFIRM_MISMATCH = "New password and confirmation do not match";
+    public static final String MSG_SAME_PASSWORD = "New password must be different from the current password";
 
     static final int DEFAULT_MAX_FAILED_ATTEMPTS = 5;
     static final int DEFAULT_SESSION_TIMEOUT_MINUTES = 30;
@@ -147,6 +153,45 @@ public class AuthServiceImpl implements AuthService {
         if (session != null) {
             session.invalidate();
         }
+    }
+
+    /**
+     * UC03 - Change Password (SRS 3.2.2).
+     * AT1 username/email mismatch, AT2 wrong current password (MSG04), AT3 policy / confirmation,
+     * BR-02 new password must differ from the current one.
+     */
+    @Override
+    @Transactional(noRollbackFor = BadRequestException.class)
+    public void changePassword(String username, ChangePasswordRequest request, HttpServletRequest httpRequest) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UnauthorizedException("Authenticated user was not found"));
+        String ipAddress = clientIp(httpRequest);
+
+        // Step 4: the username/email typed must be the logged-in account
+        String identifier = request.identifier().trim();
+        boolean sameAccount = identifier.equals(user.getUsername()) || identifier.equalsIgnoreCase(user.getEmail());
+        if (!sameAccount) {
+            throw new BadRequestException(MSG_IDENTIFIER_MISMATCH);
+        }
+
+        // Step 5: current password
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            writeLog(user, "PASSWORD_CHANGE_FAILED", user.getUserId(), "Current password is incorrect", ipAddress);
+            throw new BadRequestException(MSG04_CURRENT_PASSWORD_INCORRECT);
+        }
+
+        // Step 6: policy is checked by @Pattern on the request; confirmation + BR-02 here
+        if (!request.newPassword().equals(request.confirmPassword())) {
+            throw new BadRequestException(MSG_CONFIRM_MISMATCH);
+        }
+        if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
+            throw new BadRequestException(MSG_SAME_PASSWORD);
+        }
+
+        // Step 7: update and record the change (the password itself is never logged)
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
+        writeLog(user, "PASSWORD_CHANGED", user.getUserId(), "User changed their password", ipAddress);
     }
 
     private Optional<User> findByIdentifier(String identifier) {

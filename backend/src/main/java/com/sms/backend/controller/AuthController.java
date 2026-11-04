@@ -1,6 +1,7 @@
 package com.sms.backend.controller;
 
 import com.sms.backend.dto.ApiResponse;
+import com.sms.backend.dto.request.ChangePasswordRequest;
 import com.sms.backend.dto.request.LoginRequest;
 import com.sms.backend.dto.request.RegisterRequest;
 import com.sms.backend.dto.response.AuthenticatedUserResponse;
@@ -80,6 +81,20 @@ public class AuthController {
         }
         return ResponseEntity.ok(ApiResponse.success("Current user retrieved",
                 authService.getCurrentUser(authentication.getName())));
+    }
+
+    /**
+     * UC03 - Change Password. Business rules live in {@link AuthService}.
+     */
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(
+            Authentication authentication, @Valid @RequestBody ChangePasswordRequest request, HttpServletRequest httpRequest
+    ) {
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
+            throw new UnauthorizedException("Authentication is required");
+        }
+        authService.changePassword(authentication.getName(), request, httpRequest);
+        return ResponseEntity.ok(ApiResponse.success("Password changed", null));
     }
 
     /**
