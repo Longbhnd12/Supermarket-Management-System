@@ -9,6 +9,7 @@ import {
     Tags,
     Users,
     UserCog,
+    ShieldCheck,
     BarChart3,
     Settings,
     ClipboardList,
@@ -106,6 +107,11 @@ const menuGroups = [
                 label: 'User Management',
                 icon: UserCog,
                 path: '/users'
+            },
+            {
+                label: 'Roles & Permissions',
+                icon: ShieldCheck,
+                path: '/roles'
             },
             {
                 label: 'Reports',

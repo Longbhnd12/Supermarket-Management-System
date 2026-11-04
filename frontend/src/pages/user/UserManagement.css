@@ -1,0 +1,484 @@
+/* UC04 / UC05 / UC06 - User management pages (classes prefixed "um-") */
+.um-page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.um-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.um-header h1 {
+    margin: 0 0 6px;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--sms-text);
+}
+
+.um-header p {
+    margin: 0;
+    color: var(--sms-text-secondary);
+    font-size: 14px;
+}
+
+.um-card {
+    padding: 20px;
+    border: 1px solid var(--sms-border);
+    border-radius: var(--sms-radius);
+    background: var(--sms-card-bg);
+}
+
+/* Buttons */
+.um-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 9px 16px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.um-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.um-btn-primary {
+    background: var(--sms-primary);
+    color: #fff;
+}
+
+.um-btn-primary:hover:not(:disabled) {
+    background: var(--sms-primary-dark);
+}
+
+.um-btn-outline {
+    border-color: var(--sms-border);
+    background: #fff;
+    color: var(--sms-text);
+}
+
+.um-btn-outline:hover:not(:disabled) {
+    background: var(--sms-sidebar-bg);
+}
+
+.um-btn-danger {
+    background: #b42318;
+    color: #fff;
+}
+
+.um-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--sms-border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--sms-text-secondary);
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.um-icon-btn:hover:not(:disabled) {
+    color: var(--sms-primary);
+    border-color: var(--sms-primary);
+}
+
+.um-icon-btn.danger:hover:not(:disabled) {
+    color: #b42318;
+    border-color: #b42318;
+}
+
+.um-icon-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* Filters */
+.um-filters {
+    display: grid;
+    grid-template-columns: minmax(220px, 2fr) repeat(2, minmax(150px, 1fr)) auto;
+    gap: 12px;
+    align-items: end;
+}
+
+.um-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sms-text);
+}
+
+.um-field input,
+.um-field select {
+    padding: 9px 12px;
+    border: 1px solid #cdd4e2;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--sms-text);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.um-field input:focus,
+.um-field select:focus {
+    outline: 2px solid #c7d7fb;
+    border-color: var(--sms-primary);
+}
+
+.um-field input[aria-invalid="true"],
+.um-field select[aria-invalid="true"] {
+    border-color: #b42318;
+}
+
+.um-field input:disabled,
+.um-field select:disabled {
+    background: #f2f4f8;
+    color: var(--sms-text-secondary);
+}
+
+.um-field-error {
+    color: #b42318;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.um-field-hint {
+    color: var(--sms-text-secondary);
+    font-size: 12px;
+    font-weight: 400;
+}
+
+.um-search {
+    position: relative;
+}
+
+.um-search svg {
+    position: absolute;
+    left: 11px;
+    bottom: 11px;
+    color: var(--sms-text-secondary);
+}
+
+.um-search input {
+    padding-left: 34px;
+}
+
+/* Table */
+.um-table-wrap {
+    overflow-x: auto;
+}
+
+.um-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.um-table th {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--sms-border);
+    color: var(--sms-text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+
+.um-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--sms-border);
+    vertical-align: middle;
+}
+
+.um-table tr:last-child td {
+    border-bottom: 0;
+}
+
+.um-table .um-muted {
+    color: var(--sms-text-secondary);
+    font-size: 13px;
+}
+
+.um-username {
+    font-weight: 600;
+}
+
+.um-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.um-empty {
+    padding: 40px 12px;
+    color: var(--sms-text-secondary);
+    text-align: center;
+}
+
+/* Badges */
+.um-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.um-badge-active {
+    background: #ecfdf3;
+    color: #067647;
+}
+
+.um-badge-inactive {
+    background: #f2f4f7;
+    color: #475467;
+}
+
+.um-badge-locked {
+    background: #fef3f2;
+    color: #b42318;
+}
+
+.um-badge-role {
+    background: #e4ecff;
+    color: var(--sms-primary);
+}
+
+/* Messages */
+.um-alert {
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.um-alert-error {
+    background: #fef3f2;
+    color: #b42318;
+}
+
+.um-alert-success {
+    background: #ecfdf3;
+    color: #067647;
+}
+
+/* Form */
+.um-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 20px;
+    max-width: 820px;
+}
+
+.um-form .um-span-2 {
+    grid-column: span 2;
+}
+
+.um-password-row {
+    display: flex;
+    gap: 8px;
+}
+
+.um-password-row input {
+    flex: 1;
+}
+
+.um-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 6px;
+}
+
+/* Confirm dialog */
+.um-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: rgba(25, 35, 59, 0.45);
+}
+
+.um-dialog {
+    width: min(420px, 100%);
+    padding: 24px;
+    border-radius: var(--sms-radius);
+    background: #fff;
+    box-shadow: 0 20px 50px rgba(25, 35, 59, 0.25);
+}
+
+.um-dialog h2 {
+    margin: 0 0 8px;
+    font-size: 18px;
+}
+
+.um-dialog p {
+    margin: 0 0 20px;
+    color: var(--sms-text-secondary);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.um-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* Roles & permissions */
+.um-roles {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+}
+
+.um-role-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px;
+}
+
+.um-role-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--sms-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.um-role-item:hover {
+    background: var(--sms-sidebar-bg);
+}
+
+.um-role-item.is-selected {
+    border-color: #c7d7fb;
+    background: #eef3ff;
+}
+
+.um-role-item strong {
+    display: block;
+    font-size: 14px;
+}
+
+.um-role-item span {
+    color: var(--sms-text-secondary);
+    font-size: 12px;
+}
+
+.um-role-count {
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: #fff;
+    border: 1px solid var(--sms-border);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.um-perm-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.um-perm-toolbar h2 {
+    margin: 0 0 4px;
+    font-size: 18px;
+}
+
+.um-perm-toolbar p {
+    margin: 0;
+    color: var(--sms-text-secondary);
+    font-size: 13px;
+}
+
+.um-perm-groups {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+}
+
+.um-perm-group {
+    padding: 14px;
+    border: 1px solid var(--sms-border);
+    border-radius: 10px;
+}
+
+.um-perm-group-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--sms-text);
+}
+
+.um-perm-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 5px 0;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.um-perm-item input {
+    margin-top: 2px;
+}
+
+.um-perm-item.is-locked {
+    color: var(--sms-text-secondary);
+    cursor: not-allowed;
+}
+
+.um-perm-item small {
+    display: block;
+    color: var(--sms-text-secondary);
+    font-size: 11px;
+}
+
+@media (max-width: 900px) {
+    .um-filters,
+    .um-form,
+    .um-roles {
+        grid-template-columns: 1fr;
+    }
+
+    .um-form .um-span-2 {
+        grid-column: auto;
+    }
+}

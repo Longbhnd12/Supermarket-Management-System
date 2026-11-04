@@ -2,17 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Bell, ChevronDown, KeyRound, LogOut, UserRound } from 'lucide-react';
 import authService from '../services/authService';
+import { roleLabel as toRoleLabel } from '../utils/roleLabels';
 import './AccountMenu.css';
 
 // UC02 - Logout (SDD 4.2.3.1): account menu opened from the avatar/user name in the header
-const ROLE_LABELS = {
-    ADMIN: 'Admin',
-    MANAGER: 'Manager',
-    CASHIER: 'Cashier',
-    WAREHOUSE_STAFF: 'Inventory Staff',
-    SUPPLIER: 'Supplier'
-};
-
 export default function AccountMenu({ user }) {
     const navigate = useNavigate();
     const menuRef = useRef(null);
@@ -20,7 +13,7 @@ export default function AccountMenu({ user }) {
     const [loggingOut, setLoggingOut] = useState(false);
 
     const fullName = user?.fullName || user?.username || 'User';
-    const roleLabel = ROLE_LABELS[user?.role] || user?.role || '';
+    const roleLabel = toRoleLabel(user?.role);
 
     // Close the menu when clicking outside it or pressing Escape
     useEffect(() => {
