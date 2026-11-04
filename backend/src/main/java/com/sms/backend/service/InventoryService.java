@@ -57,6 +57,8 @@ public interface InventoryService {
     List<StockReceiptResponse> getStockReceiptsByStatus(StockReceiptStatus status);
     StockReceiptResponse getStockReceiptById(Long id);
     StockReceiptResponse confirmStockReceipt(Long id);
+    StockReceiptResponse updateStockReceipt(Long id, CreateStockReceiptRequest request);
+    StockReceiptResponse cancelStockReceipt(Long id);
 
     // UC36: Create Stock Receipt
     StockReceiptResponse createStockReceipt(CreateStockReceiptRequest request);

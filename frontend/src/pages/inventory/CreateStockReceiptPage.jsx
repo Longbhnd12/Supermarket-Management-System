@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import StockReceiptService from '../../services/stockReceiptService';
 import SupplierService from '../../services/supplierService';
 import ProductService from '../../services/productService';
@@ -8,9 +8,9 @@ import './CreateStockReceiptPage.css';
 // ─── Formatting helpers ────────────────────────────────────────────────────────
 
 function formatCurrency(amount) {
-    if (amount == null || isNaN(amount)) return '$0.00';
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency', currency: 'USD', minimumFractionDigits: 2,
+    if (amount == null || isNaN(amount)) return '0 ₫';
+    return new Intl.NumberFormat('vi-VN', {
+        style: 'currency', currency: 'VND', minimumFractionDigits: 0,
     }).format(amount);
 }
 
@@ -23,6 +23,10 @@ const TODAY_STR = new Date().toISOString().split('T')[0];
 
 export default function CreateStockReceiptPage() {
     const navigate = useNavigate();
+    const { id } = useParams();
+    const [searchParams] = useSearchParams();
+    const editId = id || searchParams.get('edit');
+    const isEditMode = Boolean(editId);
 
     // ── Header Information State ──
     const [receiptNumber, setReceiptNumber] = useState('');
@@ -47,32 +51,85 @@ export default function CreateStockReceiptPage() {
     const [loadingInit, setLoadingInit]     = useState(true);
     const [submitting, setSubmitting]       = useState(false);
     const [pageError, setPageError]         = useState('');
+    const [nonEditableError, setNonEditableError] = useState(null);
     const [errors, setErrors]               = useState({});
 
-    // ── Load initial data: next receipt number, active suppliers, active products ──
+    // ── Load initial data: active suppliers, active products, and receipt details (edit) or next number (create) ──
     useEffect(() => {
         let isMounted = true;
 
-        Promise.all([
-            StockReceiptService.getNextNumber().catch(() => ({ data: { data: 'SR0001' } })),
-            SupplierService.getAll({ status: 'ACTIVE' }).catch(() => ({ data: { data: [] } })),
-            ProductService.getAll({ status: 'ACTIVE' }).catch(() => ({ data: { data: [] } })),
-        ]).then(([numRes, supRes, prodRes]) => {
-            if (!isMounted) return;
-            const nextNum = numRes.data?.data || 'SR0001';
-            setReceiptNumber(nextNum);
+        const loadData = async () => {
+            try {
+                const [supRes, prodRes] = await Promise.all([
+                    SupplierService.getAll({ status: 'ACTIVE' }).catch(() => ({ data: { data: [] } })),
+                    ProductService.getAll({ status: 'ACTIVE' }).catch(() => ({ data: { data: [] } })),
+                ]);
 
-            const supList = (supRes.data?.data || []).filter(s => s.status !== 'DISABLED');
-            setSuppliers(supList);
+                if (!isMounted) return;
 
-            const prodList = (prodRes.data?.data || []).filter(p => p.status === 'ACTIVE');
-            setAllProducts(prodList);
-        }).finally(() => {
-            if (isMounted) setLoadingInit(false);
-        });
+                const supList = (supRes.data?.data || []).filter(s => s.status !== 'DISABLED');
+                setSuppliers(supList);
+
+                const prodList = (prodRes.data?.data || []).filter(p => p.status === 'ACTIVE');
+                setAllProducts(prodList);
+
+                if (isEditMode) {
+                    try {
+                        const receiptRes = await StockReceiptService.getById(editId);
+                        if (!isMounted) return;
+                        const receipt = receiptRes.data?.data;
+                        if (!receipt) {
+                            setNonEditableError(`Stock receipt #${editId} not found.`);
+                            return;
+                        }
+                        if (receipt.status !== 'DRAFT') {
+                            setNonEditableError(
+                                `Stock receipt "${receipt.receiptNumber}" is ${receipt.status} and cannot be edited. Only DRAFT stock receipts can be edited.`
+                            );
+                            return;
+                        }
+
+                        setReceiptNumber(receipt.receiptNumber || '');
+                        setSupplierId(receipt.supplierId ? String(receipt.supplierId) : '');
+                        setPurchaseOrderId(receipt.purchaseOrderId ? String(receipt.purchaseOrderId) : '');
+
+                        const mappedItems = (receipt.details || []).map(d => {
+                            const matchedProd = prodList.find(p => p.productId === d.productId);
+                            return {
+                                productId: d.productId,
+                                productCode: d.productCode,
+                                productName: d.productName,
+                                barcode: matchedProd?.barcode || '',
+                                unit: matchedProd?.unit || 'pcs',
+                                trackExpiry: Boolean(matchedProd?.trackExpiry || d.expirationDate || d.batchNumber),
+                                quantity: d.receivedQuantity,
+                                unitCost: d.unitCost,
+                                batchNumber: d.batchNumber || '',
+                                expirationDate: d.expirationDate ? String(d.expirationDate).split('T')[0] : '',
+                            };
+                        });
+                        setItems(mappedItems);
+                    } catch (err) {
+                        if (!isMounted) return;
+                        setNonEditableError(err.response?.data?.message || 'Failed to load stock receipt for editing.');
+                    }
+                } else {
+                    const numRes = await StockReceiptService.getNextNumber().catch(() => ({ data: { data: 'SR0001' } }));
+                    if (!isMounted) return;
+                    setReceiptNumber(numRes.data?.data || 'SR0001');
+                }
+            } catch (err) {
+                if (!isMounted) return;
+                setPageError('Failed to initialize form data.');
+            } finally {
+                if (isMounted) setLoadingInit(false);
+            }
+        };
+
+        loadData();
 
         return () => { isMounted = false; };
-    }, []);
+    }, [isEditMode, editId]);
 
     // ── Close search dropdown when clicking outside ──
     useEffect(() => {
@@ -254,28 +311,32 @@ export default function CreateStockReceiptPage() {
         const payload = {
             receiptNumber: receiptNumber.trim() || undefined,
             supplierId: Number(supplierId),
-            purchaseOrderId: purchaseOrderId ? Number(purchaseOrderId) : null,
+            purchaseOrderId: purchaseOrderId && !isNaN(Number(purchaseOrderId)) ? Number(purchaseOrderId) : null,
             status: targetStatus,
             items: items.map(item => ({
                 productId: item.productId,
                 quantity: parseFloat(item.quantity),
                 unitCost: parseFloat(item.unitCost),
-                batchNumber: item.trackExpiry ? item.batchNumber.trim() : null,
-                expirationDate: item.trackExpiry ? item.expirationDate : null,
+                batchNumber: item.trackExpiry ? (item.batchNumber?.trim() || null) : null,
+                expirationDate: item.trackExpiry ? (item.expirationDate || null) : null,
             }))
         };
 
-        StockReceiptService.create(payload)
+        const apiCall = isEditMode
+            ? StockReceiptService.update(editId, payload)
+            : StockReceiptService.create(payload);
+
+        apiCall
             .then(res => {
-                const created = res.data?.data;
-                if (created && created.stockReceiptId) {
-                    navigate(`/inventory/stock-receipts/${created.stockReceiptId}`);
+                const targetId = isEditMode ? editId : res.data?.data?.stockReceiptId;
+                if (targetId) {
+                    navigate(`/inventory/stock-receipts/${targetId}`);
                 } else {
                     navigate('/inventory/stock-receipts');
                 }
             })
             .catch(err => {
-                const msg = err.response?.data?.message || 'Failed to create stock receipt. Please try again.';
+                const msg = err.response?.data?.message || (isEditMode ? 'Failed to update stock receipt. Please try again.' : 'Failed to create stock receipt. Please try again.');
                 setPageError(msg);
                 setSubmitting(false);
             });
@@ -287,6 +348,46 @@ export default function CreateStockReceiptPage() {
                 <div className="csr-loading" role="status" aria-live="polite">
                     <div className="csr-spinner" aria-hidden="true" />
                     <span className="csr-loading__text">Loading stock receipt form…</span>
+                </div>
+            </div>
+        );
+    }
+
+    if (nonEditableError) {
+        return (
+            <div className="csr-page">
+                <div className="csr-card" style={{ padding: '48px 24px', textAlign: 'center' }}>
+                    <div style={{ maxWidth: '480px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#e53e3e" strokeWidth="1.5">
+                            <circle cx="12" cy="12" r="9"/>
+                            <line x1="12" y1="8" x2="12" y2="12"/>
+                            <circle cx="12" cy="16" r="0.5" fill="#e53e3e"/>
+                        </svg>
+                        <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#19233b' }}>
+                            Cannot Edit Stock Receipt
+                        </h2>
+                        <p style={{ margin: 0, fontSize: '14px', color: '#69748c', lineHeight: 1.5 }}>
+                            {nonEditableError}
+                        </p>
+                        <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                            {editId && (
+                                <button
+                                    type="button"
+                                    className="csr-btn csr-btn--secondary"
+                                    onClick={() => navigate(`/inventory/stock-receipts/${editId}`)}
+                                >
+                                    View Receipt Details
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                className="csr-btn csr-btn--ghost"
+                                onClick={() => navigate('/inventory/stock-receipts')}
+                            >
+                                Stock Receipts List
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         );
@@ -309,20 +410,28 @@ export default function CreateStockReceiptPage() {
                         </button>
                         <span className="csr-breadcrumb__sep">›</span>
                         <span className="csr-breadcrumb__item csr-breadcrumb__item--active">
-                            Create Stock Receipt
+                            {isEditMode ? `Edit Draft (${receiptNumber})` : 'Create Stock Receipt'}
                         </span>
                     </nav>
                     <div className="csr-title-row">
-                        <h1 className="csr-title">Create Stock Receipt</h1>
-                        <span className="csr-badge csr-badge--active">Import Stock (UC36)</span>
+                        <h1 className="csr-title">
+                            {isEditMode ? `Edit Draft Receipt: ${receiptNumber}` : 'Create Stock Receipt'}
+                        </h1>
+                        <span className="csr-badge csr-badge--active">
+                            {isEditMode ? 'Draft Mode' : 'Import Stock (UC36)'}
+                        </span>
                     </div>
-                    <p className="csr-subtitle">Record and import new inbound stock batches into supermarket inventory</p>
+                    <p className="csr-subtitle">
+                        {isEditMode
+                            ? 'Update saved draft receipt line items and details before confirmation'
+                            : 'Record and import new inbound stock batches into supermarket inventory'}
+                    </p>
                 </div>
                 <div className="csr-header-actions">
                     <button
                         type="button"
                         className="csr-btn csr-btn--ghost"
-                        onClick={() => navigate('/inventory/stock-receipts')}
+                        onClick={() => navigate(isEditMode ? `/inventory/stock-receipts/${editId}` : '/inventory/stock-receipts')}
                         disabled={submitting}
                     >
                         Cancel
@@ -332,9 +441,9 @@ export default function CreateStockReceiptPage() {
                         className="csr-btn csr-btn--secondary"
                         onClick={() => handleSubmit('DRAFT')}
                         disabled={submitting}
-                        title="Save as Draft without updating inventory stock yet"
+                        title="Save changes to draft without updating inventory stock yet"
                     >
-                        Save as Draft
+                        {isEditMode ? 'Save Draft' : 'Save as Draft'}
                     </button>
                     <button
                         type="button"
@@ -378,21 +487,26 @@ export default function CreateStockReceiptPage() {
                 </div>
                 <div className="csr-card__body">
                     <div className="csr-meta-grid">
-                        {/* Auto-generated Receipt ID */}
+                        {/* Auto-generated / Locked Receipt ID */}
                         <div className="csr-field-group">
                             <label className="csr-label" htmlFor="csr-receipt-no">
                                 Receipt Number <span className="csr-required">*</span>
                             </label>
                             <input
                                 id="csr-receipt-no"
-                                className="csr-input csr-input--mono"
+                                className={`csr-input csr-input--mono ${isEditMode ? 'csr-input--readonly' : ''}`}
                                 type="text"
                                 value={receiptNumber}
-                                onChange={e => setReceiptNumber(e.target.value)}
+                                onChange={e => !isEditMode && setReceiptNumber(e.target.value)}
+                                readOnly={isEditMode}
                                 placeholder="e.g. SR0004"
                                 maxLength={50}
                             />
-                            <span className="csr-help-text">Auto-generated sequence identifier (customizable)</span>
+                            <span className="csr-help-text">
+                                {isEditMode
+                                    ? 'Receipt number is fixed and cannot be changed for existing receipts'
+                                    : 'Auto-generated sequence identifier (customizable)'}
+                            </span>
                         </div>
 
                         {/* Supplier Selection */}
@@ -592,7 +706,7 @@ export default function CreateStockReceiptPage() {
                                     <th scope="col" className="csr-th-product">Product / SKU</th>
                                     <th scope="col" className="csr-th-type">Type</th>
                                     <th scope="col" className="csr-th-qty">Quantity <span className="csr-required">*</span></th>
-                                    <th scope="col" className="csr-th-cost">Unit Cost ($) <span className="csr-required">*</span></th>
+                                    <th scope="col" className="csr-th-cost">Unit Cost <span className="csr-required">*</span></th>
                                     <th scope="col" className="csr-th-batch">Batch Number</th>
                                     <th scope="col" className="csr-th-expiry">Expiration Date</th>
                                     <th scope="col" className="csr-th-subtotal">Subtotal</th>
@@ -650,7 +764,7 @@ export default function CreateStockReceiptPage() {
                                                 <input
                                                     type="number"
                                                     min="0"
-                                                    step="0.01"
+                                                    step="1"
                                                     className={`csr-input csr-input--num ${costErr ? 'csr-input--error' : ''}`}
                                                     value={item.unitCost}
                                                     onChange={e => handleItemChange(idx, 'unitCost', e.target.value)}
@@ -742,7 +856,7 @@ export default function CreateStockReceiptPage() {
                 <button
                     type="button"
                     className="csr-btn csr-btn--ghost"
-                    onClick={() => navigate('/inventory/stock-receipts')}
+                    onClick={() => navigate(isEditMode ? `/inventory/stock-receipts/${editId}` : '/inventory/stock-receipts')}
                     disabled={submitting}
                 >
                     Cancel
@@ -754,7 +868,7 @@ export default function CreateStockReceiptPage() {
                         onClick={() => handleSubmit('DRAFT')}
                         disabled={submitting}
                     >
-                        Save as Draft
+                        {isEditMode ? 'Save Draft' : 'Save as Draft'}
                     </button>
                     <button
                         type="button"
@@ -769,4 +883,3 @@ export default function CreateStockReceiptPage() {
         </div>
     );
 }
-

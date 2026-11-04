@@ -17,4 +17,5 @@ public class VnpayProperties {
     private Set<String> enabledBankCodes = new HashSet<>();
     private int expiryMinutes = 15;
     private String serverIp = "127.0.0.1";
+    private boolean sandboxOmitBankCode = false;
 }

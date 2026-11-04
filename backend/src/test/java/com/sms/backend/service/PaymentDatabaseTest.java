@@ -38,6 +38,60 @@ class PaymentDatabaseTest {
     @Autowired EntityManager em;
     @Autowired PaymentRepository paymentRepository;
     @Autowired VnpayGateway gateway;
+    @Autowired PromotionRepository promotions;
+    @Autowired java.time.Clock clock;
+
+    @Test void promotionPersistsAcrossReloadAndCashUsesDiscountedTotal() {
+        var sale = fixtureSale();
+        Promotion p = promotionFor(sale, "25"); promotions.saveAndFlush(p);
+        var discounted = sales.calculateSaleTotal(sale.saleId());
+        assertEquals(new BigDecimal("75.00"), discounted.totalAmount());
+        em.flush(); em.clear();
+        var reloaded = sales.getSaleById(sale.saleId());
+        assertEquals(p.getPromotionId(), reloaded.items().getFirst().promotionId());
+        assertEquals(new BigDecimal("25.00"), reloaded.discountAmount());
+        var preview = payments.previewCashChange(sale.saleId(), new CashChangeRequest(new BigDecimal("100"), new BigDecimal("75")));
+        assertEquals(new BigDecimal("25.00"), preview.changeAmount());
+        var request = new CreatePaymentRequest(PaymentMethod.CASH, new BigDecimal("75"), new BigDecimal("100"), null, "uc27-" + UUID.randomUUID());
+        var paid = payments.create(sale.saleId(), request, "127.0.0.1");
+        assertEquals(new BigDecimal("75.00"), paid.amount());
+        assertEquals(new BigDecimal("25.00"), paid.changeAmount());
+        assertEquals(paid.paymentId(), payments.create(sale.saleId(), request, "127.0.0.1").paymentId());
+        assertThrows(BadRequestException.class, () -> sales.calculateSaleTotal(sale.saleId()));
+    }
+
+    @Test void expiredPromotionBetweenPreviewAndConfirmationRejectsStalePayment() {
+        var sale = fixtureSale(); Promotion p = promotions.saveAndFlush(promotionFor(sale, "25"));
+        sales.calculateSaleTotal(sale.saleId());
+        assertTrue(payments.previewCashChange(sale.saleId(), new CashChangeRequest(new BigDecimal("100"), new BigDecimal("75"))).sufficient());
+        p.setEndAt(LocalDateTime.now(clock).minusSeconds(1)); promotions.saveAndFlush(p);
+        assertThrows(BadRequestException.class, () -> payments.create(sale.saleId(),
+                new CreatePaymentRequest(PaymentMethod.CASH, new BigDecimal("75"), new BigDecimal("100"), null, "uc27-" + UUID.randomUUID()), "127.0.0.1"));
+        assertTrue(payments.overview(sale.saleId()).attempts().isEmpty());
+    }
+
+    @Test void vnpayUrlUsesDiscountedAmountAndZeroTotalCannotBePaid() {
+        var sale = fixtureSale(); Promotion p = promotions.saveAndFlush(promotionFor(sale, "25"));
+        sales.calculateSaleTotal(sale.saleId());
+        var paid = payments.create(sale.saleId(), new CreatePaymentRequest(PaymentMethod.QR,
+                new BigDecimal("75"), null, "VNPAYQR", "uc27-" + UUID.randomUUID()), "127.0.0.1");
+        assertEquals(new BigDecimal("75.00"), paid.amount());
+        assertTrue(paid.paymentUrl().contains("vnp_Amount=7500"));
+        var freeSale = fixtureSale(); promotions.saveAndFlush(promotionFor(freeSale, "100"));
+        assertEquals(0, sales.calculateSaleTotal(freeSale.saleId()).totalAmount().signum());
+        assertThrows(BadRequestException.class, () -> payments.create(freeSale.saleId(), new CreatePaymentRequest(
+                PaymentMethod.CASH, BigDecimal.ZERO, BigDecimal.ZERO, null, "uc27-" + UUID.randomUUID()), "127.0.0.1"));
+        assertTrue(payments.overview(freeSale.saleId()).attempts().isEmpty());
+    }
+
+    private Promotion promotionFor(SaleResponse sale, String value) {
+        Promotion p = new Promotion(); p.setPromotionName("UC27 rollback fixture");
+        p.setPromotionType(PromotionType.FIXED_AMOUNT); p.setDiscountValue(new BigDecimal(value));
+        p.setProduct(products.findById(sale.items().getFirst().productId()).orElseThrow());
+        p.setCreatedBy(users.findById(sale.cashierId()).orElseThrow());
+        p.setStartAt(LocalDateTime.now(clock).minusDays(1)); p.setEndAt(LocalDateTime.now(clock).plusDays(1));
+        return p;
+    }
 
     @Test void cashPaymentPersistsLocksTheDraftAndReplaysWithoutCreatingAnotherAttempt() {
         var sale = fixtureSale();

@@ -156,6 +156,83 @@
     border-color: var(--sms-border, #e5e9f3);
 }
 
+.srd-btn--danger {
+    background: #fff;
+    color: #e53e3e;
+    border: 1px solid #feb2b2;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.srd-btn--danger:hover:not(:disabled) {
+    background: #fff5f5;
+    border-color: #fc8181;
+    color: #c53030;
+}
+
+.srd-btn--danger:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.srd-alert {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.srd-alert--success {
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+}
+
+.srd-alert--error {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
+.srd-alert__close {
+    background: transparent;
+    border: none;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    color: inherit;
+    opacity: 0.7;
+    padding: 0 4px;
+}
+
+.srd-alert__close:hover {
+    opacity: 1;
+}
+
+.srd-status-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.srd-status-banner--draft {
+    background: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+.srd-status-banner--cancelled {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
 /* ─── 4. Loading / States ───────────────────────────────────────────────────── */
 
 .srd-loading {
