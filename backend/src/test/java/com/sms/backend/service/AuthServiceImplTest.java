@@ -2,6 +2,7 @@ package com.sms.backend.service;
 
 import com.sms.backend.dto.request.LoginRequest;
 import com.sms.backend.dto.response.AuthenticatedUserResponse;
+import com.sms.backend.entity.Employee;
 import com.sms.backend.entity.Role;
 import com.sms.backend.entity.SystemSetting;
 import com.sms.backend.entity.User;
@@ -20,6 +21,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -199,5 +202,49 @@ class AuthServiceImplTest {
         assertEquals("ACCOUNT_INACTIVE", error.getErrorCode());
         assertEquals(AuthServiceImpl.MSG_ACCOUNT_INACTIVE, error.getMessage());
         assertNull(request.getSession(false));
+    }
+
+    // ---------- UC02 - Logout ----------
+
+    @Test
+    void currentUserShowsEmployeeFullName() {
+        User user = cashier(AccountStatus.ACTIVE, 0);
+        Employee employee = new Employee();
+        employee.setFullName("Nguyen Van A");
+        user.setEmployee(employee);
+        when(users.findByUsername("cashier01")).thenReturn(Optional.of(user));
+
+        AuthenticatedUserResponse result = service.getCurrentUser("cashier01");
+
+        assertEquals("Nguyen Van A", result.fullName());
+        assertEquals("CASHIER", result.role());
+    }
+
+    @Test
+    void currentUserWithoutEmployeeFallsBackToUsername() {
+        when(users.findByUsername("cashier01")).thenReturn(Optional.of(cashier(AccountStatus.ACTIVE, 0)));
+        assertEquals("cashier01", service.getCurrentUser("cashier01").fullName());
+    }
+
+    @Test
+    void logoutWritesLogAndInvalidatesSession() {
+        User user = cashier(AccountStatus.ACTIVE, 0);
+        when(users.findByUsername("cashier01")).thenReturn(Optional.of(user));
+        MockHttpSession session = new MockHttpSession();
+        request.setSession(session);
+        SecurityContextHolder.getContext().setAuthentication(
+                UsernamePasswordAuthenticationToken.authenticated("cashier01", null, List.of()));
+
+        service.logout(request);
+
+        assertTrue(session.isInvalid());
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+        verify(logs).createLog(eq(user), eq("LOGOUT"), eq("USER"), eq(7L), anyString(), eq("10.0.0.5"));
+    }
+
+    @Test
+    void logoutWithoutSessionDoesNotFail() {
+        assertDoesNotThrow(() -> service.logout(request));
+        verify(logs, never()).createLog(any(), anyString(), anyString(), any(), anyString(), anyString());
     }
 }

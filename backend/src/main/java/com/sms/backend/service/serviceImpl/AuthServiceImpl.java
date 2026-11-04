@@ -16,6 +16,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -32,7 +33,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 /**
- * UC01 - Login.
+ * UC01 - Login, UC02 - Logout.
  * <ul>
  *     <li>BR-01 (SRS 3.2.1): password is validated against the BCrypt hash.</li>
  *     <li>BR-02: the role of the account decides what the user can access.</li>
@@ -116,6 +117,36 @@ public class AuthServiceImpl implements AuthService {
         startSession(user, httpRequest, httpResponse);
         writeLog(user, "LOGIN_SUCCESS", user.getUserId(), "User logged in", ipAddress);
         return toResponse(user);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AuthenticatedUserResponse getCurrentUser(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UnauthorizedException("Authenticated user was not found"));
+        return toResponse(user);
+    }
+
+    /**
+     * UC02 - Logout: write the LOGOUT log, then end the session immediately.
+     * Safe to call even when the session has already expired.
+     */
+    @Override
+    @Transactional
+    public void logout(HttpServletRequest httpRequest) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null
+                && authentication.isAuthenticated()
+                && !"anonymousUser".equals(authentication.getName())) {
+            userRepository.findByUsername(authentication.getName())
+                    .ifPresent(user -> writeLog(user, "LOGOUT", user.getUserId(), "User logged out", clientIp(httpRequest)));
+        }
+
+        SecurityContextHolder.clearContext();
+        HttpSession session = httpRequest.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
     }
 
     private Optional<User> findByIdentifier(String identifier) {
@@ -219,6 +250,16 @@ public class AuthServiceImpl implements AuthService {
     private AuthenticatedUserResponse toResponse(User user) {
         String role = user.getRole() == null || user.getRole().getRoleName() == null
                 ? "" : user.getRole().getRoleName().name();
-        return new AuthenticatedUserResponse(user.getUserId(), user.getUsername(), user.getEmail(), role);
+        return new AuthenticatedUserResponse(user.getUserId(), user.getUsername(), user.getEmail(), role, displayName(user));
+    }
+
+    private String displayName(User user) {
+        if (user.getEmployee() != null && user.getEmployee().getFullName() != null) {
+            return user.getEmployee().getFullName();
+        }
+        if (user.getSupplier() != null && user.getSupplier().getSupplierName() != null) {
+            return user.getSupplier().getSupplierName();
+        }
+        return user.getUsername();
     }
 }
