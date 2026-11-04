@@ -6,12 +6,12 @@ import com.sms.backend.enums.PaymentStatus;
 import com.sms.backend.enums.SaleStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
