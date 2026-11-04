@@ -19,6 +19,7 @@ public record UserResponse(
         String username,
         String email,
         AccountStatus status,
-        LocalDateTime lastLoginAt
+        LocalDateTime lastLoginAt,
+        LocalDateTime lockedUntil
 ) {
 }
