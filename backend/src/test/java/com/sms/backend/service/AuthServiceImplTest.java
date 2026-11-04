@@ -1,5 +1,6 @@
 package com.sms.backend.service;
 
+import com.sms.backend.dto.request.ChangePasswordRequest;
 import com.sms.backend.dto.request.LoginRequest;
 import com.sms.backend.dto.response.AuthenticatedUserResponse;
 import com.sms.backend.entity.Employee;
@@ -9,6 +10,7 @@ import com.sms.backend.entity.User;
 import com.sms.backend.enums.AccountStatus;
 import com.sms.backend.enums.RoleName;
 import com.sms.backend.exception.AccountAccessException;
+import com.sms.backend.exception.BadRequestException;
 import com.sms.backend.exception.UnauthorizedException;
 import com.sms.backend.repository.SystemSettingRepository;
 import com.sms.backend.repository.UserRepository;
@@ -246,5 +248,72 @@ class AuthServiceImplTest {
     void logoutWithoutSessionDoesNotFail() {
         assertDoesNotThrow(() -> service.logout(request));
         verify(logs, never()).createLog(any(), anyString(), anyString(), any(), anyString(), anyString());
+    }
+
+    // ---------- UC03 - Change Password ----------
+
+    private ChangePasswordRequest change(String identifier, String current, String newPassword, String confirm) {
+        return new ChangePasswordRequest(identifier, current, newPassword, confirm);
+    }
+
+    @Test
+    void changePasswordWithUsernameUpdatesHashAndLogs() {
+        User user = cashier(AccountStatus.ACTIVE, 0);
+        when(users.findByUsername("cashier01")).thenReturn(Optional.of(user));
+
+        service.changePassword("cashier01", change("cashier01", "Secret123", "NewPass456", "NewPass456"), request);
+
+        assertTrue(ENCODER.matches("NewPass456", user.getPasswordHash()));
+        verify(users).save(user);
+        verify(logs).createLog(eq(user), eq("PASSWORD_CHANGED"), eq("USER"), eq(7L), anyString(), eq("10.0.0.5"));
+    }
+
+    @Test
+    void changePasswordAcceptsEmailCaseInsensitive() {
+        User user = cashier(AccountStatus.ACTIVE, 0);
+        when(users.findByUsername("cashier01")).thenReturn(Optional.of(user));
+
+        assertDoesNotThrow(() -> service.changePassword("cashier01",
+                change("Cashier01@SMS.vn", "Secret123", "NewPass456", "NewPass456"), request));
+    }
+
+    @Test
+    void changePasswordRejectsAnotherAccountsUsername() {
+        when(users.findByUsername("cashier01")).thenReturn(Optional.of(cashier(AccountStatus.ACTIVE, 0)));
+
+        BadRequestException error = assertThrows(BadRequestException.class, () -> service.changePassword("cashier01",
+                change("admin", "Secret123", "NewPass456", "NewPass456"), request));
+        assertEquals(AuthServiceImpl.MSG_IDENTIFIER_MISMATCH, error.getMessage());
+        verify(users, never()).save(any());
+    }
+
+    @Test
+    void changePasswordRejectsWrongCurrentPassword() {
+        User user = cashier(AccountStatus.ACTIVE, 0);
+        when(users.findByUsername("cashier01")).thenReturn(Optional.of(user));
+
+        BadRequestException error = assertThrows(BadRequestException.class, () -> service.changePassword("cashier01",
+                change("cashier01", "Wrong999", "NewPass456", "NewPass456"), request));
+        assertEquals(AuthServiceImpl.MSG04_CURRENT_PASSWORD_INCORRECT, error.getMessage());
+        verify(logs).createLog(eq(user), eq("PASSWORD_CHANGE_FAILED"), eq("USER"), eq(7L), anyString(), anyString());
+        verify(users, never()).save(any());
+    }
+
+    @Test
+    void changePasswordRejectsMismatchedConfirmation() {
+        when(users.findByUsername("cashier01")).thenReturn(Optional.of(cashier(AccountStatus.ACTIVE, 0)));
+
+        BadRequestException error = assertThrows(BadRequestException.class, () -> service.changePassword("cashier01",
+                change("cashier01", "Secret123", "NewPass456", "NewPass457"), request));
+        assertEquals(AuthServiceImpl.MSG_CONFIRM_MISMATCH, error.getMessage());
+    }
+
+    @Test
+    void changePasswordRejectsSamePassword() {
+        when(users.findByUsername("cashier01")).thenReturn(Optional.of(cashier(AccountStatus.ACTIVE, 0)));
+
+        BadRequestException error = assertThrows(BadRequestException.class, () -> service.changePassword("cashier01",
+                change("cashier01", "Secret123", "Secret123", "Secret123"), request));
+        assertEquals(AuthServiceImpl.MSG_SAME_PASSWORD, error.getMessage());
     }
 }
