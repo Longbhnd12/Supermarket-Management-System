@@ -21,4 +21,15 @@ public interface StockReceiptDetailRepository
     List<StockReceiptDetail> lockBatches(@org.springframework.data.repository.query.Param("id") Long id);
 
     List<StockReceiptDetail> findByStockReceipt(StockReceipt stockReceipt);
+
+    List<StockReceiptDetail> findByProduct(Product product);
+
+    @Query("select d from StockReceiptDetail d where d.stockReceipt.status = com.sms.backend.enums.StockReceiptStatus.CONFIRMED and d.remainingQuantity > 0 and d.expirationDate is not null and d.product.trackExpiry = true")
+    List<StockReceiptDetail> findActiveExpiringBatches();
+
+    @Query("select d from StockReceiptDetail d where d.expirationDate between :from and :to and d.remainingQuantity > :minQty")
+    List<StockReceiptDetail> findByExpirationDateBetweenAndRemainingQuantityGreaterThan(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("minQty") BigDecimal minQty);
 }
