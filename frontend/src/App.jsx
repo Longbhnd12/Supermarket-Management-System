@@ -58,6 +58,8 @@ import EmployeeListPage from './pages/employee/EmployeeListPage';
 import UserListPage from './pages/user/UserListPage';
 import UserFormPage from './pages/user/UserFormPage';
 import RolePermissionsPage from './pages/user/RolePermissionsPage';
+import ProfilePage from './pages/account/ProfilePage';
+import ChangePasswordPage from './pages/account/ChangePasswordPage';
 
 import './App.css';
 
@@ -114,6 +116,10 @@ export default function App() {
                     <Route path="/users/new" element={<UserFormPage />} />
                     <Route path="/users/:id/edit" element={<UserFormPage />} />
                     <Route path="/roles" element={<RolePermissionsPage />} />
+
+                    {/* Account (UC44, UC03) */}
+                    <Route path="/profile" element={<ProfilePage />} />
+                    <Route path="/change-password" element={<ChangePasswordPage />} />
 
                     <Route path="/system-settings" element={<SystemSettingsPage />} />
                     <Route path="/system-logs" element={<SystemLogsPage />} />
