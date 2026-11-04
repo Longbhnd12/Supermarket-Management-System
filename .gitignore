@@ -26,7 +26,6 @@
 !.env.example
 **/application-local.properties
 **/application-secret.properties
-backend/src/main/resources/application.properties
 !backend/src/main/resources/application.properties.example
 
 # =====================
