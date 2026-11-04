@@ -21,7 +21,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -79,21 +78,17 @@ public class AuthController {
         if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
             throw new UnauthorizedException("Authentication is required");
         }
-        return ResponseEntity.ok(ApiResponse.success("Current user retrieved", response(userByUsername(authentication.getName()))));
+        return ResponseEntity.ok(ApiResponse.success("Current user retrieved",
+                authService.getCurrentUser(authentication.getName())));
     }
 
+    /**
+     * UC02 - Logout. Business rules live in {@link AuthService}.
+     */
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest request) {
-        SecurityContextHolder.clearContext();
-        if (request.getSession(false) != null) {
-            request.getSession(false).invalidate();
-        }
+        authService.logout(request);
         return ResponseEntity.ok(ApiResponse.success("Logged out", null));
-    }
-
-    private User userByUsername(String username) {
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new UnauthorizedException("Authenticated user was not found"));
     }
 
     private Role defaultCashierRole() {
@@ -110,6 +105,6 @@ public class AuthController {
     private AuthenticatedUserResponse response(User user) {
         String role = user.getRole() == null || user.getRole().getRoleName() == null
                 ? "" : user.getRole().getRoleName().name();
-        return new AuthenticatedUserResponse(user.getUserId(), user.getUsername(), user.getEmail(), role);
+        return new AuthenticatedUserResponse(user.getUserId(), user.getUsername(), user.getEmail(), role, user.getUsername());
     }
 }

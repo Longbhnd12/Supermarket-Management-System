@@ -6,13 +6,23 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * UC01 - Login.
+ * UC01 - Login, UC02 - Logout.
  */
 public interface AuthService {
 
     /**
-     * Validates the credentials, applies the lockout rule (BR-24), starts the
+     * UC01: validates the credentials, applies the lockout rule (BR-24), starts the
      * HTTP session and returns the authenticated user with its role.
      */
     AuthenticatedUserResponse login(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse);
+
+    /**
+     * Information shown in the account menu (full name, email, role).
+     */
+    AuthenticatedUserResponse getCurrentUser(String username);
+
+    /**
+     * UC02: records the logout and ends the current session immediately.
+     */
+    void logout(HttpServletRequest httpRequest);
 }
