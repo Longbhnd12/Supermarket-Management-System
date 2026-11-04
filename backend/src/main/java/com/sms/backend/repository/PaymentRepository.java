@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import java.time.LocalDateTime;
 
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
@@ -24,6 +23,16 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     Optional<Payment> findBySaleAndIdempotencyKey(Sale sale, String idempotencyKey);
 
     Optional<Payment> findByTxnRef(String txnRef);
+
+    @Query("select p from Payment p where p.sale.status = :saleStatus "
+            + "and p.paymentStatus = :paymentStatus and p.reconciliationRequired = false "
+            + "and p.sale.completedAt between :from and :to")
+    List<Payment> findBySaleStatusAndPaymentStatusAndSaleCompletedAtBetween(
+            @Param("saleStatus") SaleStatus saleStatus,
+            @Param("paymentStatus") PaymentStatus paymentStatus,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
+    );
 
     @Query("select p.sale.saleId from Payment p where p.txnRef = :ref")
     Optional<Long> findSaleIdByTxnRef(@Param("ref") String ref);

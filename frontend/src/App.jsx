@@ -14,6 +14,9 @@ import InventoryReportPage from './pages/reports/InventoryReportPage';
 import RevenueReportPage from './pages/reports/RevenueReportPage';
 import ProductSalesReportPage from './pages/reports/ProductSalesReportPage';
 import NotificationsPage from './pages/notifications/NotificationsPage';
+import LoginPage from './pages/auth/LoginPage';
+import RegisterPage from './pages/auth/RegisterPage';
+import ProtectedRoute from './common/ProtectedRoute';
 
 // Product
 import ProductListPage from './pages/product/ProductListPage';
@@ -60,6 +63,9 @@ export default function App() {
     return (
         <BrowserRouter>
             <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+                <Route element={<ProtectedRoute />}>
                 <Route element={<MainLayout />}>
                     <Route path="/" element={<HomePage />} />
 
@@ -112,6 +118,7 @@ export default function App() {
                     <Route path="/reports/product-sales" element={<ProductSalesReportPage />} />
                     <Route path="/notifications" element={<NotificationsPage />} />
                     <Route path="*" element={<NotFoundPage />} />
+                </Route>
                 </Route>
             </Routes>
         </BrowserRouter>
