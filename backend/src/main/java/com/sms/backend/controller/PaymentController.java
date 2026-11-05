@@ -53,6 +53,10 @@ public class PaymentController {
     public ApiResponse<Void> reconcile(@PathVariable Long id) {
         reconciler.reconcile(id); return ApiResponse.success("Payment reconciled", null);
     }
+    @PostMapping("/vnpay/confirm-cancellation")
+    public ApiResponse<PaymentResponse> confirmCancellation(@RequestBody Map<String, String> parameters) {
+        return ApiResponse.success("Cancellation checked", payments.confirmCancellation(parameters));
+    }
     @GetMapping("/vnpay/ipn")
     public IpnResponse ipn(@RequestParam Map<String, String> parameters, HttpServletRequest request) {
         if (request.getParameterMap().values().stream().anyMatch(values -> values.length != 1))

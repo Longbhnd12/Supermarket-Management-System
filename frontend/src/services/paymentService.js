@@ -7,4 +7,5 @@ export default {
     create: (saleId, data) => API.post(`/payments/sales/${saleId}`, data),
     cashChange: (saleId, data, signal) => API.post(`/payments/sales/${saleId}/cash-change`, data, { signal }),
     reconcile: (id) => API.post(`/payments/${id}/reconcile`),
+    confirmCancellation: (parameters, signal) => API.post('/payments/vnpay/confirm-cancellation', parameters, { signal }),
 };
