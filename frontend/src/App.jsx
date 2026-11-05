@@ -61,6 +61,8 @@ import UserFormPage from './pages/user/UserFormPage';
 import RolePermissionsPage from './pages/user/RolePermissionsPage';
 import ProfilePage from './pages/account/ProfilePage';
 import ChangePasswordPage from './pages/account/ChangePasswordPage';
+import SupplierOrderListPage from './pages/supplierPortal/SupplierOrderListPage';
+import SupplierOrderDetailPage from './pages/supplierPortal/SupplierOrderDetailPage';
 
 import './App.css';
 
@@ -122,6 +124,10 @@ export default function App() {
                     {/* Account (UC44, UC03) */}
                     <Route path="/profile" element={<ProfilePage />} />
                     <Route path="/change-password" element={<ChangePasswordPage />} />
+
+                    {/* Supplier portal (UC48, UC49) */}
+                    <Route path="/supplier/purchase-orders" element={<SupplierOrderListPage />} />
+                    <Route path="/supplier/purchase-orders/:id" element={<SupplierOrderDetailPage />} />
 
                     <Route path="/system-settings" element={<SystemSettingsPage />} />
                     <Route path="/system-logs" element={<SystemLogsPage />} />

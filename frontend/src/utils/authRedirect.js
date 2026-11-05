@@ -6,7 +6,7 @@ const ROLE_HOME = {
     MANAGER: '/',
     CASHIER: '/',
     WAREHOUSE_STAFF: '/',
-    SUPPLIER: '/purchase-orders'
+    SUPPLIER: '/supplier/purchase-orders'
 };
 
 export function getHomePathByRole(role) {

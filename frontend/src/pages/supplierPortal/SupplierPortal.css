@@ -1,0 +1,208 @@
+/* UC48 / UC49 - Supplier portal ("sp-" prefix, builds on pages/user/UserManagement.css) */
+.sp-summary {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.sp-summary-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 14px 16px;
+    border: 1px solid var(--sms-border);
+    border-radius: var(--sms-radius);
+    background: var(--sms-card-bg);
+    color: var(--sms-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.sp-summary-card:hover {
+    border-color: #c7d7fb;
+}
+
+.sp-summary-card.is-active {
+    border-color: var(--sms-primary);
+    box-shadow: 0 0 0 2px #e4ecff;
+}
+
+.sp-summary-card span {
+    color: var(--sms-text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.sp-summary-card strong {
+    font-size: 24px;
+}
+
+.sp-filters {
+    display: grid;
+    grid-template-columns: minmax(200px, 2fr) repeat(3, minmax(140px, 1fr)) auto;
+    gap: 12px;
+    align-items: end;
+}
+
+/* Status badges */
+.sp-status {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.sp-status-SENT { background: #fff7e6; color: #b54708; }
+.sp-status-ACCEPTED { background: #ecfdf3; color: #067647; }
+.sp-status-REJECTED_BY_SUPPLIER { background: #fef3f2; color: #b42318; }
+.sp-status-PARTIALLY_FULFILLED { background: #e4ecff; color: #2458dc; }
+.sp-status-FULFILLED { background: #f0f9ff; color: #026aa2; }
+
+.sp-flag {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: #f4f3ff;
+    color: #5925dc;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.sp-number {
+    text-align: right;
+    white-space: nowrap;
+}
+
+/* Detail */
+.sp-info {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px 20px;
+    margin: 0;
+}
+
+.sp-info dt {
+    color: var(--sms-text-secondary);
+    font-size: 12px;
+}
+
+.sp-info dd {
+    margin: 3px 0 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.sp-section-title {
+    margin: 0 0 14px;
+    font-size: 16px;
+}
+
+.sp-table input {
+    width: 110px;
+    padding: 7px 9px;
+    border: 1px solid #cdd4e2;
+    border-radius: 7px;
+    font: inherit;
+    font-size: 13px;
+    text-align: right;
+}
+
+.sp-table input:disabled {
+    background: #f2f4f8;
+    color: var(--sms-text-secondary);
+}
+
+.sp-table input[aria-invalid="true"] {
+    border-color: #b42318;
+}
+
+.sp-changed {
+    color: #5925dc;
+    font-weight: 700;
+}
+
+.sp-totals {
+    display: flex;
+    justify-content: flex-end;
+    gap: 28px;
+    padding-top: 14px;
+    font-size: 14px;
+}
+
+.sp-totals strong {
+    font-size: 16px;
+}
+
+.sp-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.sp-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border: 1px solid var(--sms-border);
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.sp-option.is-selected {
+    border-color: var(--sms-primary);
+    background: #eef3ff;
+}
+
+.sp-response-grid {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 18px 20px;
+}
+
+.sp-response-grid textarea {
+    min-height: 84px;
+    padding: 9px 12px;
+    border: 1px solid #cdd4e2;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 14px;
+    resize: vertical;
+}
+
+.sp-response-grid textarea[aria-invalid="true"] {
+    border-color: #b42318;
+}
+
+.sp-banner {
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: #f4f3ff;
+    color: #5925dc;
+    font-size: 14px;
+}
+
+@media (max-width: 1100px) {
+    .sp-summary {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .sp-info {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 900px) {
+    .sp-filters,
+    .sp-response-grid {
+        grid-template-columns: 1fr;
+    }
+}
