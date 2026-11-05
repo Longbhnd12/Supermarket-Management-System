@@ -1,13 +1,15 @@
 package com.sms.backend.service;
 
 import com.sms.backend.dto.request.ChangePasswordRequest;
+import com.sms.backend.dto.request.ForgotPasswordRequest;
 import com.sms.backend.dto.request.LoginRequest;
+import com.sms.backend.dto.request.ResetPasswordRequest;
 import com.sms.backend.dto.response.AuthenticatedUserResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * UC01 - Login, UC02 - Logout, UC03 - Change Password.
+ * UC01 - Login, UC02 - Logout, UC03 - Change Password, UC45 - Forgot Password.
  */
 public interface AuthService {
 
@@ -32,4 +34,15 @@ public interface AuthService {
      * their username/email and current password. The session stays active.
      */
     void changePassword(String username, ChangePasswordRequest request, HttpServletRequest httpRequest);
+
+    /**
+     * UC45 step 1: if the account exists, creates a one-time code (valid 10 minutes)
+     * and emails it. The caller always shows the same generic message (BR-03).
+     */
+    void requestPasswordReset(ForgotPasswordRequest request, HttpServletRequest httpRequest);
+
+    /**
+     * UC45 step 2: checks the code and sets the new password; the code is then invalidated.
+     */
+    void resetPassword(ResetPasswordRequest request, HttpServletRequest httpRequest);
 }

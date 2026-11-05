@@ -1,7 +1,9 @@
 package com.sms.backend.service;
 
 import com.sms.backend.dto.request.ChangePasswordRequest;
+import com.sms.backend.dto.request.ForgotPasswordRequest;
 import com.sms.backend.dto.request.LoginRequest;
+import com.sms.backend.dto.request.ResetPasswordRequest;
 import com.sms.backend.dto.response.AuthenticatedUserResponse;
 import com.sms.backend.entity.Employee;
 import com.sms.backend.entity.Role;
@@ -11,6 +13,7 @@ import com.sms.backend.enums.AccountStatus;
 import com.sms.backend.enums.RoleName;
 import com.sms.backend.exception.AccountAccessException;
 import com.sms.backend.exception.BadRequestException;
+import com.sms.backend.exception.BusinessException;
 import com.sms.backend.exception.UnauthorizedException;
 import com.sms.backend.repository.SystemSettingRepository;
 import com.sms.backend.repository.UserRepository;
@@ -53,6 +56,7 @@ class AuthServiceImplTest {
     @Mock UserRepository users;
     @Mock SystemSettingRepository settings;
     @Mock SystemLogService logs;
+    @Mock EmailService email;
 
     AuthServiceImpl service;
     MockHttpServletRequest request;
@@ -63,7 +67,7 @@ class AuthServiceImplTest {
         UserDetailsService details = username -> org.springframework.security.core.userdetails.User
                 .withUsername(username).password(HASH).authorities("ROLE_CASHIER").build();
         service = new AuthServiceImpl(users, settings, logs, ENCODER, details,
-                new HttpSessionSecurityContextRepository(), CLOCK);
+                new HttpSessionSecurityContextRepository(), CLOCK, email);
         request = new MockHttpServletRequest();
         request.setRemoteAddr("10.0.0.5");
         response = new MockHttpServletResponse();
@@ -315,5 +319,108 @@ class AuthServiceImplTest {
         BadRequestException error = assertThrows(BadRequestException.class, () -> service.changePassword("cashier01",
                 change("cashier01", "Secret123", "Secret123", "Secret123"), request));
         assertEquals(AuthServiceImpl.MSG_SAME_PASSWORD, error.getMessage());
+    }
+
+    // ---------- UC45 - Forgot Password ----------
+
+    @Test
+    void forgotPasswordSendsSixDigitCodeValidTenMinutes() {
+        User user = cashier(AccountStatus.ACTIVE, 0);
+        when(users.findByUsername("cashier01")).thenReturn(Optional.of(user));
+
+        service.requestPasswordReset(new ForgotPasswordRequest("cashier01"), request);
+
+        assertNotNull(user.getResetCode());
+        assertTrue(user.getResetCode().matches("\\d{6}"));
+        assertEquals(NOW.plusMinutes(10), user.getResetCodeExpiresAt());
+        verify(email).sendPasswordResetCode("cashier01@sms.vn", "cashier01", user.getResetCode(), 10);
+        verify(logs).createLog(eq(user), eq("PASSWORD_RESET_REQUESTED"), eq("USER"), eq(7L), anyString(), anyString());
+    }
+
+    @Test
+    void forgotPasswordForUnknownAccountSendsNothing() {
+        when(users.findByUsername("ghost")).thenReturn(Optional.empty());
+        when(users.findByEmail(anyString())).thenReturn(Optional.empty());
+
+        assertDoesNotThrow(() -> service.requestPasswordReset(new ForgotPasswordRequest("ghost"), request));
+        verifyNoInteractions(email);
+        verify(users, never()).save(any());
+    }
+
+    @Test
+    void forgotPasswordForInactiveAccountSendsNothing() {
+        when(users.findByUsername("cashier01")).thenReturn(Optional.of(cashier(AccountStatus.INACTIVE, 0)));
+
+        service.requestPasswordReset(new ForgotPasswordRequest("cashier01"), request);
+        verifyNoInteractions(email);
+    }
+
+    @Test
+    void emailFailureIsReportedToTheUser() {
+        when(users.findByUsername("cashier01")).thenReturn(Optional.of(cashier(AccountStatus.ACTIVE, 0)));
+        doThrow(new BusinessException("Unable to send the reset code email. Please try again later."))
+                .when(email).sendPasswordResetCode(anyString(), anyString(), anyString(), anyInt());
+
+        assertThrows(BusinessException.class,
+                () -> service.requestPasswordReset(new ForgotPasswordRequest("cashier01"), request));
+    }
+
+    private User withCode(AccountStatus status, String code, LocalDateTime expiresAt) {
+        User user = cashier(status, 0);
+        user.setResetCode(code);
+        user.setResetCodeExpiresAt(expiresAt);
+        return user;
+    }
+
+    @Test
+    void resetWithValidCodeChangesPasswordAndInvalidatesCode() {
+        User user = withCode(AccountStatus.LOCKED, "482913", NOW.plusMinutes(5));
+        user.setLockedUntil(NOW.plusMinutes(10));
+        when(users.findByUsername("cashier01")).thenReturn(Optional.of(user));
+
+        service.resetPassword(new ResetPasswordRequest("cashier01", "482913", "NewPass456", "NewPass456"), request);
+
+        assertTrue(ENCODER.matches("NewPass456", user.getPasswordHash()));
+        assertNull(user.getResetCode());
+        assertNull(user.getResetCodeExpiresAt());
+        assertEquals(AccountStatus.ACTIVE, user.getStatus(), "a successful reset also removes the login lock");
+        assertNull(user.getLockedUntil());
+        verify(logs).createLog(eq(user), eq("PASSWORD_RESET"), eq("USER"), eq(7L), anyString(), anyString());
+    }
+
+    @Test
+    void expiredCodeIsRejected() {
+        User user = withCode(AccountStatus.ACTIVE, "482913", NOW.minusSeconds(1));
+        when(users.findByUsername("cashier01")).thenReturn(Optional.of(user));
+
+        BadRequestException error = assertThrows(BadRequestException.class, () -> service.resetPassword(
+                new ResetPasswordRequest("cashier01", "482913", "NewPass456", "NewPass456"), request));
+        assertEquals(AuthServiceImpl.MSG_RESET_CODE_INVALID, error.getMessage());
+        assertEquals(HASH, user.getPasswordHash());
+    }
+
+    @Test
+    void codeIsCancelledAfterFiveWrongAttempts() {
+        User user = withCode(AccountStatus.ACTIVE, "482913", NOW.plusMinutes(5));
+        when(users.findByUsername("cashier01")).thenReturn(Optional.of(user));
+        ResetPasswordRequest wrong = new ResetPasswordRequest("cashier01", "000000", "NewPass456", "NewPass456");
+
+        for (int i = 0; i < 4; i++) {
+            assertThrows(BadRequestException.class, () -> service.resetPassword(wrong, request));
+            assertEquals("482913", user.getResetCode());
+        }
+        assertThrows(BadRequestException.class, () -> service.resetPassword(wrong, request));
+        assertNull(user.getResetCode(), "5th wrong code cancels the code");
+
+        // even the right code no longer works
+        assertThrows(BadRequestException.class, () -> service.resetPassword(
+                new ResetPasswordRequest("cashier01", "482913", "NewPass456", "NewPass456"), request));
+    }
+
+    @Test
+    void resetRejectsMismatchedConfirmation() {
+        BadRequestException error = assertThrows(BadRequestException.class, () -> service.resetPassword(
+                new ResetPasswordRequest("cashier01", "482913", "NewPass456", "NewPass457"), request));
+        assertEquals(AuthServiceImpl.MSG_CONFIRM_MISMATCH, error.getMessage());
     }
 }

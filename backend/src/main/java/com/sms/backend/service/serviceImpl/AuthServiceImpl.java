@@ -1,7 +1,9 @@
 package com.sms.backend.service.serviceImpl;
 
 import com.sms.backend.dto.request.ChangePasswordRequest;
+import com.sms.backend.dto.request.ForgotPasswordRequest;
 import com.sms.backend.dto.request.LoginRequest;
+import com.sms.backend.dto.request.ResetPasswordRequest;
 import com.sms.backend.dto.response.AuthenticatedUserResponse;
 import com.sms.backend.entity.SystemSetting;
 import com.sms.backend.entity.User;
@@ -12,6 +14,7 @@ import com.sms.backend.exception.UnauthorizedException;
 import com.sms.backend.repository.SystemSettingRepository;
 import com.sms.backend.repository.UserRepository;
 import com.sms.backend.service.AuthService;
+import com.sms.backend.service.EmailService;
 import com.sms.backend.service.SystemLogService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -28,14 +31,17 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * UC01 - Login, UC02 - Logout.
+ * UC01 - Login, UC02 - Logout, UC03 - Change Password, UC45 - Forgot Password.
  * <ul>
  *     <li>BR-01 (SRS 3.2.1): password is validated against the BCrypt hash.</li>
  *     <li>BR-02: the role of the account decides what the user can access.</li>
@@ -55,10 +61,16 @@ public class AuthServiceImpl implements AuthService {
     public static final String MSG04_CURRENT_PASSWORD_INCORRECT = "Current password is incorrect.";
     public static final String MSG_CONFIRM_MISMATCH = "New password and confirmation do not match";
     public static final String MSG_SAME_PASSWORD = "New password must be different from the current password";
+    public static final String MSG_RESET_CODE_SENT = "If this account exists, a reset code has been sent";
+    public static final String MSG_RESET_CODE_INVALID = "Reset code is invalid or has expired";
 
     static final int DEFAULT_MAX_FAILED_ATTEMPTS = 5;
     static final int DEFAULT_SESSION_TIMEOUT_MINUTES = 30;
     static final int LOCK_DURATION_MINUTES = 15;
+    /** SRS 4.2.4: the reset code is valid for 10 minutes and can be used only once. */
+    static final int RESET_CODE_VALID_MINUTES = 10;
+    /** Wrong codes allowed before the code is cancelled (protects the 6-digit code from guessing). */
+    static final int MAX_RESET_CODE_ATTEMPTS = 5;
 
     private static final String ENTITY_TYPE = "USER";
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
@@ -70,6 +82,11 @@ public class AuthServiceImpl implements AuthService {
     private final UserDetailsService userDetailsService;
     private final SecurityContextRepository securityContextRepository;
     private final Clock clock;
+    private final EmailService emailService;
+
+    private final SecureRandom random = new SecureRandom();
+    /** userId -> wrong reset codes entered for the current code (cleared when a new code is issued). */
+    private final Map<Long, Integer> resetCodeAttempts = new ConcurrentHashMap<>();
 
     @Override
     @Transactional(noRollbackFor = {UnauthorizedException.class, AccountAccessException.class})
@@ -192,6 +209,89 @@ public class AuthServiceImpl implements AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
         writeLog(user, "PASSWORD_CHANGED", user.getUserId(), "User changed their password", ipAddress);
+    }
+
+    // ---------------- UC45 - Forgot Password ----------------
+
+    /**
+     * Step 3-4. AT1 / BR-03: unknown or inactive accounts get the same generic answer
+     * and no email. If the email cannot be sent, nothing is saved and the user is told
+     * to try again later (SRS 4.1.3).
+     */
+    @Override
+    @Transactional
+    public void requestPasswordReset(ForgotPasswordRequest request, HttpServletRequest httpRequest) {
+        String identifier = request.identifier().trim();
+        String ipAddress = clientIp(httpRequest);
+        User user = findByIdentifier(identifier).orElse(null);
+
+        if (user == null || user.getStatus() == AccountStatus.INACTIVE) {
+            writeLog(user, "PASSWORD_RESET_REQUESTED", user == null ? null : user.getUserId(),
+                    "Reset requested for " + (user == null ? "unknown account " + identifier : "inactive account")
+                            + " - no code sent", ipAddress);
+            return;
+        }
+
+        String code = String.format("%06d", random.nextInt(1_000_000));
+        user.setResetCode(code);
+        user.setResetCodeExpiresAt(LocalDateTime.now(clock).plusMinutes(RESET_CODE_VALID_MINUTES));
+        userRepository.save(user);
+        resetCodeAttempts.remove(user.getUserId());
+
+        // Throws BusinessException when the email cannot be sent -> transaction rolls back
+        emailService.sendPasswordResetCode(user.getEmail(), user.getUsername(), code, RESET_CODE_VALID_MINUTES);
+        writeLog(user, "PASSWORD_RESET_REQUESTED", user.getUserId(), "Reset code sent to the registered email", ipAddress);
+    }
+
+    /**
+     * Step 6-8. AT2: wrong / expired code -> "Reset code is invalid or has expired".
+     * AT3: password policy (@Pattern) and confirmation. POS-03: the code is invalidated after use.
+     * A successful reset also removes a login lock, because the user proved they own the email.
+     */
+    @Override
+    @Transactional(noRollbackFor = BadRequestException.class)
+    public void resetPassword(ResetPasswordRequest request, HttpServletRequest httpRequest) {
+        if (!request.newPassword().equals(request.confirmPassword())) {
+            throw new BadRequestException(MSG_CONFIRM_MISMATCH);
+        }
+
+        User user = findByIdentifier(request.identifier().trim())
+                .filter(found -> found.getStatus() != AccountStatus.INACTIVE)
+                .orElseThrow(() -> new BadRequestException(MSG_RESET_CODE_INVALID));
+        String ipAddress = clientIp(httpRequest);
+        LocalDateTime now = LocalDateTime.now(clock);
+
+        boolean expired = user.getResetCode() == null
+                || user.getResetCodeExpiresAt() == null
+                || !user.getResetCodeExpiresAt().isAfter(now);
+        if (expired) {
+            throw new BadRequestException(MSG_RESET_CODE_INVALID);
+        }
+
+        if (!user.getResetCode().equals(request.code().trim())) {
+            int attempts = resetCodeAttempts.merge(user.getUserId(), 1, Integer::sum);
+            if (attempts >= MAX_RESET_CODE_ATTEMPTS) {
+                // Too many wrong codes: cancel this code, the user must request a new one
+                user.setResetCode(null);
+                user.setResetCodeExpiresAt(null);
+                userRepository.save(user);
+                resetCodeAttempts.remove(user.getUserId());
+                writeLog(user, "PASSWORD_RESET_FAILED", user.getUserId(), "Reset code cancelled after too many wrong attempts", ipAddress);
+            }
+            throw new BadRequestException(MSG_RESET_CODE_INVALID);
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.setResetCode(null);
+        user.setResetCodeExpiresAt(null);
+        if (user.getStatus() == AccountStatus.LOCKED) {
+            user.setStatus(AccountStatus.ACTIVE);
+        }
+        user.setFailedLoginAttempts(0);
+        user.setLockedUntil(null);
+        userRepository.save(user);
+        resetCodeAttempts.remove(user.getUserId());
+        writeLog(user, "PASSWORD_RESET", user.getUserId(), "Password reset with an emailed code", ipAddress);
     }
 
     private Optional<User> findByIdentifier(String identifier) {
