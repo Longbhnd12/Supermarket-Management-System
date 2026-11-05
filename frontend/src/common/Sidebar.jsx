@@ -9,6 +9,7 @@ import {
     Tags,
     Users,
     UserCog,
+    ShieldCheck,
     BarChart3,
     Settings,
     ClipboardList,
@@ -20,6 +21,7 @@ import {
     FileCheck,
     History,
     AlertTriangle,
+    Bell,
     X
 } from 'lucide-react';
 
@@ -108,6 +110,11 @@ const menuGroups = [
                 path: '/users'
             },
             {
+                label: 'Roles & Permissions',
+                icon: ShieldCheck,
+                path: '/roles'
+            },
+            {
                 label: 'Reports',
                 icon: BarChart3,
                 path: '/reports/sales'
@@ -126,12 +133,34 @@ const menuGroups = [
     }
 ];
 
+// UC48/UC49: Supplier accounts only see the Supplier portal (SRS 4.1.1 role-based navigation)
+const supplierMenuGroups = [
+    {
+        title: 'SUPPLIER PORTAL',
+        items: [
+            {
+                label: 'Purchase Orders',
+                icon: FileText,
+                path: '/supplier/purchase-orders'
+            },
+            {
+                label: 'Notifications',
+                icon: Bell,
+                path: '/notifications'
+            }
+        ]
+    }
+];
+
 export default function Sidebar({
     collapsed,
     setCollapsed,
     mobileOpen,
-    setMobileOpen
+    setMobileOpen,
+    currentUser
 }) {
+    const groups = currentUser?.role === 'SUPPLIER' ? supplierMenuGroups : menuGroups;
+
     return (
         <>
             {mobileOpen && (
@@ -182,7 +211,7 @@ export default function Sidebar({
                 </div>
 
                 <nav className="sms-sidebar-nav">
-                    {menuGroups.map((group) => (
+                    {groups.map((group) => (
                         <div
                             className="sms-menu-group"
                             key={group.title}

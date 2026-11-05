@@ -1,1 +1,17 @@
 .auth-page,.auth-loading{min-height:100vh;display:grid;place-items:center;background:#f1f5f9;color:#172033;font-family:Arial,sans-serif}.auth-card{width:min(420px,calc(100% - 32px));padding:32px;border-radius:14px;background:#fff;box-shadow:0 18px 45px #1720331f}.auth-card h1{margin:0 0 8px}.auth-card p{color:#526071}.auth-card form{display:grid;gap:16px}.auth-card label{display:grid;gap:6px;font-weight:600}.auth-card input{padding:10px 12px;border:1px solid #b8c2d1;border-radius:7px;font:inherit}.auth-card button{padding:11px;border:0;border-radius:7px;background:#1d4ed8;color:#fff;font-weight:700;cursor:pointer}.auth-error{margin:0;color:#b42318;font-weight:600}
+
+/* UC01 - Login */
+.auth-field-error{color:#b42318;font-size:13px;font-weight:500}
+.auth-card input[aria-invalid="true"]{border-color:#b42318}
+.auth-forgot{justify-self:end;color:#1d4ed8;font-size:14px;text-decoration:none}
+.auth-forgot:hover{text-decoration:underline}
+.auth-actions{display:grid;grid-template-columns:1fr 2fr;gap:10px}
+.auth-card button.auth-secondary{background:#e2e8f0;color:#172033}
+.auth-card button:disabled{opacity:.65;cursor:not-allowed}
+
+/* UC45 - Forgot Password */
+.auth-success{margin:0 0 12px;padding:10px 12px;border-radius:7px;background:#ecfdf3;color:#067647!important;font-weight:600}
+.auth-hint{color:#526071;font-size:13px;font-weight:400}
+.auth-links-row{display:flex;justify-content:space-between;gap:12px}
+.auth-card button.auth-text-button{padding:0;background:none;color:#1d4ed8;font-weight:600;font-size:14px}
+.auth-card button.auth-text-button:disabled{color:#94a3b8;opacity:1}
