@@ -8,3 +8,10 @@
 .auth-actions{display:grid;grid-template-columns:1fr 2fr;gap:10px}
 .auth-card button.auth-secondary{background:#e2e8f0;color:#172033}
 .auth-card button:disabled{opacity:.65;cursor:not-allowed}
+
+/* UC45 - Forgot Password */
+.auth-success{margin:0 0 12px;padding:10px 12px;border-radius:7px;background:#ecfdf3;color:#067647!important;font-weight:600}
+.auth-hint{color:#526071;font-size:13px;font-weight:400}
+.auth-links-row{display:flex;justify-content:space-between;gap:12px}
+.auth-card button.auth-text-button{padding:0;background:none;color:#1d4ed8;font-weight:600;font-size:14px}
+.auth-card button.auth-text-button:disabled{color:#94a3b8;opacity:1}
