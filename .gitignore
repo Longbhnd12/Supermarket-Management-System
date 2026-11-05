@@ -19,13 +19,14 @@
 *.iml
 
 # =====================
-# ENV
+# ENV / LOCAL CONFIG
 # =====================
 .env
 .env.*
 !.env.example
 **/application-local.properties
 **/application-secret.properties
+!backend/src/main/resources/application.properties.example
 
 # =====================
 # OTHER
@@ -33,3 +34,7 @@
 *.log
 .DS_Store
 Thumbs.db
+
+# Local project documentation (không chia sẻ qua git)
+/docs/SDD.docx
+/docs/SRS.docx

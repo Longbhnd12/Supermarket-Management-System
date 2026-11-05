@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useOutletContext } from 'react-router-dom';
 
 import Header from '../common/Header';
 import Sidebar from '../common/Sidebar';
@@ -11,6 +11,8 @@ import './MainLayout.css';
 export default function MainLayout() {
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
+    const outletContext = useOutletContext() ?? {};
+    const { currentUser } = outletContext;
 
     return (
         <div className="sms-app-layout">
@@ -23,6 +25,7 @@ export default function MainLayout() {
 
             <div className="sms-main-wrapper">
                 <Header
+                    currentUser={currentUser}
                     onMenuClick={() => {
                         setMobileOpen(true);
                     }}
@@ -32,7 +35,7 @@ export default function MainLayout() {
                     <Breadcrumb />
 
                     <div className="sms-page-container">
-                        <Outlet />
+                        <Outlet context={outletContext} />
                     </div>
                 </main>
 

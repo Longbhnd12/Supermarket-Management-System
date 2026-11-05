@@ -9,12 +9,18 @@ import {
     Tags,
     Users,
     UserCog,
+    ShieldCheck,
     BarChart3,
     Settings,
     ClipboardList,
     Store,
     PanelLeftClose,
     PanelLeftOpen,
+    FileInput,
+    FileText,
+    FileCheck,
+    History,
+    AlertTriangle,
     X
 } from 'lucide-react';
 
@@ -40,7 +46,37 @@ const menuGroups = [
             {
                 label: 'Purchase & Inventory',
                 icon: Warehouse,
-                path: '/inventory'
+                path: '/inventory',
+                end: true
+            },
+            {
+                label: 'Purchase Orders',
+                icon: FileText,
+                path: '/purchase-orders',
+                end: true
+            },
+            {
+                label: 'Approve Requests',
+                icon: FileCheck,
+                path: '/purchase-orders/pending',
+                end: true
+            },
+            {
+                label: 'Stock Receipts',
+                icon: FileInput,
+                path: '/inventory/stock-receipts'
+            },
+            {
+                label: 'Stock History',
+                icon: History,
+                path: '/inventory/stock-history',
+                end: true
+            },
+            {
+                label: 'Stock Alerts',
+                icon: AlertTriangle,
+                path: '/inventory/stock-alerts',
+                end: true
             },
             {
                 label: 'Sales & POS',
@@ -73,19 +109,24 @@ const menuGroups = [
                 path: '/users'
             },
             {
+                label: 'Roles & Permissions',
+                icon: ShieldCheck,
+                path: '/roles'
+            },
+            {
                 label: 'Reports',
-                icon: BarChart3
-                // TODO (SDD): Add path once Reports module is designed
+                icon: BarChart3,
+                path: '/reports/sales'
             },
             {
                 label: 'System Settings',
-                icon: Settings
-                // TODO (SDD): Add path once System Settings module is designed
+                icon: Settings,
+                path: '/system-settings'
             },
             {
                 label: 'System Logs',
-                icon: ClipboardList
-                // TODO (SDD): Add path once System Logs module is designed
+                icon: ClipboardList,
+                path: '/system-logs'
             }
         ]
     }
@@ -181,13 +222,11 @@ export default function Sidebar({
                                     <NavLink
                                         key={item.label}
                                         to={item.path}
-                                        end={item.path === '/'}
+                                        end={item.end ?? item.path === '/'}
                                         title={item.label}
                                         onClick={() => setMobileOpen(false)}
                                         className={({ isActive }) =>
-                                            `sms-menu-item ${
-                                                isActive ? 'active' : ''
-                                            }`
+                                            `sms-menu-item ${isActive ? 'active' : ''}`
                                         }
                                     >
                                         <Icon size={19} />

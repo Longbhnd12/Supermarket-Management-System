@@ -1,5 +1,7 @@
 package com.sms.backend.service;
 
+import com.sms.backend.dto.response.PageResponse;
+import com.sms.backend.dto.response.SaleListItemResponse;
 import com.sms.backend.dto.sale.SaleItemRequest;
 import com.sms.backend.dto.sale.SaleResponse;
 import com.sms.backend.dto.sale.CreateSaleRequest;
@@ -7,22 +9,14 @@ import com.sms.backend.dto.sale.SaleProductResponse;
 import com.sms.backend.dto.sale.UpdateSaleItemRequest;
 import com.sms.backend.enums.SaleStatus;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
-/**
- * Service interface for Sale (POS) operations.
- * TODO (SDD): Confirm sale lifecycle: DRAFT -> COMPLETED/CANCELLED state transitions.
- * TODO (SDD): Confirm whether a sale auto-creates StockMovement records on completion.
- * TODO (SDD): Confirm discount application rules (promotion vs. manual discount).
- */
 public interface SaleService {
-
+    PageResponse<SaleListItemResponse> getSales(String search, String status, LocalDateTime fromDate, LocalDateTime toDate, int page, int size);
     List<SaleResponse> getAllSales();
-
     List<SaleResponse> getSalesByStatus(SaleStatus status);
-
     SaleResponse getSaleById(Long id);
-
     SaleResponse getSaleBySaleNumber(String saleNumber);
 
     /**
@@ -52,10 +46,5 @@ public interface SaleService {
      * Completes an already paid sale through UC30 FEFO allocation and invoice issuance.
      */
     SaleResponse completeSale(Long saleId);
-
-    /**
-     * Cancels a DRAFT or COMPLETED sale.
-     * TODO (SDD): Confirm cancellation rules and stock reversal policy.
-     */
     SaleResponse cancelSale(Long saleId);
 }

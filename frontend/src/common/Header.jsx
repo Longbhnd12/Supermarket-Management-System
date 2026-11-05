@@ -1,12 +1,12 @@
 import {
     Bell,
-    ChevronDown,
     MapPin,
-    Menu,
-    UserRound
+    Menu
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import AccountMenu from './AccountMenu';
 
-export default function Header({ onMenuClick }) {
+export default function Header({ currentUser, onMenuClick }) {
     return (
         <header className="sms-header">
             <div className="sms-header-left">
@@ -34,28 +34,18 @@ export default function Header({ onMenuClick }) {
             </div>
 
             <div className="sms-header-right">
-                <div
+                <Link
+                    to="/notifications"
                     className="sms-header-notification"
-                    title="Notifications will be available after authentication"
+                    title="Notifications"
                 >
                     <Bell size={20} />
-                </div>
+                </Link>
 
                 <div className="sms-header-divider" />
 
-                <div className="sms-user-info">
-                    <strong>Guest User</strong>
-                    <span>Authentication not configured</span>
-                </div>
-
-                <div className="sms-user-avatar">
-                    <UserRound size={19} />
-                </div>
-
-                <ChevronDown
-                    size={16}
-                    className="sms-user-chevron"
-                />
+                {/* UC02 - account menu: user info, Profile, Change Password, Notifications, Logout */}
+                <AccountMenu user={currentUser} />
             </div>
         </header>
     );
