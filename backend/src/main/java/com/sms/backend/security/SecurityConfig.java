@@ -47,6 +47,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/**").hasAuthority("PERM_USER_VIEW")
                         .requestMatchers("/api/v1/users/**").hasAuthority("PERM_USER_MANAGE")
                         .requestMatchers("/api/v1/roles/**").hasAuthority("PERM_ROLE_MANAGE")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/invoices", "/api/v1/invoices/**",
+                                "/api/v1/sales/*/invoice", "/api/v1/sales/*/invoice/pdf")
+                        .access(org.springframework.security.authorization.AuthorizationManagers.allOf(
+                                org.springframework.security.authorization.AuthorityAuthorizationManager.hasAnyRole("ADMIN", "MANAGER", "CASHIER"),
+                                org.springframework.security.authorization.AuthorityAuthorizationManager.hasAuthority("PERM_INVOICE_VIEW")))
                         .anyRequest().authenticated()
                 )
                 .formLogin(AbstractHttpConfigurer::disable)

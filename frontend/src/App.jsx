@@ -17,6 +17,8 @@ import NotificationsPage from './pages/notifications/NotificationsPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import ProtectedRoute from './common/ProtectedRoute';
+import InvoiceAccessRoute from './common/InvoiceAccessRoute';
+import InvoiceListPage from './pages/sales/InvoiceListPage';
 
 // Product
 import ProductListPage from './pages/product/ProductListPage';
@@ -80,7 +82,10 @@ export default function App() {
                     {/* Sales & POS */}
                     <Route path="/sales" element={<SaleListPage />} />
                     <Route path="/sales/pos" element={<POSPage />} />
-                    <Route path="/sales/:id/invoice" element={<InvoicePage />} />
+                    <Route element={<InvoiceAccessRoute />}>
+                        <Route path="/invoices" element={<InvoiceListPage />} />
+                        <Route path="/sales/:id/invoice" element={<InvoicePage />} />
+                    </Route>
                     <Route path="/payments/vnpay/return" element={<PaymentReturnPage />} />
 
                     {/* Purchase Orders */}

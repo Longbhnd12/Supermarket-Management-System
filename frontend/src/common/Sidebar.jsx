@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import { canViewInvoices } from '../utils/invoiceAccess';
 
 import {
     LayoutDashboard,
@@ -84,6 +85,12 @@ const menuGroups = [
                 path: '/sales/pos'
             },
             {
+                label: 'Search invoices',
+                icon: FileText,
+                path: '/invoices',
+                invoiceAccess: true
+            },
+            {
                 label: 'Supplier Management',
                 icon: Truck,
                 path: '/suppliers'
@@ -133,6 +140,7 @@ const menuGroups = [
 ];
 
 export default function Sidebar({
+    currentUser,
     collapsed,
     setCollapsed,
     mobileOpen,
@@ -200,6 +208,7 @@ export default function Sidebar({
                             )}
 
                             {group.items.map((item) => {
+                                if (item.invoiceAccess && !canViewInvoices(currentUser)) return null;
                                 const Icon = item.icon;
 
                                 if (!item.path) {

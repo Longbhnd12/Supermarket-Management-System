@@ -15,6 +15,8 @@ const routeLabels = {
     alerts: 'Stock Alerts',
     'stock-receipts': 'Stock Receipts',
     sales: 'Sales Management',
+    invoices: 'Search invoices',
+    invoice: 'Invoice',
     pos: 'POS',
     suppliers: 'Supplier Management',
     'purchase-orders': 'Purchase Orders',

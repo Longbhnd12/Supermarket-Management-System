@@ -17,6 +17,7 @@ export default function MainLayout() {
     return (
         <div className="sms-app-layout">
             <Sidebar
+                currentUser={currentUser}
                 collapsed={collapsed}
                 setCollapsed={setCollapsed}
                 mobileOpen={mobileOpen}
