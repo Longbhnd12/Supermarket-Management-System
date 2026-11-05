@@ -16,6 +16,7 @@ import ProductSalesReportPage from './pages/reports/ProductSalesReportPage';
 import NotificationsPage from './pages/notifications/NotificationsPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ProtectedRoute from './common/ProtectedRoute';
 
 // Product
@@ -69,6 +70,7 @@ export default function App() {
             <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route element={<ProtectedRoute />}>
                 <Route element={<MainLayout />}>
                     <Route path="/" element={<HomePage />} />

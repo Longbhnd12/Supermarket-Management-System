@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import authService from '../../services/authService';
 import { getHomePathByRole } from '../../utils/authRedirect';
 import './AuthPage.css';
@@ -17,7 +17,10 @@ function validate(identifier, password) {
 
 export default function LoginPage() {
     const navigate = useNavigate();
-    const [identifier, setIdentifier] = useState('');
+    const location = useLocation();
+    // Coming back from Forgot Password (UC45): success message + the account to sign in with
+    const [identifier, setIdentifier] = useState(location.state?.identifier || '');
+    const [notice, setNotice] = useState(location.state?.notice || '');
     const [password, setPassword] = useState('');
     const [fieldErrors, setFieldErrors] = useState(EMPTY_ERRORS);
     const [error, setError] = useState('');
@@ -41,6 +44,7 @@ export default function LoginPage() {
     const submit = async (event) => {
         event.preventDefault();
         setError('');
+        setNotice('');
 
         const errors = validate(identifier, password);
         setFieldErrors(errors);
@@ -68,6 +72,7 @@ export default function LoginPage() {
         setPassword('');
         setFieldErrors(EMPTY_ERRORS);
         setError('');
+        setNotice('');
     };
 
     if (checkingSession) return <div className="auth-loading">Checking your session…</div>;
@@ -77,6 +82,7 @@ export default function LoginPage() {
             <section className="auth-card">
                 <h1>RETAIL SMS</h1>
                 <p>Sign in to continue.</p>
+                {notice && <p className="auth-success" role="status">{notice}</p>}
                 <form onSubmit={submit} noValidate>
                     <label>
                         Username/Email
