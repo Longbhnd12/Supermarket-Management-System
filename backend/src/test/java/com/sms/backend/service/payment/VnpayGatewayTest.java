@@ -76,6 +76,18 @@ class VnpayGatewayTest {
         var suspicious = callback(); suspicious.put("vnp_TransactionStatus", "07"); suspicious.put("vnp_SecureHash", gateway.sign(VnpayGateway.canonical(suspicious)));
         assertFalse(gateway.verifyIpn(suspicious).success()); assertFalse(gateway.verifyIpn(suspicious).definitiveFailure());
     }
+    @Test void signedCancellationIsTerminalButTamperedAndPendingReturnsAreNot() {
+        var p = callback();
+        p.put("vnp_ResponseCode", "24"); p.put("vnp_TransactionStatus", "02");
+        p.put("vnp_SecureHash", gateway.sign(VnpayGateway.canonical(p)));
+        assertTrue(gateway.verifyIpn(p).definitiveFailure());
+        assertFalse(gateway.verifyIpn(p).success());
+        p.put("vnp_Amount", "1");
+        assertThrows(BadRequestException.class, () -> gateway.verifyIpn(p));
+        p.put("vnp_TransactionStatus", "01");
+        p.put("vnp_SecureHash", gateway.sign(VnpayGateway.canonical(p)));
+        assertFalse(gateway.verifyIpn(p).definitiveFailure());
+    }
     @Test void disabledMerchantHasNoDemoFallback() {
         config.setHashSecret(""); assertFalse(gateway.configured());
         assertThrows(BadRequestException.class, () -> gateway.createUrl(attempt(), "127.0.0.1"));

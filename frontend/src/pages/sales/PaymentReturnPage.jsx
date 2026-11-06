@@ -9,6 +9,7 @@ import './POSCheckout.css';
 export default function PaymentReturnPage() {
     const [params] = useSearchParams();
     const ref = params.get('vnp_TxnRef');
+    const returnQuery = params.toString();
     const valid = Boolean(ref && /^[A-Za-z0-9_-]{1,100}$/.test(ref) && params.getAll('vnp_TxnRef').length === 1);
     const [snapshot, setSnapshot] = useState(null);
     const [failure, setFailure] = useState(null);
@@ -40,12 +41,28 @@ export default function PaymentReturnPage() {
                 } else setPolling(false);
             }
         }
-        load();
+        async function initialize() {
+            const returned = new URLSearchParams(returnQuery);
+            if (returned.get('vnp_ResponseCode') === '24') {
+                try {
+                    if ([...returned.keys()].some((key) => returned.getAll(key).length !== 1))
+                        throw new Error('Duplicate VNPay return parameters');
+                    await PaymentService.confirmCancellation(Object.fromEntries(returned), controller.signal);
+                } catch (err) {
+                    if (!active || controller.signal.aborted) return;
+                    // A rejected return cannot unlock the sale; display server status instead.
+                    console.warn('VNPay cancellation could not be confirmed', err.response?.status);
+                }
+            }
+            if (active) await load();
+        }
+        initialize();
         return () => { active = false; clearTimeout(timer); controller.abort(); };
-    }, [ref, valid, version]);
+    }, [ref, valid, version, returnQuery]);
     const result = valid && snapshot?.ref === ref ? snapshot.payment : null;
     const error = valid && failure?.ref === ref ? failure.message : '';
     const success = result?.status === 'SUCCESS';
+    const cancelled = params.get('vnp_ResponseCode') === '24' && result?.status === 'FAILED' && !result.reconciliationRequired;
     const unresolved = result?.reconciliationRequired;
     const waiting = !result || result.status === 'PENDING' || unresolved;
     const Icon = unresolved ? AlertCircle : success ? CheckCircle2 : waiting ? Clock3 : AlertCircle;
@@ -54,7 +71,8 @@ export default function PaymentReturnPage() {
         <div className={`pos-panel pos-return-card ${success && !unresolved ? 'pos-return-card--success' : ''}`}>
         <span className="pos-sandbox-label">VNPay Sandbox · TEST</span>
         <Icon size={44} className="pos-return-icon" />
-        <h1>{valid ? title : 'Không tìm thấy mã giao dịch hợp lệ'}</h1>
+        <h1>{valid ? cancelled ? 'Đã hủy thanh toán VNPay' : title : 'Không tìm thấy mã giao dịch hợp lệ'}</h1>
+        {cancelled && <p role="status">Giao dịch VNPay đã kết thúc. Quay lại quầy để chọn tiền mặt hoặc phương thức khác; giỏ hàng được giữ nguyên.</p>}
         <p className="pos-hint">Kết quả lấy từ máy chủ. Dữ liệu trả về trên thanh địa chỉ không xác nhận thanh toán.</p>
         {!valid && <p role="alert">Thiếu mã tham chiếu hợp lệ.</p>}
         {error && <p role="alert" className="pos-payment-error">Không đọc được trạng thái: {error}. Không thanh toán lại khi chưa rõ kết quả.</p>}
