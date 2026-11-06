@@ -6,13 +6,17 @@ import java.time.LocalDateTime;
 
 /**
  * Response DTO for Category.
- * Fields map directly from Category entity.
+ * Fields map directly from Category entity with productCount aggregate.
  */
 public record CategoryResponse(
         Long categoryId,
         String categoryName,
         String description,
         GeneralStatus status,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        Long productCount
 ) {
+    public CategoryResponse(Long categoryId, String categoryName, String description, GeneralStatus status, LocalDateTime createdAt) {
+        this(categoryId, categoryName, description, status, createdAt, 0L);
+    }
 }

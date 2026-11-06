@@ -19,5 +19,7 @@ public interface CategoryService {
 
     CategoryResponse updateCategory(Long id, CategoryRequest request);
 
+    CategoryResponse updateStatus(Long id, com.sms.backend.enums.GeneralStatus status);
+
     void deleteCategory(Long id);
 }

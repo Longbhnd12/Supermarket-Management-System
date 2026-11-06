@@ -6,6 +6,7 @@ import {
     FileCheck,
     FileInput,
     FileText,
+    FolderTree,
     History,
     LayoutDashboard,
     LineChart,
@@ -36,6 +37,7 @@ export const MENU_GROUPS = [
         title: 'OPERATIONS',
         items: [
             { label: 'Product Management', icon: Package, path: '/products', access: PAGE_ACCESS.products },
+            { label: 'Category Management', icon: FolderTree, path: '/categories', access: PAGE_ACCESS.categories },
             { label: 'Purchase & Inventory', icon: Warehouse, path: '/inventory', end: true, access: PAGE_ACCESS.inventory },
             { label: 'Purchase Orders', icon: FileText, path: '/purchase-orders', end: true, access: PAGE_ACCESS.purchaseOrders },
             { label: 'Approve Requests', icon: FileCheck, path: '/purchase-orders/pending', end: true, access: PAGE_ACCESS.purchaseRequestApprove },

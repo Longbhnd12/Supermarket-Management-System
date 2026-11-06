@@ -67,6 +67,7 @@ export default function ProductListPage() {
     // ── Auth ────────────────────────────────────────────────────────────────
     const { currentUser, hasPermission, hasRole } = useAuth();
     const canCreate = hasPermission('PRODUCT_MANAGE') || hasRole('ADMIN', 'MANAGER');
+    const canManageCategories = hasPermission('CATEGORY_MANAGE') || hasRole('ADMIN', 'MANAGER');
 
     // ── Raw data ────────────────────────────────────────────────────────────
     const [allProducts, setAllProducts] = useState([]);
@@ -228,6 +229,18 @@ export default function ProductListPage() {
                         <ExportIcon />
                         Export Catalog
                     </button>
+
+                    {/* Manage Categories (UC11) */}
+                    {canManageCategories && (
+                        <button
+                            className="prd-btn prd-btn--secondary"
+                            onClick={() => navigate('/categories')}
+                            title="Manage Categories (UC11)"
+                        >
+                            <FolderTreeIcon />
+                            Manage Categories
+                        </button>
+                    )}
 
                     {/* Create New Product — Admin / Manager only */}
                     {canCreate && (
@@ -614,6 +627,15 @@ function EditRowIcon() {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+        </svg>
+    );
+}
+
+function FolderTreeIcon() {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
+            <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 8 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+            <path d="M2 10h20" />
         </svg>
     );
 }

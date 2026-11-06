@@ -29,6 +29,9 @@ import ProductListPage from './pages/product/ProductListPage';
 import ProductDetailPage from './pages/product/ProductDetailPage';
 import ProductFormPage from './pages/product/ProductFormPage';
 
+// Category
+import CategoryListPage from './pages/category/CategoryListPage';
+
 // Sales
 import SaleListPage from './pages/sales/SaleListPage';
 import POSPage from './pages/sales/POSPage';
@@ -98,6 +101,11 @@ export default function App() {
                     <Route element={<RequirePermission access={PAGE_ACCESS.productForm} />}>
                         <Route path="/products/create" element={<ProductFormPage />} />
                         <Route path="/products/:id/edit" element={<ProductFormPage />} />
+                    </Route>
+
+                    {/* Category Management (UC11) */}
+                    <Route element={<RequirePermission access={PAGE_ACCESS.categories} />}>
+                        <Route path="/categories" element={<CategoryListPage />} />
                     </Route>
 
                     {/* Sales & POS */}
