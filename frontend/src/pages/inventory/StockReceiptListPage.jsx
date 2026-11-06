@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import StockReceiptService from '../../services/stockReceiptService';
 import SupplierService from '../../services/supplierService';
 import Pagination from '../../components/ui/Pagination';
+import Can from '../../common/Can';
 import './StockReceiptListPage.css';
 
 // ─── Status helpers ────────────────────────────────────────────────────────────
@@ -192,6 +193,7 @@ export default function StockReceiptListPage() {
                     <p className="sr-subtitle">View and track all inbound stock receipts</p>
                 </div>
                 <div className="sr-header-actions">
+                    <Can permission="STOCK_IMPORT">
                     <button
                         className="sr-btn sr-btn--primary"
                         onClick={() => navigate('/inventory/stock-receipts/create')}
@@ -202,6 +204,7 @@ export default function StockReceiptListPage() {
                         </svg>
                         Create Receipt
                     </button>
+                    </Can>
                 </div>
             </div>
 

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import InventoryService from '../../services/inventoryService';
 import CategoryService from '../../services/categoryService';
 import Pagination from '../../components/ui/Pagination';
+import Can from '../../common/Can';
 import './InventoryPage.css';
 
 // ─── Status badge helpers ────────────────────────────────────────────────────
@@ -171,6 +172,7 @@ export default function InventoryPage() {
                         )}
                     </button>
                     {/* UC35 – Stock Alerts */}
+                    <Can permission="STOCK_ALERT_VIEW">
                     <button
                         id="inv-stock-alerts-btn"
                         className="inv-btn inv-btn--secondary"
@@ -184,7 +186,9 @@ export default function InventoryPage() {
                         </svg>
                         Stock Alerts
                     </button>
+                    </Can>
                     {/* UC33 – Adjust Stock */}
+                    <Can permission="STOCK_ADJUST">
                     <button
                         id="inv-adjust-stock-btn"
                         className="inv-btn inv-btn--secondary"
@@ -196,7 +200,9 @@ export default function InventoryPage() {
                         </svg>
                         Adjust Stock
                     </button>
+                    </Can>
                     {/* UC32 – Stock Check */}
+                    <Can permission="STOCK_CHECK">
                     <button
                         id="inv-stock-check-btn"
                         className="inv-btn inv-btn--primary"
@@ -205,6 +211,7 @@ export default function InventoryPage() {
                     >
                         <ClipboardIcon /> Start Stock Check
                     </button>
+                    </Can>
                 </div>
             </div>
 
@@ -393,12 +400,6 @@ export default function InventoryPage() {
                 )}
             </div>
 
-            {/* Authorization notice */}
-            <p className="inv-auth-note">
-                ⚠ JWT/RBAC is not yet implemented. This endpoint is accessible to all
-                authenticated users. Role-based restriction (Admin, Manager, Inventory Staff)
-                will be enforced once the auth module is complete.
-            </p>
         </div>
     );
 }

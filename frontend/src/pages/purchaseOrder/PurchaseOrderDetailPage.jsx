@@ -19,6 +19,7 @@ import {
     Package
 } from 'lucide-react';
 import PurchaseOrderService from '../../services/purchaseOrderService';
+import { useAuth } from '../../context/authContext';
 import './PurchaseOrderDetailPage.css';
 
 // VND currency formatter matching SMS standard
@@ -81,6 +82,7 @@ function getStatusBadge(status) {
 }
 
 export default function PurchaseOrderDetailPage() {
+    const { hasPermission } = useAuth();
     const { id } = useParams();
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -338,7 +340,7 @@ export default function PurchaseOrderDetailPage() {
                         <RotateCw size={15} />
                         <span>Refresh</span>
                     </button>
-                    {order.status === 'PENDING_APPROVAL' && (
+                    {order.status === 'PENDING_APPROVAL' && hasPermission('PURCHASE_REQUEST_APPROVE') && (
                         <Link
                             to="/purchase-orders/pending"
                             className="po-btn po-btn-outline"

@@ -17,6 +17,7 @@ import {
 import PurchaseOrderService from '../../services/purchaseOrderService';
 import SupplierService from '../../services/supplierService';
 import Pagination from '../../components/ui/Pagination';
+import Can from '../../common/Can';
 import './PurchaseOrderListPage.css';
 
 // VND currency formatter matching SMS standard
@@ -222,6 +223,8 @@ export default function PurchaseOrderListPage() {
                         <RotateCw size={16} />
                         <span>Refresh</span>
                     </button>
+                    {/* Permission-based buttons (UC46 create: Admin/Inventory Staff, UC47 approve: Admin/Manager) */}
+                    <Can permission="PURCHASE_REQUEST_APPROVE">
                     <Link
                         to="/purchase-orders/pending"
                         className="po-btn po-btn-outline"
@@ -243,6 +246,8 @@ export default function PurchaseOrderListPage() {
                             </span>
                         )}
                     </Link>
+                    </Can>
+                    <Can permission="PURCHASE_REQUEST_CREATE">
                     <Link
                         to="/purchase-orders/create"
                         className="po-btn po-btn-primary"
@@ -251,6 +256,7 @@ export default function PurchaseOrderListPage() {
                         <Plus size={18} />
                         <span>Create Purchase Request</span>
                     </Link>
+                    </Can>
                 </div>
             </div>
 
@@ -459,10 +465,12 @@ export default function PurchaseOrderListPage() {
                                 Clear Filters
                             </button>
                         ) : (
+                            <Can permission="PURCHASE_REQUEST_CREATE">
                             <Link to="/purchase-orders/create" className="po-btn po-btn-primary">
                                 <Plus size={16} />
                                 <span>Create Purchase Request</span>
                             </Link>
+                            </Can>
                         )}
                     </div>
                 ) : (

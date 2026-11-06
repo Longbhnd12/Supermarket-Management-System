@@ -20,7 +20,8 @@ import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ProtectedRoute from './common/ProtectedRoute';
 import AppNotice from './common/AppNotice';
 import AuthProvider from './context/AuthProvider';
-import InvoiceAccessRoute from './common/InvoiceAccessRoute';
+import RequirePermission from './common/RequirePermission';
+import { PAGE_ACCESS } from './utils/pageAccess';
 import InvoiceListPage from './pages/sales/InvoiceListPage';
 
 // Product
@@ -82,70 +83,131 @@ export default function App() {
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route element={<ProtectedRoute />}>
                 <Route element={<MainLayout />}>
-                    <Route path="/" element={<HomePage />} />
+                    {/* Each group: only for the roles with the permission (utils/pageAccess.js).
+                        Without it the Access Denied page is shown. */}
+                    <Route element={<RequirePermission access={PAGE_ACCESS.dashboard} />}>
+                        <Route path="/" element={<HomePage />} />
+                    </Route>
 
                     {/* Product Management */}
-                    <Route path="/products" element={<ProductListPage />} />
-                    <Route path="/products/:id" element={<ProductDetailPage />} />
+                    <Route element={<RequirePermission access={PAGE_ACCESS.products} />}>
+                        <Route path="/products" element={<ProductListPage />} />
+                        <Route path="/products/:id" element={<ProductDetailPage />} />
+                    </Route>
 
                     {/* Sales & POS */}
-                    <Route path="/sales" element={<SaleListPage />} />
-                    <Route path="/sales/pos" element={<POSPage />} />
-                    <Route element={<InvoiceAccessRoute />}>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.sales} />}>
+                        <Route path="/sales" element={<SaleListPage />} />
+                    </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.pos} />}>
+                        <Route path="/sales/pos" element={<POSPage />} />
+                    </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.invoices} />}>
                         <Route path="/invoices" element={<InvoiceListPage />} />
                         <Route path="/sales/:id/invoice" element={<InvoicePage />} />
                     </Route>
-                    <Route path="/payments/vnpay/return" element={<PaymentReturnPage />} />
+                    <Route element={<RequirePermission access={PAGE_ACCESS.paymentReturn} />}>
+                        <Route path="/payments/vnpay/return" element={<PaymentReturnPage />} />
+                    </Route>
 
                     {/* Purchase Orders */}
-                    <Route path="/purchase-orders" element={<PurchaseOrderListPage />} />
-                    <Route path="/purchase-orders/create" element={<CreatePurchaseRequestPage />} />
-                    <Route path="/purchase-orders/pending" element={<PendingPurchaseRequestsPage />} />
-                    <Route path="/purchase-orders/:id" element={<PurchaseOrderDetailPage />} />
+                    <Route element={<RequirePermission access={PAGE_ACCESS.purchaseOrders} />}>
+                        <Route path="/purchase-orders" element={<PurchaseOrderListPage />} />
+                        <Route path="/purchase-orders/:id" element={<PurchaseOrderDetailPage />} />
+                    </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.purchaseRequestCreate} />}>
+                        <Route path="/purchase-orders/create" element={<CreatePurchaseRequestPage />} />
+                    </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.purchaseRequestApprove} />}>
+                        <Route path="/purchase-orders/pending" element={<PendingPurchaseRequestsPage />} />
+                    </Route>
 
                     {/* Inventory */}
-                    <Route path="/inventory" element={<InventoryPage />} />
-                    <Route path="/inventory/stock-check" element={<StockCheckPage />} />
-                    <Route path="/inventory/stock-checks" element={<StockCheckPage />} />
-                    <Route path="/inventory/stock-difference" element={<StockDifferencePage />} />
-                    <Route path="/inventory/adjust" element={<AdjustStockPage />} />
-                    <Route path="/inventory/stock-history" element={<StockHistoryPage />} />
-                    <Route path="/inventory/history" element={<StockHistoryPage />} />
-                    <Route path="/inventory/stock-alerts" element={<StockAlertsPage />} />
-                    <Route path="/inventory/alerts" element={<StockAlertsPage />} />
-                    <Route path="/inventory/stock-receipts" element={<StockReceiptListPage />} />
-                    <Route path="/inventory/stock-receipts/create" element={<CreateStockReceiptPage />} />
-                    <Route path="/inventory/stock-receipts/:id" element={<StockReceiptDetailPage />} />
-                    <Route path="/inventory/stock-receipts/:id/edit" element={<CreateStockReceiptPage />} />
+                    <Route element={<RequirePermission access={PAGE_ACCESS.inventory} />}>
+                        <Route path="/inventory" element={<InventoryPage />} />
+                    </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.stockCheck} />}>
+                        <Route path="/inventory/stock-check" element={<StockCheckPage />} />
+                        <Route path="/inventory/stock-checks" element={<StockCheckPage />} />
+                        <Route path="/inventory/stock-difference" element={<StockDifferencePage />} />
+                    </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.stockAdjust} />}>
+                        <Route path="/inventory/adjust" element={<AdjustStockPage />} />
+                    </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.stockHistory} />}>
+                        <Route path="/inventory/stock-history" element={<StockHistoryPage />} />
+                        <Route path="/inventory/history" element={<StockHistoryPage />} />
+                    </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.stockAlerts} />}>
+                        <Route path="/inventory/stock-alerts" element={<StockAlertsPage />} />
+                        <Route path="/inventory/alerts" element={<StockAlertsPage />} />
+                    </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.stockReceipts} />}>
+                        <Route path="/inventory/stock-receipts" element={<StockReceiptListPage />} />
+                        <Route path="/inventory/stock-receipts/:id" element={<StockReceiptDetailPage />} />
+                    </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.stockReceiptForm} />}>
+                        <Route path="/inventory/stock-receipts/create" element={<CreateStockReceiptPage />} />
+                        <Route path="/inventory/stock-receipts/:id/edit" element={<CreateStockReceiptPage />} />
+                    </Route>
 
-                    {/* Suppliers */}
-                    <Route path="/suppliers" element={<SupplierListPage />} />
-
-                    {/* Promotions */}
-                    <Route path="/promotions" element={<PromotionListPage />} />
+                    {/* Suppliers, promotions */}
+                    <Route element={<RequirePermission access={PAGE_ACCESS.suppliers} />}>
+                        <Route path="/suppliers" element={<SupplierListPage />} />
+                    </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.promotions} />}>
+                        <Route path="/promotions" element={<PromotionListPage />} />
+                    </Route>
 
                     {/* Administration */}
-                    <Route path="/employees" element={<EmployeeListPage />} />
-                    <Route path="/users" element={<UserListPage />} />
-                    <Route path="/users/new" element={<UserFormPage />} />
-                    <Route path="/users/:id/edit" element={<UserFormPage />} />
-                    <Route path="/roles" element={<RolePermissionsPage />} />
+                    <Route element={<RequirePermission access={PAGE_ACCESS.employees} />}>
+                        <Route path="/employees" element={<EmployeeListPage />} />
+                    </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.users} />}>
+                        <Route path="/users" element={<UserListPage />} />
+                    </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.userForm} />}>
+                        <Route path="/users/new" element={<UserFormPage />} />
+                        <Route path="/users/:id/edit" element={<UserFormPage />} />
+                    </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.roles} />}>
+                        <Route path="/roles" element={<RolePermissionsPage />} />
+                    </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.systemSettings} />}>
+                        <Route path="/system-settings" element={<SystemSettingsPage />} />
+                    </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.systemLogs} />}>
+                        <Route path="/system-logs" element={<SystemLogsPage />} />
+                    </Route>
 
-                    {/* Account (UC44, UC03) */}
+                    {/* Reports */}
+                    <Route element={<RequirePermission access={PAGE_ACCESS.reportSales} />}>
+                        <Route path="/reports/sales" element={<SalesReportPage />} />
+                    </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.reportInventory} />}>
+                        <Route path="/reports/inventory" element={<InventoryReportPage />} />
+                    </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.reportRevenue} />}>
+                        <Route path="/reports/revenue" element={<RevenueReportPage />} />
+                    </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.reportProductSales} />}>
+                        <Route path="/reports/product-sales" element={<ProductSalesReportPage />} />
+                    </Route>
+
+                    {/* Supplier portal (UC48, UC49) */}
+                    <Route element={<RequirePermission access={PAGE_ACCESS.supplierPortal} />}>
+                        <Route path="/supplier/purchase-orders" element={<SupplierOrderListPage />} />
+                        <Route path="/supplier/purchase-orders/:id" element={<SupplierOrderDetailPage />} />
+                    </Route>
+
+                    <Route element={<RequirePermission access={PAGE_ACCESS.notifications} />}>
+                        <Route path="/notifications" element={<NotificationsPage />} />
+                    </Route>
+
+                    {/* Account (UC44, UC03): every logged-in account */}
                     <Route path="/profile" element={<ProfilePage />} />
                     <Route path="/change-password" element={<ChangePasswordPage />} />
 
-                    {/* Supplier portal (UC48, UC49) */}
-                    <Route path="/supplier/purchase-orders" element={<SupplierOrderListPage />} />
-                    <Route path="/supplier/purchase-orders/:id" element={<SupplierOrderDetailPage />} />
-
-                    <Route path="/system-settings" element={<SystemSettingsPage />} />
-                    <Route path="/system-logs" element={<SystemLogsPage />} />
-                    <Route path="/reports/sales" element={<SalesReportPage />} />
-                    <Route path="/reports/inventory" element={<InventoryReportPage />} />
-                    <Route path="/reports/revenue" element={<RevenueReportPage />} />
-                    <Route path="/reports/product-sales" element={<ProductSalesReportPage />} />
-                    <Route path="/notifications" element={<NotificationsPage />} />
                     <Route path="*" element={<NotFoundPage />} />
                 </Route>
                 </Route>

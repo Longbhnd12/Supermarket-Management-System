@@ -6,6 +6,7 @@ import Pagination from '../../components/ui/Pagination';
 import { getAccessAwareErrorMessage } from '../../utils/errorUtils';
 import { roleLabel } from '../../utils/roleLabels';
 import ConfirmDialog from './ConfirmDialog';
+import Can from '../../common/Can';
 import './UserManagement.css';
 
 // UC04 - View Users (SRS 3.3.1) + row actions of UC05 - Manage Users (activate / deactivate / delete)
@@ -120,8 +121,12 @@ export default function UserListPage() {
                     <p>View, search and manage the accounts that can sign in to the system.</p>
                 </div>
                 <div className="um-actions">
-                    <Link to="/roles" className="um-btn um-btn-outline"><ShieldCheck size={16} /> Roles & Permissions</Link>
-                    <Link to="/users/new" className="um-btn um-btn-primary"><Plus size={16} /> Create User</Link>
+                    <Can permission="ROLE_MANAGE">
+                        <Link to="/roles" className="um-btn um-btn-outline"><ShieldCheck size={16} /> Roles & Permissions</Link>
+                    </Can>
+                    <Can permission="USER_MANAGE">
+                        <Link to="/users/new" className="um-btn um-btn-primary"><Plus size={16} /> Create User</Link>
+                    </Can>
                 </div>
             </div>
 
@@ -187,6 +192,8 @@ export default function UserListPage() {
                                     <td><StatusBadge status={user.status} /></td>
                                     <td className="um-muted">{formatDateTime(user.lastLoginAt)}</td>
                                     <td>
+                                        {/* UC05 actions: USER_MANAGE only (USER_VIEW can only look) */}
+                                        <Can permission="USER_MANAGE" fallback={<span className="um-muted">—</span>}>
                                         <div className="um-actions">
                                             <Link to={`/users/${user.userId}/edit`} className="um-icon-btn" title="Edit"><Pencil size={15} /></Link>
                                             <button
@@ -206,6 +213,7 @@ export default function UserListPage() {
                                                 <Trash2 size={15} />
                                             </button>
                                         </div>
+                                        </Can>
                                     </td>
                                 </tr>
                             ))}
