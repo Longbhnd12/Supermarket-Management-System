@@ -39,33 +39,51 @@ public class DataInitializer {
     public CommandLineRunner initDefaultData() {
         return args -> {
             try {
-                // Ensure all default roles exist
+                // Ensure all default roles exist and have up-to-date default permissions
                 for (RoleName roleName : RoleName.values()) {
-                    roleRepository.findByRoleName(roleName).orElseGet(() -> {
-                        Role role = new Role();
-                        role.setRoleName(roleName);
-                        role.setStatus(GeneralStatus.ACTIVE);
-                        role.setDescription("Default " + roleName.name() + " role");
-                        role.setPermissions(RolePermissions.format(RolePermissions.defaultsFor(roleName)));
-                        log.info("Initialized default role: {}", roleName);
-                        return roleRepository.save(role);
+                    Role role = roleRepository.findByRoleName(roleName).orElseGet(() -> {
+                        Role r = new Role();
+                        r.setRoleName(roleName);
+                        return r;
                     });
+                    role.setStatus(GeneralStatus.ACTIVE);
+                    role.setDescription("Default " + roleName.name() + " role");
+                    role.setPermissions(RolePermissions.format(RolePermissions.defaultsFor(roleName)));
+                    roleRepository.save(role);
+                    log.info("Synchronized role & permissions: {}", roleName);
                 }
 
-                // Ensure a default admin account exists
-                if (!userRepository.existsByUsername("admin")) {
-                    Role adminRole = roleRepository.findByRoleName(RoleName.ADMIN).orElse(null);
-                    if (adminRole != null) {
-                        User admin = new User();
-                        admin.setUsername("admin");
-                        admin.setEmail("admin@sms.com");
-                        admin.setPasswordHash(passwordEncoder.encode("admin123456"));
-                        admin.setStatus(AccountStatus.ACTIVE);
-                        admin.setFailedLoginAttempts(0);
-                        admin.setRole(adminRole);
-                        userRepository.save(admin);
-                        log.info("Initialized default admin account: admin / admin123456");
-                    }
+                // Ensure default admin account exists, is ACTIVE, unlocked, and password is reset to admin123456
+                Role adminRole = roleRepository.findByRoleName(RoleName.ADMIN).orElse(null);
+                if (adminRole != null) {
+                    User admin = userRepository.findByUsername("admin").orElseGet(() -> {
+                        User u = new User();
+                        u.setUsername("admin");
+                        return u;
+                    });
+                    admin.setEmail("admin@sms.com");
+                    admin.setPasswordHash(passwordEncoder.encode("admin123456"));
+                    admin.setStatus(AccountStatus.ACTIVE);
+                    admin.setFailedLoginAttempts(0);
+                    admin.setLockedUntil(null);
+                    admin.setRole(adminRole);
+                    userRepository.save(admin);
+                    log.info("Synchronized admin account: admin / admin123456");
+
+                    // Ensure secondary admin account exists: superadmin / admin123456
+                    User superadmin = userRepository.findByUsername("superadmin").orElseGet(() -> {
+                        User u = new User();
+                        u.setUsername("superadmin");
+                        return u;
+                    });
+                    superadmin.setEmail("superadmin@sms.com");
+                    superadmin.setPasswordHash(passwordEncoder.encode("admin123456"));
+                    superadmin.setStatus(AccountStatus.ACTIVE);
+                    superadmin.setFailedLoginAttempts(0);
+                    superadmin.setLockedUntil(null);
+                    superadmin.setRole(adminRole);
+                    userRepository.save(superadmin);
+                    log.info("Synchronized secondary admin account: superadmin / admin123456");
                 }
 
                 // Ensure default product catalog exists for UC09 & related tests

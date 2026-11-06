@@ -19,6 +19,7 @@ export const PAGE_ACCESS = {
 
     // Products & promotions
     products: staff('PRODUCT_VIEW'),
+    productForm: staff('PRODUCT_MANAGE'),
     promotions: staff('PROMOTION_MANAGE', 'PROMOTION_VIEW_ACTIVE'),
 
     // Employees, suppliers, administration

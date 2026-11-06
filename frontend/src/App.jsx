@@ -27,6 +27,7 @@ import InvoiceListPage from './pages/sales/InvoiceListPage';
 // Product
 import ProductListPage from './pages/product/ProductListPage';
 import ProductDetailPage from './pages/product/ProductDetailPage';
+import ProductFormPage from './pages/product/ProductFormPage';
 
 // Sales
 import SaleListPage from './pages/sales/SaleListPage';
@@ -93,6 +94,10 @@ export default function App() {
                     <Route element={<RequirePermission access={PAGE_ACCESS.products} />}>
                         <Route path="/products" element={<ProductListPage />} />
                         <Route path="/products/:id" element={<ProductDetailPage />} />
+                    </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.productForm} />}>
+                        <Route path="/products/create" element={<ProductFormPage />} />
+                        <Route path="/products/:id/edit" element={<ProductFormPage />} />
                     </Route>
 
                     {/* Sales & POS */}

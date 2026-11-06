@@ -621,6 +621,36 @@
     to { transform: rotate(360deg); }
 }
 
+/* ─── 10.5 Action Column & Edit Button ─────────────────────────────────────── */
+
+.prd-th--actions,
+.prd-td--actions {
+    text-align: center;
+    white-space: nowrap;
+    width: 85px;
+}
+
+.prd-edit-row-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    background: #f8fafc;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.prd-edit-row-btn:hover {
+    background: #eff6ff;
+    color: var(--sms-primary, #2458dc);
+    border-color: #93c5fd;
+}
+
 /* ─── 11. Responsive ────────────────────────────────────────────────────────── */
 
 @media (max-width: 1200px) {

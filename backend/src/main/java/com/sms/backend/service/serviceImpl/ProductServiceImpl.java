@@ -2,8 +2,10 @@ package com.sms.backend.service.serviceImpl;
 
 import com.sms.backend.dto.product.ProductRequest;
 import com.sms.backend.dto.product.ProductResponse;
+import com.sms.backend.entity.Category;
 import com.sms.backend.entity.Product;
 import com.sms.backend.enums.GeneralStatus;
+import com.sms.backend.exception.BadRequestException;
 import com.sms.backend.exception.ResourceNotFoundException;
 import com.sms.backend.repository.CategoryRepository;
 import com.sms.backend.repository.ProductRepository;
@@ -12,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -70,22 +73,81 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public ProductResponse createProduct(ProductRequest request) {
-        // TODO: Implement – validate uniqueness, resolve category, create Product
-        throw new UnsupportedOperationException("Not yet implemented – pending SDD review");
+        String productCode = request.productCode().trim();
+        if (productRepository.existsByProductCode(productCode)) {
+            throw new BadRequestException("SKU code already exists: " + productCode);
+        }
+
+        String barcode = request.barcode() != null && !request.barcode().isBlank()
+                ? request.barcode().trim() : null;
+        if (barcode != null && productRepository.existsByBarcode(barcode)) {
+            throw new BadRequestException("Barcode already exists: " + barcode);
+        }
+
+        Category category = categoryRepository.findById(request.categoryId())
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + request.categoryId()));
+
+        Product product = new Product();
+        product.setCategory(category);
+        product.setProductCode(productCode);
+        product.setBarcode(barcode);
+        product.setProductName(request.productName().trim());
+        product.setUnit(request.unit().trim());
+        product.setSellingPrice(request.sellingPrice());
+        product.setStockQuantity(BigDecimal.ZERO);
+        product.setMinimumStockLevel(request.minimumStockLevel() != null ? request.minimumStockLevel() : BigDecimal.ZERO);
+        product.setTrackExpiry(Boolean.TRUE.equals(request.trackExpiry()));
+        product.setStatus(GeneralStatus.ACTIVE);
+
+        Product saved = productRepository.save(product);
+        return toResponse(saved);
     }
 
     @Override
     @Transactional
     public ProductResponse updateProduct(Long id, ProductRequest request) {
-        // TODO: Implement – update Product fields
-        throw new UnsupportedOperationException("Not yet implemented – pending SDD review");
+        Product product = findById(id);
+
+        String productCode = request.productCode().trim();
+        if (productRepository.existsByProductCodeAndProductIdNot(productCode, id)) {
+            throw new BadRequestException("SKU code already exists: " + productCode);
+        }
+
+        String barcode = request.barcode() != null && !request.barcode().isBlank()
+                ? request.barcode().trim() : null;
+        if (barcode != null && productRepository.existsByBarcodeAndProductIdNot(barcode, id)) {
+            throw new BadRequestException("Barcode already exists: " + barcode);
+        }
+
+        Category category = categoryRepository.findById(request.categoryId())
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + request.categoryId()));
+
+        product.setCategory(category);
+        product.setProductCode(productCode);
+        product.setBarcode(barcode);
+        product.setProductName(request.productName().trim());
+        product.setUnit(request.unit().trim());
+        if (request.sellingPrice() != null) {
+            product.setSellingPrice(request.sellingPrice());
+        }
+        if (request.minimumStockLevel() != null) {
+            product.setMinimumStockLevel(request.minimumStockLevel());
+        }
+        if (request.trackExpiry() != null) {
+            product.setTrackExpiry(request.trackExpiry());
+        }
+
+        Product saved = productRepository.save(product);
+        return toResponse(saved);
     }
 
     @Override
     @Transactional
     public void deleteProduct(Long id) {
-        // TODO (SDD): Confirm deletion policy (soft vs hard, guard against active sales)
-        throw new UnsupportedOperationException("Not yet implemented – pending SDD review");
+        Product product = findById(id);
+        // Soft-deactivation to preserve historical sales & inventory logs
+        product.setStatus(GeneralStatus.INACTIVE);
+        productRepository.save(product);
     }
 
     // --- helpers ---

@@ -11,7 +11,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import ProductService from '../../services/productService';
 import CategoryService from '../../services/categoryService';
-import authService from '../../services/authService';
+import { useAuth } from '../../context/authContext';
 import Pagination from '../../components/ui/Pagination';
 import './ProductListPage.css';
 
@@ -65,7 +65,8 @@ export default function ProductListPage() {
     const navigate = useNavigate();
 
     // ── Auth ────────────────────────────────────────────────────────────────
-    const [role, setRole] = useState(null);
+    const { currentUser, hasPermission, hasRole } = useAuth();
+    const canCreate = hasPermission('PRODUCT_MANAGE') || hasRole('ADMIN', 'MANAGER');
 
     // ── Raw data ────────────────────────────────────────────────────────────
     const [allProducts, setAllProducts] = useState([]);
@@ -86,19 +87,6 @@ export default function ProductListPage() {
     const [error, setError] = useState(null);
 
     const debounceTimer = useRef(null);
-
-    // ── Fetch role on mount ──────────────────────────────────────────────────
-    // authService.getMe() already unwraps .data, so the shape is ApiResponse directly
-    useEffect(() => {
-        authService.getMe()
-            .then(res => {
-                // authService.getMe() = (await API.get('/auth/me')).data
-                // => shape: { success, message, data: { userId, role, ... } }
-                const role = res?.data?.role ?? null;
-                setRole(role);
-            })
-            .catch(() => setRole(null));
-    }, []);
 
     // ── Fetch categories on mount ────────────────────────────────────────────
     useEffect(() => {
@@ -199,8 +187,6 @@ export default function ProductListPage() {
         setStatus('');
         setPage(0);
     };
-
-    const canCreate = ADMIN_ROLES.includes(role);
 
     // ─────────────────────────────────────────────────────────────────────────
     return (
@@ -411,6 +397,7 @@ export default function ProductListPage() {
                                     <th className="prd-th--num">PRICE (₫)</th>
                                     <th className="prd-th--num">STOCK</th>
                                     <th>STATUS</th>
+                                    {canCreate && <th className="prd-th--actions">ACTIONS</th>}
                                 </tr>
                             </thead>
                             <tbody>
@@ -463,6 +450,19 @@ export default function ProductListPage() {
                                             <td>
                                                 <ProductStatusBadge status={product.status} />
                                             </td>
+                                            {canCreate && (
+                                                <td className="prd-td--actions" onClick={e => e.stopPropagation()}>
+                                                    <button
+                                                        type="button"
+                                                        className="prd-edit-row-btn"
+                                                        onClick={() => navigate(`/products/${product.productId}/edit`)}
+                                                        title={`Chỉnh sửa ${product.productName}`}
+                                                    >
+                                                        <EditRowIcon />
+                                                        Edit
+                                                    </button>
+                                                </td>
+                                            )}
                                         </tr>
                                     );
                                 })}
@@ -605,6 +605,15 @@ function BoxIcon() {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="48" height="48" style={{ color: '#a0aec0' }}>
             <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
             <polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" />
+        </svg>
+    );
+}
+
+function EditRowIcon() {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
         </svg>
     );
 }

@@ -30,6 +30,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     boolean existsByProductCode(String productCode);
     boolean existsByBarcode(String barcode);
+    boolean existsByProductCodeAndProductIdNot(String productCode, Long productId);
+    boolean existsByBarcodeAndProductIdNot(String barcode, Long productId);
     List<Product> findByCategory(Category category);
     List<Product> findByStatus(GeneralStatus status);
 
