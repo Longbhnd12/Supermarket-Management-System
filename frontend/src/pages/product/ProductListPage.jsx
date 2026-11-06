@@ -216,7 +216,6 @@ export default function ProductListPage() {
                     </div>
                     <h1 className="prd-title">
                         Product Catalog &amp; Master SKUs
-                        <span className="prd-title-badge">UC09</span>
                     </h1>
                     <p className="prd-subtitle">
                         Browse, filter, and audit supermarket SKUs, barcode mappings, stock levels, and active retail prices.
