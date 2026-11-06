@@ -109,6 +109,19 @@ public class PaymentServiceImpl implements PaymentService {
         catch (BadRequestException ex) { return new IpnResponse("97", "Invalid signature or input"); }
         return apply(result);
     }
+    @Override
+    @Transactional
+    public PaymentResponse confirmCancellation(Map<String, String> parameters) {
+        // Browser return data is untrusted until its merchant signature is verified.
+        // Only a terminal cancellation is accepted here; success still uses IPN/QUERYDR.
+        var result = gateway.verifyIpn(parameters);
+        if (!"24".equals(parameters.get("vnp_ResponseCode")) || !result.definitiveFailure() || result.success())
+            throw new BadRequestException("VNPay has not confirmed cancellation");
+        var acknowledgement = apply(result);
+        if (!Set.of("00", "02").contains(acknowledgement.rspCode()))
+            throw new BadRequestException("Cancellation does not match the stored payment");
+        return findByReference(result.txnRef());
+    }
     /** Called via a separate Spring bean after network I/O; locks are never held during QUERYDR. */
     @Transactional
     public IpnResponse apply(PaymentGateway.GatewayResult result) {

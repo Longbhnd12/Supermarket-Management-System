@@ -39,8 +39,7 @@ public class SecurityConfig {
                 })
                 .securityContext(context -> context.securityContextRepository(securityContextRepository))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/health", "/api/v1/test-error", "/api/v1/auth/login", "/api/v1/auth/register",
-                                "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password").permitAll()
+                        .requestMatchers("/api/v1/health", "/api/v1/test-error", "/api/v1/auth/login", "/api/v1/auth/register").permitAll()
                         .requestMatchers("/api/v1/system-settings/**", "/api/v1/system-logs/**").hasRole("ADMIN")
                         // UC04/UC05/UC06 - permission based (role.permissions, see RolePermissions)
                         // GET /api/v1/users (plain list) stays open: the POS screen uses it to load cashiers
@@ -48,9 +47,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/**").hasAuthority("PERM_USER_VIEW")
                         .requestMatchers("/api/v1/users/**").hasAuthority("PERM_USER_MANAGE")
                         .requestMatchers("/api/v1/roles/**").hasAuthority("PERM_ROLE_MANAGE")
-                        // UC48/UC49 - Supplier portal; staff purchase-order API is closed to Supplier accounts (UC48 BR-01)
-                        .requestMatchers("/api/v1/supplier-portal/**").hasAuthority("PERM_SUPPLIER_PORTAL")
-                        .requestMatchers("/api/v1/purchase-orders/**").hasAnyRole("ADMIN", "MANAGER", "CASHIER", "WAREHOUSE_STAFF")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/invoices", "/api/v1/invoices/**",
+                                "/api/v1/sales/*/invoice", "/api/v1/sales/*/invoice/pdf")
+                        .access(org.springframework.security.authorization.AuthorizationManagers.allOf(
+                                org.springframework.security.authorization.AuthorityAuthorizationManager.hasAnyRole("ADMIN", "MANAGER", "CASHIER"),
+                                org.springframework.security.authorization.AuthorityAuthorizationManager.hasAuthority("PERM_INVOICE_VIEW")))
                         .anyRequest().authenticated()
                 )
                 .formLogin(AbstractHttpConfigurer::disable)

@@ -51,6 +51,39 @@ class PaymentServiceImplTest {
     PaymentGateway.GatewayResult result(boolean success, boolean failure, boolean timeout) {
         return new PaymentGateway.GatewayResult("ref123", new BigDecimal("100"), "12345", LocalDateTime.now(clock), success, failure, timeout);
     }
+    @Test void verifiedCancellationClosesQrAndAllowsCashOnSameSale() {
+        Payment p = attempt(); callback(p);
+        var returned = Map.of("vnp_ResponseCode", "24");
+        when(gateway.verifyIpn(returned)).thenReturn(result(false, true, false));
+        assertEquals(PaymentStatus.FAILED, service.confirmCancellation(returned).status());
+        assertFalse(p.isReconciliationRequired());
+        assertEquals(SaleStatus.DRAFT, sale.getStatus());
+        assertEquals(PaymentStatus.SUCCESS, service.create(1L, cashRequest(), "127.0.0.1").status());
+    }
+    @Test void cancellationCannotOverwriteSuccessfulPayment() {
+        Payment p = attempt(); p.setPaymentStatus(PaymentStatus.SUCCESS); callback(p);
+        var returned = Map.of("vnp_ResponseCode", "24");
+        when(gateway.verifyIpn(returned)).thenReturn(result(false, true, false));
+        assertEquals(PaymentStatus.SUCCESS, service.confirmCancellation(returned).status());
+        verify(payments, never()).save(any());
+    }
+    @Test void unverifiedOrNonterminalCancellationCannotChangePayment() {
+        var returned = Map.of("vnp_ResponseCode", "24");
+        when(gateway.verifyIpn(returned)).thenThrow(new BadRequestException("Invalid signature"));
+        assertThrows(BadRequestException.class, () -> service.confirmCancellation(returned));
+        doReturn(result(false, false, false)).when(gateway).verifyIpn(returned);
+        assertThrows(BadRequestException.class, () -> service.confirmCancellation(returned));
+        verifyNoInteractions(payments);
+    }
+    @Test void cancellationWithWrongAmountCannotClosePayment() {
+        Payment p = attempt(); callback(p);
+        var returned = Map.of("vnp_ResponseCode", "24");
+        when(gateway.verifyIpn(returned)).thenReturn(new PaymentGateway.GatewayResult(
+                "ref123", BigDecimal.ONE, null, null, false, true, false));
+        assertThrows(BadRequestException.class, () -> service.confirmCancellation(returned));
+        assertEquals(PaymentStatus.PENDING, p.getPaymentStatus());
+        verify(payments, never()).save(any());
+    }
     @Test void cashReusesChangeCalculatorAndDoesNotCompleteSale() {
         var response = service.create(1L, cashRequest(), "127.0.0.1");
         assertEquals(PaymentStatus.SUCCESS, response.status()); assertEquals(new BigDecimal("20.00"), response.changeAmount());

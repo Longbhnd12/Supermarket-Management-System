@@ -1,6 +1,20 @@
 import API from './api';
 
 const saleService = {
+    // The list endpoint returns paginated summaries; POS needs full item details.
+    getDrafts: async () => {
+        const summaries = [];
+        let page = 0;
+        let totalPages;
+        do {
+            const { data } = await API.get('/sales', { params: { status: 'DRAFT', page, size: 100 } });
+            summaries.push(...data.data.content);
+            totalPages = data.data.totalPages;
+            page += 1;
+        } while (page < totalPages);
+        return Promise.all(summaries.map(async ({ saleId }) =>
+            (await API.get(`/sales/${saleId}`)).data.data));
+    },
     getSales: async (params = {}) => (await API.get('/sales', { params })).data,
     getById: (id) => API.get(`/sales/${id}`),
     getBySaleNumber: (saleNumber) => API.get(`/sales/number/${saleNumber}`),
