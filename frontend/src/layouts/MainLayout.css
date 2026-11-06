@@ -3,6 +3,8 @@
 ================================== */
 
 :root {
+    --sms-font-sans: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --sms-font-mono: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --sms-primary: #2458dc;
     --sms-primary-dark: #1746bb;
 
@@ -32,6 +34,7 @@
     min-height: 100vh;
     background: var(--sms-page-bg);
     color: var(--sms-text);
+    font-family: var(--sms-font-sans);
 }
 
 .sms-main-wrapper {

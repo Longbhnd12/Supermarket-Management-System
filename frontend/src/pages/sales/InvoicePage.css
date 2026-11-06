@@ -60,7 +60,7 @@
 .invoice-sheet-grand-total strong { color: var(--sms-primary, #2458dc); font-size: clamp(20px, 2vw, 27px); font-weight: 750; }
 .invoice-sheet-totals p:last-child { margin-bottom: 0; }
 .invoice-print-only { display: none; }
-.invoice-document { color: #222; width: 72mm; max-width: 100%; font-family: Arial, sans-serif; font-size: 10px; overflow-wrap: anywhere; }
+.invoice-document { color: #222; width: 72mm; max-width: 100%; font-family: var(--sms-font-sans); font-size: 10px; overflow-wrap: anywhere; }
 .invoice-document header, .invoice-document footer { text-align: center; }
 .invoice-document h2 { font-size: 13px; margin: 10px 0; }
 .invoice-document header p { margin: 5px 0; }

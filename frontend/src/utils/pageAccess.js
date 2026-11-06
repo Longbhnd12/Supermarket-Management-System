@@ -32,6 +32,7 @@ export const PAGE_ACCESS = {
 
     // Sales
     sales: staff('SALE_VIEW', 'POS_SALE'),
+    salesMonitoring: { roles: ['ADMIN', 'MANAGER'], anyOf: ['SALE_VIEW'] },
     pos: staff('POS_SALE'),
     paymentReturn: staff('POS_SALE'),
     invoices: { roles: ['ADMIN', 'MANAGER', 'CASHIER'], anyOf: ['INVOICE_VIEW'] }, // UC22/UC23

@@ -96,7 +96,7 @@ export default function App() {
                     </Route>
 
                     {/* Sales & POS */}
-                    <Route element={<RequirePermission access={PAGE_ACCESS.sales} />}>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.salesMonitoring} />}>
                         <Route path="/sales" element={<SaleListPage />} />
                     </Route>
                     <Route element={<RequirePermission access={PAGE_ACCESS.pos} />}>

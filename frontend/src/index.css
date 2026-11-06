@@ -1,4 +1,22 @@
-* {
+:root {
+    font-family: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #1e293b;
+    background: #f8fafc;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+
+    --sms-font-sans: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --sms-font-mono: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+*,
+*::before,
+*::after {
     box-sizing: border-box;
 }
 
@@ -11,16 +29,52 @@ body {
 }
 
 body {
-    font-family: Inter, Arial, sans-serif;
+    min-width: 320px;
+    font-family: var(--sms-font-sans);
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #1e293b;
+    background: #f8fafc;
+}
+
+/*
+ * One typography system for the entire SMS application.
+ * Several feature stylesheets historically declared Arial, Segoe UI or
+ * monospace locally. This root layer intentionally overrides those declarations
+ * so every screen uses the same Inter family.
+ */
+html,
+body,
+#root,
+#root * {
+    font-family: var(--sms-font-sans) !important;
 }
 
 button,
 input,
 textarea,
 select {
-    font: inherit;
+    font-family: var(--sms-font-sans);
+    font-size: inherit;
+    line-height: inherit;
 }
 
 button {
     cursor: pointer;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+}
+
+table,
+input[type='number'] {
+    font-variant-numeric: tabular-nums;
 }
