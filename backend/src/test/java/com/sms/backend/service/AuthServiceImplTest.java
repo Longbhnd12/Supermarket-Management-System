@@ -22,19 +22,20 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import com.sms.backend.security.AuthCookieService;
+import com.sms.backend.security.JwtTokenProvider;
+import jakarta.servlet.http.Cookie;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -52,6 +53,7 @@ class AuthServiceImplTest {
     private static final LocalDateTime NOW = LocalDateTime.now(CLOCK);
     private static final PasswordEncoder ENCODER = new BCryptPasswordEncoder(4);
     private static final String HASH = ENCODER.encode("Secret123");
+    private static final String SECRET = "test-secret-key-that-is-at-least-32-characters";
 
     @Mock UserRepository users;
     @Mock SystemSettingRepository settings;
@@ -59,15 +61,16 @@ class AuthServiceImplTest {
     @Mock EmailService email;
 
     AuthServiceImpl service;
+    JwtTokenProvider tokens;
     MockHttpServletRequest request;
     MockHttpServletResponse response;
 
     @BeforeEach
     void setup() {
-        UserDetailsService details = username -> org.springframework.security.core.userdetails.User
-                .withUsername(username).password(HASH).authorities("ROLE_CASHIER").build();
-        service = new AuthServiceImpl(users, settings, logs, ENCODER, details,
-                new HttpSessionSecurityContextRepository(), CLOCK, email);
+        // Real JWT provider and cookie service: the tests check the actual cookie and token
+        tokens = new JwtTokenProvider(SECRET, settings, CLOCK);
+        service = new AuthServiceImpl(users, settings, logs, ENCODER, tokens,
+                new AuthCookieService("SMS_AUTH", false), CLOCK, email);
         request = new MockHttpServletRequest();
         request.setRemoteAddr("10.0.0.5");
         response = new MockHttpServletResponse();
@@ -93,8 +96,21 @@ class AuthServiceImplTest {
         return user;
     }
 
+    /** Token written in the Set-Cookie header of the response, or null. */
+    private String tokenInCookie(MockHttpServletResponse res) {
+        String header = res.getHeader("Set-Cookie");
+        if (header == null || !header.startsWith("SMS_AUTH=")) return null;
+        String value = header.substring("SMS_AUTH=".length(), header.indexOf(';'));
+        return value.isEmpty() ? null : value;
+    }
+
+    /** A token issued 5 minutes ago (still valid now). */
+    private String oldToken(User user) {
+        return new JwtTokenProvider(SECRET, settings, Clock.offset(CLOCK, Duration.ofMinutes(-5))).generateToken(user);
+    }
+
     @Test
-    void loginWithUsernameReturnsRoleAndStartsSession() {
+    void loginWithUsernameReturnsRoleAndIssuesJwtCookie() {
         User user = cashier(AccountStatus.ACTIVE, 2);
         when(users.findByUsername("cashier01")).thenReturn(Optional.of(user));
 
@@ -103,8 +119,16 @@ class AuthServiceImplTest {
         assertEquals("CASHIER", result.role());
         assertEquals(0, user.getFailedLoginAttempts());
         assertEquals(NOW, user.getLastLoginAt());
-        assertNotNull(request.getSession(false));
-        assertEquals(30 * 60, request.getSession(false).getMaxInactiveInterval());
+        String cookie = response.getHeader("Set-Cookie");
+        assertNotNull(cookie);
+        assertTrue(cookie.contains("HttpOnly"), "JavaScript must not be able to read the token");
+        assertTrue(cookie.contains("SameSite=Strict"));
+        assertTrue(cookie.contains("Path=/api"));
+        assertTrue(cookie.contains("Max-Age=1800"), "lifetime = session timeout (30 minutes)");
+        JwtTokenProvider.TokenClaims claims = tokens.parse(tokenInCookie(response)).orElseThrow();
+        assertEquals(7L, claims.userId());
+        assertEquals("cashier01", tokens.getUsername(tokenInCookie(response)));
+        assertNull(request.getSession(false), "stateless: no HttpSession");
         verify(logs).createLog(eq(user), eq("LOGIN_SUCCESS"), eq("USER"), eq(7L), anyString(), eq("10.0.0.5"));
     }
 
@@ -141,7 +165,7 @@ class AuthServiceImplTest {
         assertEquals(2, user.getFailedLoginAttempts());
         assertEquals(AccountStatus.ACTIVE, user.getStatus());
         verify(users).save(user);
-        assertNull(request.getSession(false));
+        assertNull(response.getHeader("Set-Cookie"), "no token for a failed login");
     }
 
     @Test
@@ -182,7 +206,7 @@ class AuthServiceImplTest {
                 () -> service.login(new LoginRequest("cashier01", "Secret123"), request, response));
 
         assertEquals("ACCOUNT_LOCKED", error.getErrorCode());
-        assertNull(request.getSession(false));
+        assertNull(response.getHeader("Set-Cookie"), "no token for a failed login");
     }
 
     @Test
@@ -207,7 +231,7 @@ class AuthServiceImplTest {
 
         assertEquals("ACCOUNT_INACTIVE", error.getErrorCode());
         assertEquals(AuthServiceImpl.MSG_ACCOUNT_INACTIVE, error.getMessage());
-        assertNull(request.getSession(false));
+        assertNull(response.getHeader("Set-Cookie"), "no token for a failed login");
     }
 
     // ---------- UC02 - Logout ----------
@@ -233,24 +257,27 @@ class AuthServiceImplTest {
     }
 
     @Test
-    void logoutWritesLogAndInvalidatesSession() {
+    void logoutInvalidatesTokenClearsCookieAndLogs() {
         User user = cashier(AccountStatus.ACTIVE, 0);
         when(users.findByUsername("cashier01")).thenReturn(Optional.of(user));
-        MockHttpSession session = new MockHttpSession();
-        request.setSession(session);
+        String token = tokens.generateToken(user);
+        request.setCookies(new Cookie("SMS_AUTH", token));
         SecurityContextHolder.getContext().setAuthentication(
                 UsernamePasswordAuthenticationToken.authenticated("cashier01", null, List.of()));
+        assertTrue(tokens.validateToken(token));
 
-        service.logout(request);
+        service.logout(request, response);
 
-        assertTrue(session.isInvalid());
+        assertFalse(tokens.validateToken(token), "the token can no longer be used, even if someone copied it");
+        assertTrue(response.getHeader("Set-Cookie").contains("Max-Age=0"), "cookie deleted");
         assertNull(SecurityContextHolder.getContext().getAuthentication());
         verify(logs).createLog(eq(user), eq("LOGOUT"), eq("USER"), eq(7L), anyString(), eq("10.0.0.5"));
     }
 
     @Test
-    void logoutWithoutSessionDoesNotFail() {
-        assertDoesNotThrow(() -> service.logout(request));
+    void logoutWithoutTokenDoesNotFail() {
+        assertDoesNotThrow(() -> service.logout(request, response));
+        assertTrue(response.getHeader("Set-Cookie").contains("Max-Age=0"));
         verify(logs, never()).createLog(any(), anyString(), anyString(), any(), anyString(), anyString());
     }
 
@@ -265,11 +292,16 @@ class AuthServiceImplTest {
         User user = cashier(AccountStatus.ACTIVE, 0);
         when(users.findByUsername("cashier01")).thenReturn(Optional.of(user));
 
-        service.changePassword("cashier01", change("cashier01", "Secret123", "NewPass456", "NewPass456"), request);
+        String tokenFromAnotherDevice = oldToken(user);
+        assertTrue(tokens.validateToken(tokenFromAnotherDevice));
+
+        service.changePassword("cashier01", change("cashier01", "Secret123", "NewPass456", "NewPass456"), request, response);
 
         assertTrue(ENCODER.matches("NewPass456", user.getPasswordHash()));
         verify(users).save(user);
         verify(logs).createLog(eq(user), eq("PASSWORD_CHANGED"), eq("USER"), eq(7L), anyString(), eq("10.0.0.5"));
+        assertFalse(tokens.validateToken(tokenFromAnotherDevice), "tokens issued before the change are rejected");
+        assertTrue(tokens.validateToken(tokenInCookie(response)), "this browser gets a new valid token");
     }
 
     @Test
@@ -278,7 +310,7 @@ class AuthServiceImplTest {
         when(users.findByUsername("cashier01")).thenReturn(Optional.of(user));
 
         assertDoesNotThrow(() -> service.changePassword("cashier01",
-                change("Cashier01@SMS.vn", "Secret123", "NewPass456", "NewPass456"), request));
+                change("Cashier01@SMS.vn", "Secret123", "NewPass456", "NewPass456"), request, response));
     }
 
     @Test
@@ -286,7 +318,7 @@ class AuthServiceImplTest {
         when(users.findByUsername("cashier01")).thenReturn(Optional.of(cashier(AccountStatus.ACTIVE, 0)));
 
         BadRequestException error = assertThrows(BadRequestException.class, () -> service.changePassword("cashier01",
-                change("admin", "Secret123", "NewPass456", "NewPass456"), request));
+                change("admin", "Secret123", "NewPass456", "NewPass456"), request, response));
         assertEquals(AuthServiceImpl.MSG_IDENTIFIER_MISMATCH, error.getMessage());
         verify(users, never()).save(any());
     }
@@ -297,7 +329,7 @@ class AuthServiceImplTest {
         when(users.findByUsername("cashier01")).thenReturn(Optional.of(user));
 
         BadRequestException error = assertThrows(BadRequestException.class, () -> service.changePassword("cashier01",
-                change("cashier01", "Wrong999", "NewPass456", "NewPass456"), request));
+                change("cashier01", "Wrong999", "NewPass456", "NewPass456"), request, response));
         assertEquals(AuthServiceImpl.MSG04_CURRENT_PASSWORD_INCORRECT, error.getMessage());
         verify(logs).createLog(eq(user), eq("PASSWORD_CHANGE_FAILED"), eq("USER"), eq(7L), anyString(), anyString());
         verify(users, never()).save(any());
@@ -308,7 +340,7 @@ class AuthServiceImplTest {
         when(users.findByUsername("cashier01")).thenReturn(Optional.of(cashier(AccountStatus.ACTIVE, 0)));
 
         BadRequestException error = assertThrows(BadRequestException.class, () -> service.changePassword("cashier01",
-                change("cashier01", "Secret123", "NewPass456", "NewPass457"), request));
+                change("cashier01", "Secret123", "NewPass456", "NewPass457"), request, response));
         assertEquals(AuthServiceImpl.MSG_CONFIRM_MISMATCH, error.getMessage());
     }
 
@@ -317,7 +349,7 @@ class AuthServiceImplTest {
         when(users.findByUsername("cashier01")).thenReturn(Optional.of(cashier(AccountStatus.ACTIVE, 0)));
 
         BadRequestException error = assertThrows(BadRequestException.class, () -> service.changePassword("cashier01",
-                change("cashier01", "Secret123", "Secret123", "Secret123"), request));
+                change("cashier01", "Secret123", "Secret123", "Secret123"), request, response));
         assertEquals(AuthServiceImpl.MSG_SAME_PASSWORD, error.getMessage());
     }
 
@@ -377,8 +409,11 @@ class AuthServiceImplTest {
         User user = withCode(AccountStatus.LOCKED, "482913", NOW.plusMinutes(5));
         user.setLockedUntil(NOW.plusMinutes(10));
         when(users.findByUsername("cashier01")).thenReturn(Optional.of(user));
+        String tokenStillLoggedIn = oldToken(user);
 
         service.resetPassword(new ResetPasswordRequest("cashier01", "482913", "NewPass456", "NewPass456"), request);
+
+        assertFalse(tokens.validateToken(tokenStillLoggedIn), "anyone logged in with the old password is signed out");
 
         assertTrue(ENCODER.matches("NewPass456", user.getPasswordHash()));
         assertNull(user.getResetCode());
