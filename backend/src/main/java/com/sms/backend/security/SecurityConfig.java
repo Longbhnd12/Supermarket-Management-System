@@ -3,8 +3,10 @@ package com.sms.backend.security;
 import com.sms.backend.repository.UserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
+import org.springframework.security.authorization.AuthorityAuthorizationManager;
+import org.springframework.security.authorization.AuthorizationManagers;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AuthorizeHttpRequestsConfigurer;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -28,12 +30,13 @@ import java.util.List;
  * Authentication = JWT in an HttpOnly cookie, stateless (SDD: "JWT filter chain, token provider,
  * password encoder, stateless session"). There is no HttpSession: every request is authenticated
  * by JwtAuthenticationFilter. Because the token travels in a cookie, CSRF protection is ON
- * (double-submit cookie XSRF-TOKEN / header X-XSRF-TOKEN). See docs/authentication.md.
+ * (double-submit cookie XSRF-TOKEN / header X-XSRF-TOKEN).
+ * Authorization (which endpoint needs which permission): ApiPermissionRules, backend/API-PERMISSIONS.md.
  */
 @Configuration
 public class SecurityConfig {
 
-    /** Public endpoints: no login needed, and no CSRF token needed (they do not use the auth cookie). */
+    /** Public POST endpoints that need no CSRF token (they do not use the auth cookie). Access rules: ApiPermissionRules. */
     static final String[] PUBLIC_AUTH_ENDPOINTS = {
             "/api/v1/auth/login",
             "/api/v1/auth/register",
@@ -61,28 +64,8 @@ public class SecurityConfig {
                 })
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .securityContext(context -> context.securityContextRepository(contextRepository))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/health", "/api/v1/test-error").permitAll()
-                        .requestMatchers(PUBLIC_AUTH_ENDPOINTS).permitAll()
-                        // Logout works even with an expired token: it only clears the cookie
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").permitAll()
-                        .requestMatchers("/api/v1/system-settings/**", "/api/v1/system-logs/**").hasRole("ADMIN")
-                        // UC04/UC05/UC06 - permission based (role.permissions, see RolePermissions)
-                        // GET /api/v1/users (plain list) stays open: the POS screen uses it to load cashiers
-                        .requestMatchers(HttpMethod.GET, "/api/v1/users").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/users/**").hasAuthority("PERM_USER_VIEW")
-                        .requestMatchers("/api/v1/users/**").hasAuthority("PERM_USER_MANAGE")
-                        .requestMatchers("/api/v1/roles/**").hasAuthority("PERM_ROLE_MANAGE")
-                        // UC48/UC49 - Supplier portal; staff purchase-order API is closed to Supplier accounts (UC48 BR-01)
-                        .requestMatchers("/api/v1/supplier-portal/**").hasAuthority("PERM_SUPPLIER_PORTAL")
-                        .requestMatchers("/api/v1/purchase-orders/**").hasAnyRole("ADMIN", "MANAGER", "CASHIER", "WAREHOUSE_STAFF")
-                        .requestMatchers(HttpMethod.GET, "/api/v1/invoices", "/api/v1/invoices/**",
-                                "/api/v1/sales/*/invoice", "/api/v1/sales/*/invoice/pdf")
-                        .access(org.springframework.security.authorization.AuthorizationManagers.allOf(
-                                org.springframework.security.authorization.AuthorityAuthorizationManager.hasAnyRole("ADMIN", "MANAGER", "CASHIER"),
-                                org.springframework.security.authorization.AuthorityAuthorizationManager.hasAuthority("PERM_INVOICE_VIEW")))
-                        .anyRequest().authenticated()
-                )
+                // Every endpoint -> permission: see ApiPermissionRules (first match wins, deny by default)
+                .authorizeHttpRequests(SecurityConfig::applyApiPermissionRules)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
@@ -94,6 +77,36 @@ public class SecurityConfig {
                 .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class);
 
         return http.build();
+    }
+
+    /**
+     * Turns the ApiPermissionRules table into Spring Security rules, in the same order.
+     * PERMISSION rule = has one of the roles (if any) AND one of the permissions (if any).
+     * A request that matches no rule is denied (401 when not logged in, 403 otherwise).
+     */
+    static void applyApiPermissionRules(
+            AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry auth) {
+        for (ApiPermissionRules.Rule rule : ApiPermissionRules.RULES) {
+            var url = rule.method() == null
+                    ? auth.requestMatchers(rule.pattern())
+                    : auth.requestMatchers(rule.method(), rule.pattern());
+            switch (rule.access()) {
+                case PUBLIC -> url.permitAll();
+                case AUTHENTICATED -> url.authenticated();
+                case PERMISSION -> {
+                    if (rule.roles().isEmpty()) {
+                        url.hasAnyAuthority(rule.permissionAuthorities());
+                    } else if (rule.anyOf().isEmpty()) {
+                        url.hasAnyAuthority(rule.roleAuthorities());
+                    } else {
+                        url.access(AuthorizationManagers.allOf(
+                                AuthorityAuthorizationManager.hasAnyAuthority(rule.roleAuthorities()),
+                                AuthorityAuthorizationManager.hasAnyAuthority(rule.permissionAuthorities())));
+                    }
+                }
+            }
+        }
+        auth.anyRequest().denyAll();
     }
 
     @Bean
