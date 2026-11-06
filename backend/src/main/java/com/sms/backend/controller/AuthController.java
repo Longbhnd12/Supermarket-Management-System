@@ -2,7 +2,9 @@ package com.sms.backend.controller;
 
 import com.sms.backend.dto.ApiResponse;
 import com.sms.backend.dto.request.ChangePasswordRequest;
+import com.sms.backend.dto.request.ForgotPasswordRequest;
 import com.sms.backend.dto.request.LoginRequest;
+import com.sms.backend.dto.request.ResetPasswordRequest;
 import com.sms.backend.dto.request.RegisterRequest;
 import com.sms.backend.dto.response.AuthenticatedUserResponse;
 import com.sms.backend.entity.Role;
@@ -15,6 +17,7 @@ import com.sms.backend.exception.UnauthorizedException;
 import com.sms.backend.repository.RoleRepository;
 import com.sms.backend.repository.UserRepository;
 import com.sms.backend.service.AuthService;
+import com.sms.backend.service.serviceImpl.AuthServiceImpl;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -99,6 +102,28 @@ public class AuthController {
         }
         authService.changePassword(authentication.getName(), request, httpRequest);
         return ResponseEntity.ok(ApiResponse.success("Password changed", null));
+    }
+
+    /**
+     * UC45 step 1 - always the same answer, whether or not the account exists (BR-03).
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request, HttpServletRequest httpRequest
+    ) {
+        authService.requestPasswordReset(request, httpRequest);
+        return ResponseEntity.ok(ApiResponse.success(AuthServiceImpl.MSG_RESET_CODE_SENT, null));
+    }
+
+    /**
+     * UC45 step 2 - check the code and set the new password.
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request, HttpServletRequest httpRequest
+    ) {
+        authService.resetPassword(request, httpRequest);
+        return ResponseEntity.ok(ApiResponse.success("Password reset successful", null));
     }
 
     /**

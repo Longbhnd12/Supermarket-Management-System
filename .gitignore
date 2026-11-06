@@ -38,3 +38,4 @@ Thumbs.db
 # Local project documentation (không chia sẻ qua git)
 /docs/SDD.docx
 /docs/SRS.docx
+docs/database.sql

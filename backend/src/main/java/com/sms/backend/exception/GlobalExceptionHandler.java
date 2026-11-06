@@ -1,6 +1,7 @@
 package com.sms.backend.exception;
 
 import com.sms.backend.dto.ApiErrorResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -10,6 +11,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 
 import java.time.LocalDateTime;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -112,6 +114,8 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleGeneral(
             Exception ex
     ) {
+        // The user only sees a generic message (SRS 4.2.4); the real cause must be in the server log
+        log.error("Unexpected error", ex);
         return buildError(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "INTERNAL_SERVER_ERROR",
