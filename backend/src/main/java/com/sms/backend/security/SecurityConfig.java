@@ -35,11 +35,10 @@ public class SecurityConfig {
 
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> {
-                })
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .securityContext(context -> context.securityContextRepository(securityContextRepository))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/health", "/api/v1/test-error", "/api/v1/auth/login", "/api/v1/auth/register").permitAll()
+                        .requestMatchers("/api/v1/health", "/api/v1/test-error", "/api/v1/auth/**", "/error").permitAll()
                         .requestMatchers("/api/v1/system-settings/**", "/api/v1/system-logs/**").hasRole("ADMIN")
                         // UC04/UC05/UC06 - permission based (role.permissions, see RolePermissions)
                         // GET /api/v1/users (plain list) stays open: the POS screen uses it to load cashiers
