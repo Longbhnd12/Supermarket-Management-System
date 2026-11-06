@@ -1,6 +1,7 @@
 package com.sms.backend.service;
 
 import com.sms.backend.entity.*;
+import com.sms.backend.service.serviceImpl.FefoStockServiceImpl;
 import com.sms.backend.enums.StockReceiptStatus;
 import com.sms.backend.exception.BadRequestException;
 import com.sms.backend.repository.*;
@@ -15,7 +16,7 @@ class FefoStockServiceTest {
     ProductRepository products = mock(ProductRepository.class);
     StockReceiptDetailRepository batches = mock(StockReceiptDetailRepository.class);
     Clock clock = Clock.fixed(Instant.parse("2026-10-30T03:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh"));
-    FefoStockService service = new FefoStockService(products, batches, clock);
+    FefoStockService service = new FefoStockServiceImpl(products, batches, clock);
     Product product;
     @BeforeEach void setup() {
         product = new Product(); product.setProductId(1L); product.setProductCode("TEST");

@@ -18,6 +18,10 @@ import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ProtectedRoute from './common/ProtectedRoute';
+import AppNotice from './common/AppNotice';
+import AuthProvider from './context/AuthProvider';
+import InvoiceAccessRoute from './common/InvoiceAccessRoute';
+import InvoiceListPage from './pages/sales/InvoiceListPage';
 
 // Product
 import ProductListPage from './pages/product/ProductListPage';
@@ -69,6 +73,9 @@ import './App.css';
 export default function App() {
     return (
         <BrowserRouter>
+            {/* Login state + central 401/403 handling for every page (useAuth()) */}
+            <AuthProvider>
+            <AppNotice />
             <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
@@ -84,7 +91,10 @@ export default function App() {
                     {/* Sales & POS */}
                     <Route path="/sales" element={<SaleListPage />} />
                     <Route path="/sales/pos" element={<POSPage />} />
-                    <Route path="/sales/:id/invoice" element={<InvoicePage />} />
+                    <Route element={<InvoiceAccessRoute />}>
+                        <Route path="/invoices" element={<InvoiceListPage />} />
+                        <Route path="/sales/:id/invoice" element={<InvoicePage />} />
+                    </Route>
                     <Route path="/payments/vnpay/return" element={<PaymentReturnPage />} />
 
                     {/* Purchase Orders */}
@@ -140,6 +150,7 @@ export default function App() {
                 </Route>
                 </Route>
             </Routes>
+            </AuthProvider>
         </BrowserRouter>
     );
 }

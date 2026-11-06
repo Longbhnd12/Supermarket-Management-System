@@ -14,8 +14,8 @@ import jakarta.servlet.http.HttpServletResponse;
 public interface AuthService {
 
     /**
-     * UC01: validates the credentials, applies the lockout rule (BR-24), starts the
-     * HTTP session and returns the authenticated user with its role.
+     * UC01: validates the credentials, applies the lockout rule (BR-24), issues the
+     * JWT (HttpOnly cookie) and returns the authenticated user with its role.
      */
     AuthenticatedUserResponse login(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse);
 
@@ -25,15 +25,16 @@ public interface AuthService {
     AuthenticatedUserResponse getCurrentUser(String username);
 
     /**
-     * UC02: records the logout and ends the current session immediately.
+     * UC02: records the logout, invalidates the token and deletes the auth cookie.
      */
-    void logout(HttpServletRequest httpRequest);
+    void logout(HttpServletRequest httpRequest, HttpServletResponse httpResponse);
 
     /**
      * UC03: the logged-in user changes their own password after confirming
-     * their username/email and current password. The session stays active.
+     * their username/email and current password. Older tokens are invalidated; this browser gets a new one.
      */
-    void changePassword(String username, ChangePasswordRequest request, HttpServletRequest httpRequest);
+    void changePassword(String username, ChangePasswordRequest request,
+                        HttpServletRequest httpRequest, HttpServletResponse httpResponse);
 
     /**
      * UC45 step 1: if the account exists, creates a one-time code (valid 10 minutes)

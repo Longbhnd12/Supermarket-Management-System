@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Bell, ChevronDown, KeyRound, LogOut, UserRound } from 'lucide-react';
-import authService from '../services/authService';
+import { useAuth } from '../context/authContext';
 import { roleLabel as toRoleLabel } from '../utils/roleLabels';
 import './AccountMenu.css';
 
 // UC02 - Logout (SDD 4.2.3.1): account menu opened from the avatar/user name in the header
-export default function AccountMenu({ user }) {
-    const navigate = useNavigate();
+export default function AccountMenu() {
+    const { currentUser: user, logout: endSession } = useAuth();
     const menuRef = useRef(null);
     const [open, setOpen] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
@@ -30,15 +30,11 @@ export default function AccountMenu({ user }) {
         };
     }, [open]);
 
+    // AuthProvider calls the API, clears the user here and in the other tabs;
+    // ProtectedRoute then shows the Login page.
     const logout = async () => {
         setLoggingOut(true);
-        try {
-            await authService.logout();
-        } catch {
-            // Session may already be expired: still go back to Login
-        } finally {
-            navigate('/login', { replace: true });
-        }
+        await endSession();
     };
 
     return (

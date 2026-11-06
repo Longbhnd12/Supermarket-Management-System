@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { KeyRound, UserRound } from 'lucide-react';
 import ProfileService from '../../services/profileService';
+import { useAuth } from '../../context/authContext';
 import { getErrorMessage } from '../../utils/errorUtils';
 import { roleLabel } from '../../utils/roleLabels';
 import '../user/UserManagement.css';
@@ -16,7 +17,7 @@ function statusLabel(status) {
 }
 
 export default function ProfilePage() {
-    const { refreshUser } = useOutletContext() ?? {};
+    const { refreshUser } = useAuth();
     const [profile, setProfile] = useState(null);
     const [form, setForm] = useState({ fullName: '', phone: '', email: '' });
     const [fieldErrors, setFieldErrors] = useState({});
@@ -71,8 +72,11 @@ export default function ProfilePage() {
                 email: form.email.trim()
             });
             fill(data.data);
-            setNotice('Profile updated');
-            refreshUser?.(); // name / email in the header account menu
+            // Emails are case-insensitive: the backend stores them in lowercase (BR-02 duplicate check)
+            setNotice(data.data.email !== form.email.trim()
+                ? 'Profile updated. Email addresses are saved in lowercase.'
+                : 'Profile updated');
+            refreshUser(); // name / email in the header account menu (all tabs)
         } catch (err) {
             const message = getErrorMessage(err);
             // AT1: "This email is already in use" goes under the Email field
@@ -136,7 +140,7 @@ export default function ProfilePage() {
                         <label className="um-field">
                             Email
                             <input type="email" value={form.email} onChange={update('email')} maxLength={150} aria-invalid={Boolean(fieldErrors.email)} />
-                            {fieldError('email') || <span className="um-field-hint">Used to log in and to receive password reset codes.</span>}
+                            {fieldError('email') || <span className="um-field-hint">Used to log in and to receive password reset codes. Saved in lowercase.</span>}
                         </label>
 
                         <div className="um-form-actions">

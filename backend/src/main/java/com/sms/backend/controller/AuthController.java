@@ -82,8 +82,12 @@ public class AuthController {
         if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
             throw new UnauthorizedException("Authentication is required");
         }
+        var user = authService.getCurrentUser(authentication.getName());
+        // Effective session permissions match the authorities enforced by the filter chain.
+        var permissions = authentication.getAuthorities().stream().map(a -> a.getAuthority())
+                .filter(a -> a.startsWith("PERM_")).map(a -> a.substring(5)).sorted().toList();
         return ResponseEntity.ok(ApiResponse.success("Current user retrieved",
-                authService.getCurrentUser(authentication.getName())));
+                new AuthenticatedUserResponse(user.userId(), user.username(), user.email(), user.role(), user.fullName(), permissions)));
     }
 
     /**
@@ -91,12 +95,13 @@ public class AuthController {
      */
     @PostMapping("/change-password")
     public ResponseEntity<ApiResponse<Void>> changePassword(
-            Authentication authentication, @Valid @RequestBody ChangePasswordRequest request, HttpServletRequest httpRequest
+            Authentication authentication, @Valid @RequestBody ChangePasswordRequest request,
+            HttpServletRequest httpRequest, HttpServletResponse httpResponse
     ) {
         if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
             throw new UnauthorizedException("Authentication is required");
         }
-        authService.changePassword(authentication.getName(), request, httpRequest);
+        authService.changePassword(authentication.getName(), request, httpRequest, httpResponse);
         return ResponseEntity.ok(ApiResponse.success("Password changed", null));
     }
 
@@ -126,8 +131,8 @@ public class AuthController {
      * UC02 - Logout. Business rules live in {@link AuthService}.
      */
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest request) {
-        authService.logout(request);
+    public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest request, HttpServletResponse response) {
+        authService.logout(request, response);
         return ResponseEntity.ok(ApiResponse.success("Logged out", null));
     }
 
