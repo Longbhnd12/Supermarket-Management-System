@@ -1,0 +1,82 @@
+.sms-notice-stack {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 2000;
+    display: grid;
+    gap: 10px;
+    width: min(380px, calc(100vw - 32px));
+}
+
+.sms-notice {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid #fecaca;
+    border-left-width: 4px;
+    background: #fff;
+    color: #172033;
+    box-shadow: 0 12px 30px rgba(23, 32, 51, 0.16);
+    font-size: 14px;
+}
+
+.sms-notice svg {
+    color: #b42318;
+}
+
+.sms-notice--network-error,
+.sms-notice--server-error {
+    border-color: #fed7aa;
+}
+
+.sms-notice--network-error svg,
+.sms-notice--server-error svg {
+    color: #c2410c;
+}
+
+.sms-notice-text {
+    display: grid;
+    gap: 2px;
+}
+
+.sms-notice-text span {
+    color: #526071;
+    line-height: 1.4;
+}
+
+.sms-notice button {
+    padding: 2px;
+    border: 0;
+    background: transparent;
+    color: #526071;
+    cursor: pointer;
+}
+
+.sms-notice button svg {
+    color: inherit;
+}
+
+.auth-unreachable {
+    display: grid;
+    gap: 12px;
+    justify-items: center;
+    text-align: center;
+}
+
+.auth-unreachable p {
+    margin: 0;
+    color: #526071;
+}
+
+.auth-unreachable button {
+    padding: 10px 18px;
+    border: 0;
+    border-radius: 7px;
+    background: #1d4ed8;
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+}
