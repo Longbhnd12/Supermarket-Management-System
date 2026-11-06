@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import StockReceiptService from '../../services/stockReceiptService';
+import { useAuth } from '../../context/authContext';
 import './StockReceiptDetailPage.css';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -209,6 +210,7 @@ async function handleExportPdf(receipt, setPdfLoading) {
 // ─── Main Component ─────────────────────────────────────────────────────────────
 
 export default function StockReceiptDetailPage() {
+    const { hasPermission } = useAuth();
     const { id } = useParams();
     const navigate = useNavigate();
 
@@ -429,7 +431,7 @@ export default function StockReceiptDetailPage() {
                     </button>
 
                     {/* DRAFT Actions: Cancel, Edit Draft, Confirm Receipt */}
-                    {receipt.status === 'DRAFT' && (
+                    {receipt.status === 'DRAFT' && hasPermission('STOCK_IMPORT') && (
                         <>
                             <button
                                 className="srd-btn srd-btn--danger"

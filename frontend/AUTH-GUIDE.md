@@ -63,6 +63,63 @@ All tabs of the same browser share the login cookie, so:
 - Another account logs in from another tab: the old tab reloads with the new account.
 - When a tab gets focus again, the session is checked again (account locked, token expired...).
 
+## 4. Permission-based UI (pages, menu, buttons)
+
+The frontend uses **the same permissions as the backend** (`backend/API-PERMISSIONS.md`).
+Hiding things is only for comfort: the backend still answers 403.
+
+### A new page
+
+1. Add (or reuse) its rule in `src/utils/pageAccess.js`:
+   ```js
+   expiringProducts: staff('PRODUCT_VIEW'),
+   ```
+2. Put the route inside a `RequirePermission` group in `App.jsx`:
+   ```jsx
+   <Route element={<RequirePermission access={PAGE_ACCESS.expiringProducts} />}>
+       <Route path="/products/expiring" element={<ExpiringProductsPage />} />
+   </Route>
+   ```
+   Without the permission the user sees the **Access denied** page; the page itself is not loaded (no API call).
+3. If the page is in the menu, add it to `src/common/sidebarMenu.js` with the same `access`.
+   The menu only shows the pages the role can open. A group with no visible page is hidden.
+
+### A button or link
+
+```jsx
+import Can from '../../common/Can';
+
+<Can permission="PRODUCT_MANAGE">
+    <button onClick={openCreateForm}>Create product</button>
+</Can>
+
+<Can anyOf={['PURCHASE_REQUEST_CREATE', 'PURCHASE_REQUEST_APPROVE']}>...</Can>
+```
+
+Inside a condition, use the hook:
+
+```jsx
+const { hasPermission } = useAuth();
+{order.status === 'DRAFT' && hasPermission('STOCK_IMPORT') && <button>Confirm</button>}
+```
+
+Use the permission of the **API the button calls** (see `backend/API-PERMISSIONS.md`), not the role name:
+an Admin can change the permissions of a role at any time (UC06).
+
+### Already done
+
+| Page | Hidden without permission |
+|---|---|
+| User Management | Create User, Edit / Activate / Delete (`USER_MANAGE`), Roles & Permissions (`ROLE_MANAGE`) |
+| Purchase Orders list | Create Purchase Request (`PURCHASE_REQUEST_CREATE`), Pending Approvals (`PURCHASE_REQUEST_APPROVE`) |
+| Purchase Order detail | Review in Pending Requests (`PURCHASE_REQUEST_APPROVE`) |
+| Inventory | Adjust Stock (`STOCK_ADJUST`), Start Stock Check (`STOCK_CHECK`), Stock Alerts (`STOCK_ALERT_VIEW`) |
+| Stock Receipts list / detail | Create Receipt, Cancel / Edit / Confirm draft (`STOCK_IMPORT`) |
+
+**To do by each module owner** when the page gets its buttons: Product, Category, Promotion, Supplier and
+Employee pages (create / edit / delete), Stock Check and Stock Difference (submit). Pending Requests needs
+nothing more: the whole page is already only for `PURCHASE_REQUEST_APPROVE`.
+
 ## Files
 
 | File | Role |
@@ -75,5 +132,10 @@ All tabs of the same browser share the login cookie, so:
 | `src/common/AppNotice.jsx` | Toasts for 403, 5xx and connection errors |
 | `src/common/ProtectedRoute.jsx` | Login required; "Cannot connect" screen with "Try again" |
 | `src/utils/permissions.js` | `hasPermission`, `hasAnyPermission`, `hasAllPermissions`, `hasRole` |
+| `src/utils/pageAccess.js` | Who can open each page (`PAGE_ACCESS`), `canAccess(user, access)` |
+| `src/common/RequirePermission.jsx` | Route guard: the page or the Access denied page |
+| `src/common/Can.jsx` | Shows its children only with the permission |
+| `src/common/sidebarMenu.js` | Sidebar items and the rule of each one |
+| `src/pages/AccessDeniedPage.jsx` | MSG19 page with "Go back" and "Go to home page" |
 
 Tests: `npm test` (Node's built-in test runner, no extra package).
