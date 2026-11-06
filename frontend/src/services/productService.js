@@ -11,6 +11,8 @@ const ProductService = {
     getByBarcode: (barcode) => API.get(`/products/barcode/${barcode}`),
     create: (data) => API.post('/products', data),
     update: (id, data) => API.put(`/products/${id}`, data),
+    updatePrice: (id, data) => API.patch(`/products/${id}/price`, data),
+    getPriceHistory: (id) => API.get(`/products/${id}/price-history`),
     delete: (id) => API.delete(`/products/${id}`),
 };
 

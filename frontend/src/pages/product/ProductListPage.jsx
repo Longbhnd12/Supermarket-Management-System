@@ -465,15 +465,26 @@ export default function ProductListPage() {
                                             </td>
                                             {canCreate && (
                                                 <td className="prd-td--actions" onClick={e => e.stopPropagation()}>
-                                                    <button
-                                                        type="button"
-                                                        className="prd-edit-row-btn"
-                                                        onClick={() => navigate(`/products/${product.productId}/edit`)}
-                                                        title={`Chỉnh sửa ${product.productName}`}
-                                                    >
-                                                        <EditRowIcon />
-                                                        Edit
-                                                    </button>
+                                                    <div className="prd-row-actions">
+                                                        <button
+                                                            type="button"
+                                                            className="prd-edit-row-btn"
+                                                            onClick={() => navigate(`/products/${product.productId}/edit`)}
+                                                            title={`Chỉnh sửa thông tin ${product.productName}`}
+                                                        >
+                                                            <EditRowIcon />
+                                                            Edit
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="prd-price-row-btn"
+                                                            onClick={() => navigate(`/products/${product.productId}/price`)}
+                                                            title={`Quản lý giá bán (UC12)`}
+                                                        >
+                                                            <TagIcon />
+                                                            Price
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             )}
                                         </tr>
@@ -636,6 +647,15 @@ function FolderTreeIcon() {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
             <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 8 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
             <path d="M2 10h20" />
+        </svg>
+    );
+}
+
+function TagIcon() {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13">
+            <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z" />
+            <path d="M7 7h.01" />
         </svg>
     );
 }

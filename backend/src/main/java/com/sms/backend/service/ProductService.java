@@ -29,5 +29,9 @@ public interface ProductService {
 
     ProductResponse updateProduct(Long id, ProductRequest request);
 
+    ProductResponse updateSellingPrice(Long id, com.sms.backend.dto.product.PriceUpdateRequest request);
+
+    List<com.sms.backend.dto.product.PriceHistoryResponse> getPriceHistory(Long id);
+
     void deleteProduct(Long id);
 }

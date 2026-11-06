@@ -20,6 +20,7 @@ export const PAGE_ACCESS = {
     // Products & promotions
     products: staff('PRODUCT_VIEW'),
     productForm: staff('PRODUCT_MANAGE'),
+    priceManage: staff('PRICE_MANAGE', 'PRODUCT_MANAGE'),
     categories: staff('CATEGORY_MANAGE'),
     promotions: staff('PROMOTION_MANAGE', 'PROMOTION_VIEW_ACTIVE'),
 

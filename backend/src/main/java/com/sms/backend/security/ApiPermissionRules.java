@@ -99,6 +99,9 @@ public final class ApiPermissionRules {
 
     private static final HttpMethod GET = HttpMethod.GET;
     private static final HttpMethod POST = HttpMethod.POST;
+    private static final HttpMethod PATCH = HttpMethod.PATCH;
+    private static final HttpMethod PUT = HttpMethod.PUT;
+    private static final HttpMethod DELETE = HttpMethod.DELETE;
     private static final HttpMethod ANY = null;
 
     public static final List<Rule> RULES = List.of(
@@ -135,6 +138,7 @@ public final class ApiPermissionRules {
 
             // ---- Products, categories, promotions -----------------------------------------------
             staff(GET, "/api/v1/products/**", PRODUCT_VIEW),
+            staff(PATCH, "/api/v1/products/*/price", PRICE_MANAGE, PRODUCT_MANAGE),
             staff(ANY, "/api/v1/products/**", PRODUCT_MANAGE),
             staff(GET, "/api/v1/categories/**", PRODUCT_VIEW),
             staff(ANY, "/api/v1/categories/**", CATEGORY_MANAGE),

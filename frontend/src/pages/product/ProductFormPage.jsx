@@ -484,9 +484,17 @@ export default function ProductFormPage() {
                                         <span className="prd-input-suffix">₫ (VND)</span>
                                     </div>
                                     {isEdit ? (
-                                        <span className="prd-field-hint prd-field-hint--locked">
-                                            🔒 Giá bán cố định tại UC10. Vui lòng sử dụng tính năng <strong>UC12 Manage Prices</strong> (tại trang chi tiết sản phẩm) để cập nhật bảng giá và ghi nhận vết kiểm toán.
-                                        </span>
+                                        <div className="prd-field-hint prd-field-hint--locked">
+                                            <div>🔒 Giá bán cố định tại UC10. Vui lòng sử dụng tính năng <strong>UC12 Manage Prices</strong> để cập nhật bảng giá và ghi nhận vết kiểm toán.</div>
+                                            <button
+                                                type="button"
+                                                className="prd-btn-inline-link"
+                                                onClick={() => navigate(`/products/${id}/price`)}
+                                                style={{ marginTop: 4, background: 'none', border: 'none', color: '#2458dc', fontWeight: 600, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                                            >
+                                                Mở màn hình điều chỉnh giá (UC12) →
+                                            </button>
+                                        </div>
                                     ) : fieldErrors.sellingPrice ? (
                                         <span className="prd-field-error">{fieldErrors.sellingPrice}</span>
                                     ) : (

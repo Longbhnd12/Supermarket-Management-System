@@ -28,6 +28,7 @@ import InvoiceListPage from './pages/sales/InvoiceListPage';
 import ProductListPage from './pages/product/ProductListPage';
 import ProductDetailPage from './pages/product/ProductDetailPage';
 import ProductFormPage from './pages/product/ProductFormPage';
+import PriceManagementPage from './pages/product/PriceManagementPage';
 
 // Category
 import CategoryListPage from './pages/category/CategoryListPage';
@@ -101,6 +102,9 @@ export default function App() {
                     <Route element={<RequirePermission access={PAGE_ACCESS.productForm} />}>
                         <Route path="/products/create" element={<ProductFormPage />} />
                         <Route path="/products/:id/edit" element={<ProductFormPage />} />
+                    </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.priceManage} />}>
+                        <Route path="/products/:id/price" element={<PriceManagementPage />} />
                     </Route>
 
                     {/* Category Management (UC11) */}
