@@ -71,7 +71,10 @@ export default function ProfilePage() {
                 email: form.email.trim()
             });
             fill(data.data);
-            setNotice('Profile updated');
+            // Emails are case-insensitive: the backend stores them in lowercase (BR-02 duplicate check)
+            setNotice(data.data.email !== form.email.trim()
+                ? 'Profile updated. Email addresses are saved in lowercase.'
+                : 'Profile updated');
             refreshUser?.(); // name / email in the header account menu
         } catch (err) {
             const message = getErrorMessage(err);
@@ -136,7 +139,7 @@ export default function ProfilePage() {
                         <label className="um-field">
                             Email
                             <input type="email" value={form.email} onChange={update('email')} maxLength={150} aria-invalid={Boolean(fieldErrors.email)} />
-                            {fieldError('email') || <span className="um-field-hint">Used to log in and to receive password reset codes.</span>}
+                            {fieldError('email') || <span className="um-field-hint">Used to log in and to receive password reset codes. Saved in lowercase.</span>}
                         </label>
 
                         <div className="um-form-actions">
