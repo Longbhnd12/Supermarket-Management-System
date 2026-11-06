@@ -22,7 +22,6 @@ export default function MainLayout() {
                 setCollapsed={setCollapsed}
                 mobileOpen={mobileOpen}
                 setMobileOpen={setMobileOpen}
-                currentUser={currentUser}
             />
 
             <div className="sms-main-wrapper">

@@ -164,8 +164,7 @@ export default function Sidebar({
     collapsed,
     setCollapsed,
     mobileOpen,
-    setMobileOpen,
-    currentUser
+    setMobileOpen
 }) {
     const groups = currentUser?.role === 'SUPPLIER' ? supplierMenuGroups : menuGroups;
 

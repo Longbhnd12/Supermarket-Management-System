@@ -73,6 +73,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/**").hasAuthority("PERM_USER_VIEW")
                         .requestMatchers("/api/v1/users/**").hasAuthority("PERM_USER_MANAGE")
                         .requestMatchers("/api/v1/roles/**").hasAuthority("PERM_ROLE_MANAGE")
+                        // UC48/UC49 - Supplier portal; staff purchase-order API is closed to Supplier accounts (UC48 BR-01)
+                        .requestMatchers("/api/v1/supplier-portal/**").hasAuthority("PERM_SUPPLIER_PORTAL")
+                        .requestMatchers("/api/v1/purchase-orders/**").hasAnyRole("ADMIN", "MANAGER", "CASHIER", "WAREHOUSE_STAFF")
                         .requestMatchers(HttpMethod.GET, "/api/v1/invoices", "/api/v1/invoices/**",
                                 "/api/v1/sales/*/invoice", "/api/v1/sales/*/invoice/pdf")
                         .access(org.springframework.security.authorization.AuthorizationManagers.allOf(
