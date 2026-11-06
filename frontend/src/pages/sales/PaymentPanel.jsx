@@ -9,12 +9,13 @@ import { Banknote, CreditCard, QrCode, ExternalLink, RefreshCw } from 'lucide-re
 const methodIcons = { CASH: Banknote, CARD: CreditCard, QR: QrCode };
 
 const money = (value) => `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value ?? 0)} ₫`;
-export default function PaymentPanel({ sale, busy, runAction, onLock, onCompleted }) {
+export default function PaymentPanel({ sale, busy, runAction, onLock, onCompleted, onStepChange }) {
     const [options, setOptions] = useState([]);
     const [methodsError, setMethodsError] = useState('');
     const [methodsVersion, setMethodsVersion] = useState(0);
     const [methodsLoading, setMethodsLoading] = useState(true);
     const [selection, setSelection] = useState('CASH:');
+    const [choosingPayment, setChoosingPayment] = useState(false);
     const [received, setReceived] = useState('');
     const [overview, setOverview] = useState(null);
     const [statusUnavailable, setStatusUnavailable] = useState(false);
@@ -70,6 +71,11 @@ export default function PaymentPanel({ sale, busy, runAction, onLock, onComplete
 
     const success = overview?.attempts.find((attempt) => attempt.status === 'SUCCESS');
     const latest = success ?? overview?.attempts[0];
+    const progressCallback = useRef(onStepChange);
+    useEffect(() => { progressCallback.current = onStepChange; }, [onStepChange]);
+    const step = sale.status === 'COMPLETED' ? 4
+        : success || latest?.status === 'PENDING' || overview?.locked ? 3 : choosingPayment ? 2 : 1;
+    useEffect(() => { progressCallback.current?.(step); }, [step]);
     useEffect(() => {
         if (latest?.status !== 'PENDING') return;
         const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -147,7 +153,10 @@ export default function PaymentPanel({ sale, busy, runAction, onLock, onComplete
         });
     }
 
-    return <section className="pos-payment" aria-label="Thanh toán">
+    return <section className="pos-payment" aria-label="Thanh toán" onFocusCapture={() => setChoosingPayment(true)}
+        onBlurCapture={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) setChoosingPayment(false);
+        }}>
         <div className="pos-payment-heading"><h3>Thanh toán</h3><span className="pos-sandbox-label">VNPay Sandbox · TEST</span></div>
         {methodsError && <p role="alert" className="pos-payment-error">Không tải được phương thức: {methodsError}</p>}
         {(paymentError || error) && <p role="alert" className="pos-payment-error">{paymentError || error}</p>}

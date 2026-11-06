@@ -10,5 +10,6 @@ public interface PaymentService {
     Overview overview(Long saleId);
     PaymentResponse findByReference(String ref);
     IpnResponse ipn(Map<String, String> parameters);
+    PaymentResponse confirmCancellation(Map<String, String> parameters);
     record Overview(boolean locked, List<PaymentResponse> attempts) {}
 }

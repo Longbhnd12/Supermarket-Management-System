@@ -3,6 +3,7 @@ import { ScanLine, ShoppingCart, Trash2, Store, Search, Plus, RefreshCw, Clipboa
 import SaleService from '../../services/saleService';
 import UserService from '../../services/userService';
 import PaymentPanel from './PaymentPanel';
+import CheckoutSteps from './CheckoutSteps';
 import { getErrorMessage } from '../../utils/errorUtils';
 import './POSCheckout.css';
 
@@ -55,8 +56,8 @@ function DraftSales({ currentId, disabled, onOpen }) {
     const [filter, setFilter] = useState('');
     useEffect(() => {
         let active = true;
-        SaleService.getAll({ status: 'DRAFT' }).then(({ data }) => {
-            if (active) setDrafts(data.data.filter((draft) => draft.status === 'DRAFT')
+        SaleService.getDrafts().then((drafts) => {
+            if (active) setDrafts(drafts.filter((draft) => draft.status === 'DRAFT')
                 .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.saleId - a.saleId));
         }).catch((err) => { if (active) setError(getErrorMessage(err)); })
             .finally(() => { if (active) setLoading(false); });
@@ -87,6 +88,7 @@ function DraftSales({ currentId, disabled, onOpen }) {
 
 export default function POSPage() {
     const [sale, setSale] = useState(null);
+    const [checkoutProgress, setCheckoutProgress] = useState({ saleId: null, step: 1 });
     const [paymentGate, setPaymentGate] = useState({ saleId: null, locked: true });
     const [users, setUsers] = useState([]);
     const [cashierId, setCashierId] = useState('');
@@ -191,6 +193,8 @@ export default function POSPage() {
     }
 
     return <section className="pos-page">
+        <CheckoutSteps currentStep={sale?.status === 'COMPLETED' ? 4
+            : sale && checkoutProgress.saleId === sale.saleId ? checkoutProgress.step : 1} />
         <header className="pos-checkout-header">
             <div className="pos-title-line"><span className="pos-brand-icon"><Store size={22} /></span>
                 <div><h1>Quầy Thu Ngân Bán Lẻ <span>(POS Checkout)</span></h1>
@@ -294,6 +298,7 @@ export default function POSPage() {
                     <div className="pos-formula">Tổng phải trả = Tiền hàng − Giảm giá</div>
                     <div className="pos-final-total"><span>TỔNG TIỀN ĐƠN HÀNG</span><strong>{money(sale?.totalAmount)}</strong><small>VND · Tính từ các mặt hàng trong đơn</small></div>
                     {sale && <PaymentPanel key={sale.saleId} sale={sale} busy={busy} runAction={perform} onCompleted={setSale}
+                        onStepChange={(step) => setCheckoutProgress({ saleId: sale.saleId, step })}
                         onLock={(locked) => setPaymentGate({ saleId: sale.saleId, locked })} />}
                     <button className="pos-primary pos-recalculate" disabled={disabled || !editable} onClick={() => perform(async () => {
                         acceptSale(await SaleService.calculateTotal(sale.saleId)); setNotice('Đã tính lại tổng tiền.');
