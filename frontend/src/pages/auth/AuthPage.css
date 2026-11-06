@@ -15,3 +15,4 @@
 .auth-links-row{display:flex;justify-content:space-between;gap:12px}
 .auth-card button.auth-text-button{padding:0;background:none;color:#1d4ed8;font-weight:600;font-size:14px}
 .auth-card button.auth-text-button:disabled{color:#94a3b8;opacity:1}
+.auth-warning{margin:0 0 12px;padding:10px 12px;border-radius:7px;background:#fffaeb;color:#b54708!important;font-weight:600}
