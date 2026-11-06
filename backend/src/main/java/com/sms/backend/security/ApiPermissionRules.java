@@ -186,6 +186,8 @@ public final class ApiPermissionRules {
             staff(POST, "/api/v1/purchase-orders/requests", PURCHASE_REQUEST_CREATE),
             staff(POST, "/api/v1/purchase-orders/*/approve", PURCHASE_REQUEST_APPROVE),
             staff(POST, "/api/v1/purchase-orders/*/reject", PURCHASE_REQUEST_APPROVE),
+            // UC49 follow-up: Manager/Admin accept or reject the Supplier's proposal (SupplierProposalReviewController)
+            staff(POST, "/api/v1/purchase-orders/*/supplier-proposal/review", PURCHASE_REQUEST_APPROVE),
             staff(POST, "/api/v1/purchase-orders/*/cancel", PURCHASE_REQUEST_CREATE, PURCHASE_REQUEST_APPROVE),
 
             // ---- Supplier portal (UC48, UC49) ---------------------------------------------------

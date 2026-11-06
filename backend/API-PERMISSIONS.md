@@ -112,12 +112,13 @@ This table is generated from the code.
 | 61 | POST | `/api/v1/purchase-orders/requests` | `PURCHASE_REQUEST_CREATE` | ✓ |  |  | ✓ |  |
 | 62 | POST | `/api/v1/purchase-orders/*/approve` | `PURCHASE_REQUEST_APPROVE` | ✓ | ✓ |  |  |  |
 | 63 | POST | `/api/v1/purchase-orders/*/reject` | `PURCHASE_REQUEST_APPROVE` | ✓ | ✓ |  |  |  |
-| 64 | POST | `/api/v1/purchase-orders/*/cancel` | `PURCHASE_REQUEST_CREATE` or `PURCHASE_REQUEST_APPROVE` | ✓ | ✓ |  | ✓ |  |
-| 65 | ANY | `/api/v1/supplier-portal/**` | `SUPPLIER_PORTAL` (any role) | ✓ |  |  |  | ✓ |
-| 66 | GET | `/api/v1/reports/sales` | `REPORT_SALES` | ✓ | ✓ |  |  |  |
-| 67 | GET | `/api/v1/reports/revenue` | `REPORT_REVENUE` | ✓ | ✓ |  |  |  |
-| 68 | GET | `/api/v1/reports/product-sales` | `REPORT_PRODUCT_SALES` | ✓ | ✓ |  |  |  |
-| 69 | GET | `/api/v1/reports/inventory` | `REPORT_INVENTORY` | ✓ | ✓ |  | ✓ |  |
+| 64 | POST | `/api/v1/purchase-orders/*/supplier-proposal/review` | `PURCHASE_REQUEST_APPROVE` | ✓ | ✓ |  |  |  |
+| 65 | POST | `/api/v1/purchase-orders/*/cancel` | `PURCHASE_REQUEST_CREATE` or `PURCHASE_REQUEST_APPROVE` | ✓ | ✓ |  | ✓ |  |
+| 66 | ANY | `/api/v1/supplier-portal/**` | `SUPPLIER_PORTAL` (any role) | ✓ |  |  |  | ✓ |
+| 67 | GET | `/api/v1/reports/sales` | `REPORT_SALES` | ✓ | ✓ |  |  |  |
+| 68 | GET | `/api/v1/reports/revenue` | `REPORT_REVENUE` | ✓ | ✓ |  |  |  |
+| 69 | GET | `/api/v1/reports/product-sales` | `REPORT_PRODUCT_SALES` | ✓ | ✓ |  |  |  |
+| 70 | GET | `/api/v1/reports/inventory` | `REPORT_INVENTORY` | ✓ | ✓ |  | ✓ |  |
 | | ANY | anything else | **Denied** (deny by default) | | | | | |
 
 ## To confirm by each module owner
