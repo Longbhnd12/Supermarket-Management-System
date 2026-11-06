@@ -6,7 +6,7 @@ import {
 import { Link } from 'react-router-dom';
 import AccountMenu from './AccountMenu';
 
-export default function Header({ currentUser, onMenuClick }) {
+export default function Header({ onMenuClick }) {
     return (
         <header className="sms-header">
             <div className="sms-header-left">
@@ -45,7 +45,7 @@ export default function Header({ currentUser, onMenuClick }) {
                 <div className="sms-header-divider" />
 
                 {/* UC02 - account menu: user info, Profile, Change Password, Notifications, Logout */}
-                <AccountMenu user={currentUser} />
+                <AccountMenu />
             </div>
         </header>
     );

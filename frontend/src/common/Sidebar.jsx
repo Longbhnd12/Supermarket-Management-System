@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { canViewInvoices } from '../utils/invoiceAccess';
+import { useAuth } from '../context/authContext';
 
 import {
     LayoutDashboard,
@@ -160,12 +161,12 @@ const supplierMenuGroups = [
 ];
 
 export default function Sidebar({
-    currentUser,
     collapsed,
     setCollapsed,
     mobileOpen,
     setMobileOpen
 }) {
+    const { currentUser } = useAuth();
     const groups = currentUser?.role === 'SUPPLIER' ? supplierMenuGroups : menuGroups;
 
     return (
