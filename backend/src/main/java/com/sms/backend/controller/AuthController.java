@@ -91,12 +91,13 @@ public class AuthController {
      */
     @PostMapping("/change-password")
     public ResponseEntity<ApiResponse<Void>> changePassword(
-            Authentication authentication, @Valid @RequestBody ChangePasswordRequest request, HttpServletRequest httpRequest
+            Authentication authentication, @Valid @RequestBody ChangePasswordRequest request,
+            HttpServletRequest httpRequest, HttpServletResponse httpResponse
     ) {
         if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
             throw new UnauthorizedException("Authentication is required");
         }
-        authService.changePassword(authentication.getName(), request, httpRequest);
+        authService.changePassword(authentication.getName(), request, httpRequest, httpResponse);
         return ResponseEntity.ok(ApiResponse.success("Password changed", null));
     }
 
@@ -126,8 +127,8 @@ public class AuthController {
      * UC02 - Logout. Business rules live in {@link AuthService}.
      */
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest request) {
-        authService.logout(request);
+    public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest request, HttpServletResponse response) {
+        authService.logout(request, response);
         return ResponseEntity.ok(ApiResponse.success("Logged out", null));
     }
 
