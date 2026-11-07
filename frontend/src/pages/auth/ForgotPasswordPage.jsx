@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import authService from '../../services/authService';
+import PasswordInput from '../../common/PasswordInput';
 import './AuthPage.css';
 
 // UC45 - Forgot Password (SRS 3.2.3, SDD 4.2.5.1)
@@ -159,12 +160,12 @@ export default function ForgotPasswordPage() {
                             </label>
                             <label>
                                 New Password
-                                <input type="password" value={form.newPassword} onChange={update('newPassword')} autoComplete="new-password" maxLength={255} aria-invalid={Boolean(fieldErrors.newPassword)} />
+                                <PasswordInput value={form.newPassword} onChange={update('newPassword')} autoComplete="new-password" maxLength={255} aria-invalid={Boolean(fieldErrors.newPassword)} />
                                 {fieldError('newPassword') || <span className="auth-hint">{POLICY_MESSAGE}</span>}
                             </label>
                             <label>
                                 Confirm New Password
-                                <input type="password" value={form.confirmPassword} onChange={update('confirmPassword')} autoComplete="new-password" maxLength={255} aria-invalid={Boolean(fieldErrors.confirmPassword)} />
+                                <PasswordInput value={form.confirmPassword} onChange={update('confirmPassword')} autoComplete="new-password" maxLength={255} aria-invalid={Boolean(fieldErrors.confirmPassword)} />
                                 {fieldError('confirmPassword')}
                             </label>
                             {error && <p className="auth-error" role="alert">{error}</p>}
