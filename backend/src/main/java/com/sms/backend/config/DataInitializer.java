@@ -1,15 +1,18 @@
 package com.sms.backend.config;
 
 import com.sms.backend.entity.Category;
+import com.sms.backend.entity.Employee;
 import com.sms.backend.entity.Product;
 import com.sms.backend.entity.Role;
 import com.sms.backend.entity.Supplier;
 import com.sms.backend.entity.User;
 import com.sms.backend.enums.AccountStatus;
+import com.sms.backend.enums.Gender;
 import com.sms.backend.enums.GeneralStatus;
 import com.sms.backend.enums.RoleName;
 import com.sms.backend.enums.SupplierStatus;
 import com.sms.backend.repository.CategoryRepository;
+import com.sms.backend.repository.EmployeeRepository;
 import com.sms.backend.repository.ProductRepository;
 import com.sms.backend.repository.RoleRepository;
 import com.sms.backend.repository.SupplierRepository;
@@ -23,6 +26,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,6 +41,7 @@ public class DataInitializer {
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
     private final SupplierRepository supplierRepository;
+    private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Bean
@@ -95,6 +100,9 @@ public class DataInitializer {
 
                 // Ensure default suppliers exist for UC19 & related tests
                 initSuppliers();
+
+                // Ensure default employees exist for UC17 & related tests
+                initEmployees();
 
             } catch (Exception e) {
                 log.warn("Data initialization skipped or failed: {}", e.getMessage(), e);
@@ -323,5 +331,97 @@ public class DataInitializer {
             }
         }
         log.info("Initialized default product catalog successfully with {} products.", productRepository.count());
+    }
+
+    private void initEmployees() {
+        if (employeeRepository.count() > 0) {
+            log.info("Employees table already contains {} records. Skipping employee seeding.", employeeRepository.count());
+            return;
+        }
+
+        log.info("Seeding default employees for UC17 (Employee Management)...");
+
+        Object[][] employeesData = {
+                // Code, Name, DoB, Gender, Phone, Email, Address, Position, HireDate, Status
+                {
+                        "EMP-0101", "Trần Thị Mai", LocalDate.of(1998, 5, 14), Gender.FEMALE,
+                        "0903123456", "mai.tran@smsretail.vn",
+                        "124/8 Nguyễn Thị Minh Khai, Phường Bến Thành, Quận 1, TP. Hồ Chí Minh",
+                        "Cashier", LocalDate.of(2023, 3, 15), GeneralStatus.ACTIVE
+                },
+                {
+                        "EMP-0102", "Lê Văn Hùng", LocalDate.of(1995, 8, 20), Gender.MALE,
+                        "0918234567", "hung.le@smsretail.vn",
+                        "45/2 Điện Biên Phủ, Phường 15, Quận Bình Thạnh, TP. Hồ Chí Minh",
+                        "Inventory Staff", LocalDate.of(2022, 1, 10), GeneralStatus.ACTIVE
+                },
+                {
+                        "EMP-0103", "Nguyễn Hoàng Long", LocalDate.of(1999, 11, 5), Gender.MALE,
+                        "0938345678", "long.nguyen@smsretail.vn",
+                        "88 Cách Mạng Tháng 8, Phường 7, Quận 3, TP. Hồ Chí Minh",
+                        "Cashier", LocalDate.of(2023, 6, 1), GeneralStatus.ACTIVE
+                },
+                {
+                        "EMP-0104", "Phạm Quốc Tuấn", LocalDate.of(1988, 3, 12), Gender.MALE,
+                        "0909456789", "tuan.pham@smsretail.vn",
+                        "12 Võ Thị Sáu, Phường Đa Kao, Quận 1, TP. Hồ Chí Minh",
+                        "Manager", LocalDate.of(2020, 8, 15), GeneralStatus.ACTIVE
+                },
+                {
+                        "EMP-0105", "Đặng Thị Bích Ngọc", LocalDate.of(2000, 9, 28), Gender.FEMALE,
+                        "0912567890", "ngoc.dang@smsretail.vn",
+                        "210 Hai Bà Trưng, Phường Tân Định, Quận 1, TP. Hồ Chí Minh",
+                        "Cashier", LocalDate.of(2023, 9, 15), GeneralStatus.ACTIVE
+                },
+                {
+                        "EMP-0106", "Vũ Đức Thắng", LocalDate.of(1994, 2, 17), Gender.MALE,
+                        "0988678901", "thang.vu@smsretail.vn",
+                        "67 Hoàng Hoa Thám, Phường 13, Quận Tân Bình, TP. Hồ Chí Minh",
+                        "Inventory Staff", LocalDate.of(2021, 4, 1), GeneralStatus.INACTIVE
+                },
+                {
+                        "EMP-0107", "Hoàng Kim Oanh", LocalDate.of(1997, 12, 9), Gender.FEMALE,
+                        "0908789012", "oanh.hoang@smsretail.vn",
+                        "34 Nguyễn Đình Chiểu, Phường 4, Quận 3, TP. Hồ Chí Minh",
+                        "Cashier", LocalDate.of(2022, 10, 10), GeneralStatus.ACTIVE
+                },
+                {
+                        "EMP-0108", "Đỗ Minh Khởi", LocalDate.of(1991, 4, 25), Gender.MALE,
+                        "0977890123", "khoi.do@smsretail.vn",
+                        "50 Pasteur, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh",
+                        "Administrator", LocalDate.of(2020, 1, 1), GeneralStatus.ACTIVE
+                }
+        };
+
+        for (Object[] item : employeesData) {
+            String code = (String) item[0];
+            String name = (String) item[1];
+            LocalDate dob = (LocalDate) item[2];
+            Gender gender = (Gender) item[3];
+            String phone = (String) item[4];
+            String email = (String) item[5];
+            String address = (String) item[6];
+            String position = (String) item[7];
+            LocalDate hireDate = (LocalDate) item[8];
+            GeneralStatus status = (GeneralStatus) item[9];
+
+            if (!employeeRepository.existsByEmployeeCode(code)) {
+                Employee e = new Employee();
+                e.setEmployeeCode(code);
+                e.setFullName(name);
+                e.setDateOfBirth(dob);
+                e.setGender(gender);
+                e.setPhone(phone);
+                e.setEmail(email);
+                e.setAddress(address);
+                e.setPosition(position);
+                e.setHireDate(hireDate);
+                e.setStatus(status);
+                e.setCreatedAt(LocalDateTime.now().minusMonths(12));
+                e.setUpdatedAt(LocalDateTime.now().minusDays(2));
+                employeeRepository.save(e);
+            }
+        }
+        log.info("Initialized default employees successfully with {} employees.", employeeRepository.count());
     }
 }

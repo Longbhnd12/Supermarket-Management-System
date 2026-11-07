@@ -26,6 +26,8 @@ export const PAGE_ACCESS = {
 
     // Employees, suppliers, administration
     employees: staff('EMPLOYEE_VIEW'),
+    employeeDetail: staff('EMPLOYEE_VIEW'),
+    employeeForm: staff('EMPLOYEE_MANAGE'),
     suppliers: staff('SUPPLIER_VIEW'),
     supplierForm: staff('SUPPLIER_MANAGE'),
     users: staff('USER_VIEW'),

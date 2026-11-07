@@ -4,6 +4,7 @@ import com.sms.backend.dto.ApiResponse;
 import com.sms.backend.dto.employee.EmployeeRequest;
 import com.sms.backend.dto.employee.EmployeeResponse;
 import com.sms.backend.enums.GeneralStatus;
+import com.sms.backend.exception.BadRequestException;
 import com.sms.backend.service.EmployeeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/employees")
@@ -47,6 +49,26 @@ public class EmployeeController {
             @PathVariable Long id,
             @Valid @RequestBody EmployeeRequest request) {
         return ResponseEntity.ok(ApiResponse.success("Employee updated", employeeService.updateEmployee(id, request)));
+    }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<ApiResponse<EmployeeResponse>> updateEmployeeStatus(
+            @PathVariable Long id,
+            @RequestParam(required = false) GeneralStatus status,
+            @RequestBody(required = false) Map<String, String> body) {
+        GeneralStatus newStatus = status;
+        if (newStatus == null && body != null && body.containsKey("status")) {
+            try {
+                newStatus = GeneralStatus.valueOf(body.get("status").trim().toUpperCase());
+            } catch (Exception e) {
+                throw new BadRequestException("Trạng thái không hợp lệ: " + body.get("status"));
+            }
+        }
+        if (newStatus == null) {
+            throw new BadRequestException("Thiếu thông tin trạng thái cần cập nhật (status)");
+        }
+        EmployeeResponse response = employeeService.updateStatus(id, newStatus);
+        return ResponseEntity.ok(ApiResponse.success("Trạng thái nhân viên đã được cập nhật thành công", response));
     }
 
     @DeleteMapping("/{id}")

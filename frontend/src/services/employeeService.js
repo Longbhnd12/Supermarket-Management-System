@@ -9,6 +9,7 @@ const EmployeeService = {
     getById: (id) => API.get(`/employees/${id}`),
     create: (data) => API.post('/employees', data),
     update: (id, data) => API.put(`/employees/${id}`, data),
+    updateStatus: (id, status) => API.patch(`/employees/${id}/status`, { status }),
     delete: (id) => API.delete(`/employees/${id}`),
 };
 
