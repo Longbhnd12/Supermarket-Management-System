@@ -72,7 +72,11 @@
     font-weight: 600;
 }
 
-.sp-number {
+/* Number columns: header and cells right-aligned.
+   ".um-table th { text-align: left }" is more specific than ".sp-number", so the table is named too. */
+.sp-number,
+.um-table th.sp-number,
+.um-table td.sp-number {
     text-align: right;
     white-space: nowrap;
 }
