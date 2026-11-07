@@ -377,9 +377,7 @@ export default function EmployeeDetailPage() {
                     <button
                         type="button"
                         className="hero-action-btn primary"
-                        onClick={() => {
-                            showToast(`Chuyển đến chỉnh sửa thông tin của ${employee.fullName} (UC18)...`);
-                        }}
+                        onClick={() => navigate(`/employees/${employee.employeeId}/edit`)}
                     >
                         <Edit3 size={14} />
                         Edit Employee
@@ -747,9 +745,7 @@ export default function EmployeeDetailPage() {
                     <button
                         type="button"
                         className="action-btn primary large-btn"
-                        onClick={() => {
-                            showToast(`Chuyển đến chỉnh sửa thông tin của ${employee.fullName} (UC18)...`);
-                        }}
+                        onClick={() => navigate(`/employees/${employee.employeeId}/edit`)}
                     >
                         <Edit3 size={15} />
                         Edit Employee Information (UC18)

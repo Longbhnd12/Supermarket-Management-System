@@ -66,6 +66,7 @@ import PromotionListPage from './pages/promotion/PromotionListPage';
 // Employee
 import EmployeeListPage from './pages/employee/EmployeeListPage';
 import EmployeeDetailPage from './pages/employee/EmployeeDetailPage';
+import EmployeeFormPage from './pages/employee/EmployeeFormPage';
 
 // User
 import UserListPage from './pages/user/UserListPage';
@@ -183,6 +184,10 @@ export default function App() {
                     </Route>
 
                     {/* Administration */}
+                    <Route element={<RequirePermission access={PAGE_ACCESS.employeeForm} />}>
+                        <Route path="/employees/create" element={<EmployeeFormPage />} />
+                        <Route path="/employees/:id/edit" element={<EmployeeFormPage />} />
+                    </Route>
                     <Route element={<RequirePermission access={PAGE_ACCESS.employees} />}>
                         <Route path="/employees" element={<EmployeeListPage />} />
                         <Route path="/employees/:id" element={<EmployeeDetailPage />} />
