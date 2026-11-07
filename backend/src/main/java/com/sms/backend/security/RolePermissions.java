@@ -42,12 +42,12 @@ public final class RolePermissions {
                     PURCHASE_REQUEST_APPROVE, PURCHASE_ORDER_VIEW,
                     REPORT_SALES, REPORT_REVENUE, REPORT_PRODUCT_SALES, REPORT_INVENTORY),
             RoleName.CASHIER, EnumSet.of(
-                    DASHBOARD_VIEW, NOTIFICATION_VIEW,
+                    NOTIFICATION_VIEW,
                     PRODUCT_VIEW, PROMOTION_VIEW_ACTIVE,
                     SUPPLIER_VIEW, SUPPLIER_MANAGE,
                     INVOICE_VIEW, POS_SALE),
             RoleName.WAREHOUSE_STAFF, EnumSet.of(
-                    DASHBOARD_VIEW, NOTIFICATION_VIEW,
+                    NOTIFICATION_VIEW,
                     PRODUCT_VIEW, SUPPLIER_VIEW, SUPPLIER_MANAGE,
                     INVENTORY_VIEW, STOCK_CHECK, STOCK_ADJUST, STOCK_HISTORY_VIEW, STOCK_ALERT_VIEW, STOCK_IMPORT,
                     PURCHASE_REQUEST_CREATE, PURCHASE_ORDER_VIEW,

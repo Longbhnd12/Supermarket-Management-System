@@ -1,7 +1,6 @@
 import {
     AlertTriangle,
     BarChart3,
-    Bell,
     ClipboardList,
     FileCheck,
     FileInput,
@@ -74,8 +73,7 @@ export const MENU_GROUPS = [
         // UC48/UC49: what a Supplier account sees
         title: 'SUPPLIER PORTAL',
         items: [
-            { label: 'Purchase Orders', icon: FileText, path: '/supplier/purchase-orders', access: PAGE_ACCESS.supplierPortal },
-            { label: 'Notifications', icon: Bell, path: '/notifications', access: { roles: ['SUPPLIER'], anyOf: ['NOTIFICATION_VIEW'] } }
+            { label: 'Purchase Orders', icon: FileText, path: '/supplier/purchase-orders', access: PAGE_ACCESS.supplierPortal }
         ]
     }
 ];

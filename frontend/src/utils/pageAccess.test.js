@@ -11,9 +11,9 @@ const ROLE_DEFAULTS = {
         'SUPPLIER_DISABLE', 'SALE_VIEW', 'INVOICE_VIEW', 'INVENTORY_VIEW', 'STOCK_HISTORY_VIEW', 'STOCK_ALERT_VIEW',
         'PURCHASE_REQUEST_APPROVE', 'PURCHASE_ORDER_VIEW', 'REPORT_SALES', 'REPORT_REVENUE', 'REPORT_PRODUCT_SALES',
         'REPORT_INVENTORY'],
-    CASHIER: ['DASHBOARD_VIEW', 'NOTIFICATION_VIEW', 'PRODUCT_VIEW', 'PROMOTION_VIEW_ACTIVE', 'SUPPLIER_VIEW',
+    CASHIER: ['NOTIFICATION_VIEW', 'PRODUCT_VIEW', 'PROMOTION_VIEW_ACTIVE', 'SUPPLIER_VIEW',
         'SUPPLIER_MANAGE', 'INVOICE_VIEW', 'POS_SALE'],
-    WAREHOUSE_STAFF: ['DASHBOARD_VIEW', 'NOTIFICATION_VIEW', 'PRODUCT_VIEW', 'SUPPLIER_VIEW', 'SUPPLIER_MANAGE',
+    WAREHOUSE_STAFF: ['NOTIFICATION_VIEW', 'PRODUCT_VIEW', 'SUPPLIER_VIEW', 'SUPPLIER_MANAGE',
         'INVENTORY_VIEW', 'STOCK_CHECK', 'STOCK_ADJUST', 'STOCK_HISTORY_VIEW', 'STOCK_ALERT_VIEW', 'STOCK_IMPORT',
         'PURCHASE_REQUEST_CREATE', 'PURCHASE_ORDER_VIEW', 'REPORT_INVENTORY'],
     SUPPLIER: ['SUPPLIER_PORTAL', 'NOTIFICATION_VIEW']
@@ -33,13 +33,19 @@ test('pages without a rule (profile, change password) are open to every account'
     assert.equal(canAccess(userOf('SUPPLIER'), undefined), true);
 });
 
+test('UC42 dashboard requires both an Admin/Manager role and DASHBOARD_VIEW', () => {
+    assert.equal(canAccess(userOf('MANAGER'), PAGE_ACCESS.dashboard), true);
+    assert.equal(canAccess({ role: 'MANAGER', permissions: [] }, PAGE_ACCESS.dashboard), false);
+    assert.equal(canAccess({ role: 'CASHIER', permissions: ['DASHBOARD_VIEW'] }, PAGE_ACCESS.dashboard), false);
+});
+
 test('Cashier menu: POS, invoices, products, suppliers, promotions - no purchase orders, no admin', () => {
-    assert.deepEqual(menuLabels('CASHIER'), ['Dashboard', 'Product Management', 'Sales & POS', 'Search invoices',
+    assert.deepEqual(menuLabels('CASHIER'), ['Product Management', 'Sales & POS', 'Search invoices',
         'Supplier Management', 'Promotion Management']);
 });
 
 test('Inventory Staff menu: stock, receipts, purchase requests, inventory report', () => {
-    assert.deepEqual(menuLabels('WAREHOUSE_STAFF'), ['Dashboard', 'Product Management', 'Purchase & Inventory',
+    assert.deepEqual(menuLabels('WAREHOUSE_STAFF'), ['Product Management', 'Purchase & Inventory',
         'Purchase Orders', 'Stock Receipts', 'Stock History', 'Stock Alerts', 'Supplier Management', 'Inventory Report']);
 });
 
@@ -59,7 +65,7 @@ test('Admin sees every staff page but not the Supplier portal', () => {
 });
 
 test('Supplier only sees the portal, even with a staff permission (UC48 BR-01)', () => {
-    assert.deepEqual(menuLabels('SUPPLIER'), ['Purchase Orders', 'Notifications']);
+    assert.deepEqual(menuLabels('SUPPLIER'), ['Purchase Orders']);
     const supplierWithStaffPermission = { role: 'SUPPLIER', permissions: ['SUPPLIER_PORTAL', 'PRODUCT_VIEW'] };
     assert.equal(canAccess(supplierWithStaffPermission, PAGE_ACCESS.products), false);
 });

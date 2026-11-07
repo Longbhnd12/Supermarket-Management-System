@@ -66,7 +66,7 @@ This table is generated from the code.
 | 15 | ANY | `/api/v1/roles/**` | `ROLE_MANAGE` | ✓ |  |  |  |  |
 | 16 | ANY | `/api/v1/system-settings/**` | `SYSTEM_SETTINGS_MANAGE` | ✓ |  |  |  |  |
 | 17 | GET | `/api/v1/system-logs/**` | `SYSTEM_LOG_VIEW` | ✓ |  |  |  |  |
-| 18 | GET | `/api/v1/dashboard` | `DASHBOARD_VIEW` | ✓ | ✓ | ✓ | ✓ |  |
+| 18 | GET | `/api/v1/dashboard` | `DASHBOARD_VIEW` (Admin/Manager only) | ✓ | ✓ |  |  |  |
 | 19 | ANY | `/api/v1/notifications/**` | `NOTIFICATION_VIEW` (any role) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 20 | GET | `/api/v1/products/**` | `PRODUCT_VIEW` | ✓ | ✓ | ✓ | ✓ |  |
 | 21 | PATCH | `/api/v1/products/*/price` | `PRODUCT_MANAGE` or `PRICE_MANAGE` | ✓ | ✓ |  |  |  |

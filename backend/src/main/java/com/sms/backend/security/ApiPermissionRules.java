@@ -97,6 +97,9 @@ public final class ApiPermissionRules {
     /** UC22/UC23 BR: invoices are for Admin, Manager and Cashier (with INVOICE_VIEW). */
     private static final Set<RoleName> INVOICE_ROLES = EnumSet.of(RoleName.ADMIN, RoleName.MANAGER, RoleName.CASHIER);
 
+    /** UC42: the management dashboard belongs to Admin and Manager only. */
+    private static final Set<RoleName> DASHBOARD_ROLES = EnumSet.of(RoleName.ADMIN, RoleName.MANAGER);
+
     private static final HttpMethod GET = HttpMethod.GET;
     private static final HttpMethod POST = HttpMethod.POST;
     private static final HttpMethod PATCH = HttpMethod.PATCH;
@@ -132,7 +135,7 @@ public final class ApiPermissionRules {
             staff(GET, "/api/v1/system-logs/**", SYSTEM_LOG_VIEW),
 
             // ---- Dashboard & notifications (UC42, UC43) -----------------------------------------
-            staff(GET, "/api/v1/dashboard", DASHBOARD_VIEW),
+            dashboard("/api/v1/dashboard"),
             anyRole(ANY, "/api/v1/notifications/**", NOTIFICATION_VIEW), // Supplier too
 
             // ---- Products, categories, promotions -----------------------------------------------
@@ -241,6 +244,10 @@ public final class ApiPermissionRules {
 
     private static Rule invoice(String pattern) {
         return new Rule(GET, pattern, Access.PERMISSION, INVOICE_ROLES, Set.of(INVOICE_VIEW));
+    }
+
+    private static Rule dashboard(String pattern) {
+        return new Rule(GET, pattern, Access.PERMISSION, DASHBOARD_ROLES, Set.of(DASHBOARD_VIEW));
     }
 
     private static Set<Permission> toSet(Permission... permissions) {

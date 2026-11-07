@@ -37,5 +37,7 @@ test('the return page must fit the role and stay inside the app', () => {
     assert.equal(getReturnPath('//evil.example.com', 'ADMIN'), '/');
     assert.equal(getReturnPath('https://evil.example.com', 'ADMIN'), '/');
     assert.equal(getReturnPath('/login', 'ADMIN'), '/');
-    assert.equal(getReturnPath(undefined, 'CASHIER'), '/');
+    assert.equal(getReturnPath(undefined, 'CASHIER'), '/sales/pos');
+    assert.equal(getReturnPath('/', 'CASHIER'), '/sales/pos');
+    assert.equal(getReturnPath(undefined, 'WAREHOUSE_STAFF'), '/inventory');
 });

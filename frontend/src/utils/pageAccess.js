@@ -14,7 +14,7 @@ export const STAFF_ROLES = ['ADMIN', 'MANAGER', 'CASHIER', 'WAREHOUSE_STAFF'];
 const staff = (...anyOf) => ({ roles: STAFF_ROLES, anyOf });
 
 export const PAGE_ACCESS = {
-    dashboard: staff('DASHBOARD_VIEW'),
+    dashboard: { roles: ['ADMIN', 'MANAGER'], anyOf: ['DASHBOARD_VIEW'] },
     notifications: { anyOf: ['NOTIFICATION_VIEW'] }, // Supplier too
 
     // Products & promotions
