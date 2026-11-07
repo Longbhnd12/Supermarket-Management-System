@@ -945,6 +945,7 @@ export default function AdjustStockPage() {
                                         setAdjustmentType('INCREASE');
                                         setGroupedAllocations({});
                                         setDetailAllocations({});
+                                        setExpandedBatches({});
                                         setFieldErrors(prev => ({ ...prev, batchAllocation: null }));
                                     }
                                 }}
@@ -964,6 +965,7 @@ export default function AdjustStockPage() {
                                         setAdjustmentType('DECREASE');
                                         setGroupedAllocations({});
                                         setDetailAllocations({});
+                                        setExpandedBatches({});
                                         setFieldErrors(prev => ({ ...prev, batchAllocation: null }));
                                     }
                                 }}
@@ -1064,8 +1066,8 @@ export default function AdjustStockPage() {
                                     </div>
                                     <span className="adj-batch-subtitle">
                                         {adjustmentType === 'DECREASE'
-                                            ? 'Allocate decrease across physical batches (deducted from underlying receipts using earliest receipt date first).'
-                                            : 'Select physical batch and exact receipt detail to restore quantity to (preserves unit cost and receipt history).'}
+                                            ? 'Allocate decrease quantity directly to each physical batch. Quantity is automatically deducted from underlying receipts using FIFO.'
+                                            : 'Select specific source receipt detail(s) to restore quantity to (required to preserve lot cost accounting and receipt history).'}
                                     </span>
                                 </div>
                                 {isValidPositiveInt && (
@@ -1101,6 +1103,12 @@ export default function AdjustStockPage() {
                                 </div>
                             )}
 
+                            {adjustmentType === 'INCREASE' && (
+                                <div className="adj-increase-info-notice">
+                                    ℹ <strong>Stock Increase Traceability:</strong> To preserve lot cost accounting and purchase receipt history, stock restoration must be assigned to specific historical receipt details. Please expand the batch below to select the target receipt detail.
+                                </div>
+                            )}
+
                             {loadingBatches ? (
                                 <div className="adj-batch-loading">Loading confirmed physical batches…</div>
                             ) : batches.length === 0 ? (
@@ -1113,15 +1121,22 @@ export default function AdjustStockPage() {
                                 <div className="adj-batch-table-wrap">
                                     <table className="adj-batch-table">
                                         <thead>
-                                            <tr>
-                                                <th>Batch No.</th>
-                                                <th>Expiry Date</th>
-                                                <th style={{ textAlign: 'right' }}>
-                                                    {adjustmentType === 'INCREASE' ? 'Current Batch Qty' : 'Available'}
-                                                </th>
-                                                <th style={{ textAlign: 'center' }}>Source Receipts</th>
-                                                <th style={{ textAlign: 'right', width: '150px' }}>Adjust Qty</th>
-                                            </tr>
+                                            {adjustmentType === 'DECREASE' ? (
+                                                <tr>
+                                                    <th>Batch No.</th>
+                                                    <th>Expiry Date</th>
+                                                    <th style={{ textAlign: 'right' }}>Available Quantity</th>
+                                                    <th style={{ textAlign: 'right', width: '150px' }}>Adjust Qty</th>
+                                                </tr>
+                                            ) : (
+                                                <tr>
+                                                    <th>Batch No.</th>
+                                                    <th>Expiry Date</th>
+                                                    <th style={{ textAlign: 'right' }}>Current Batch Qty</th>
+                                                    <th style={{ textAlign: 'center' }}>Source Receipts</th>
+                                                    <th style={{ textAlign: 'right', width: '150px' }}>Adjust Qty</th>
+                                                </tr>
+                                            )}
                                         </thead>
                                         <tbody>
                                             {batches.map(g => {
@@ -1138,35 +1153,15 @@ export default function AdjustStockPage() {
                                                     0
                                                 );
 
-                                                // Filter source receipt details according to UX requirements:
-                                                // - In DECREASE mode: show only remainingQuantity > 0 by default, toggleable to show empty receipts
-                                                // - In INCREASE mode: preserve all receipt details including zero-remaining for selection
-                                                const allDetails = g.details || [];
-                                                const emptyReceiptsCount = allDetails.filter(d => Number(d.remainingQuantity || 0) <= 0).length;
-                                                const shouldShowEmpty = adjustmentType === 'INCREASE' || Boolean(showEmptyReceipts[key]);
-                                                const filteredDetails = shouldShowEmpty ? allDetails : allDetails.filter(d => Number(d.remainingQuantity || 0) > 0);
-
-                                                // Client-side pagination/limiting for batches with many receipt details
-                                                const currentLimit = batchDetailLimits[key] || INITIAL_DETAIL_LIMIT;
-                                                const visibleDetails = filteredDetails.slice(0, currentLimit);
-                                                const hasMore = filteredDetails.length > currentLimit;
-
-                                                return (
-                                                    <Fragment key={key}>
+                                                if (adjustmentType === 'DECREASE') {
+                                                    // ── DECREASE: Strictly ONE row per physical batch ──
+                                                    return (
                                                         <tr
-                                                            className={`${groupAllocated || detailAllocSum > 0 ? 'adj-batch-row--selected' : ''} ${isOver ? 'adj-batch-row--error' : ''} ${isDepleted && adjustmentType === 'DECREASE' ? 'adj-batch-row--depleted' : ''}`}
+                                                            key={key}
+                                                            className={`${groupAllocated ? 'adj-batch-row--selected' : ''} ${isOver ? 'adj-batch-row--error' : ''} ${isDepleted ? 'adj-batch-row--depleted' : ''}`}
                                                         >
                                                             <td>
                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                    <button
-                                                                        type="button"
-                                                                        className={`adj-batch-expand-btn ${isExpanded ? 'adj-batch-expand-btn--active' : ''}`}
-                                                                        onClick={() => toggleBatchExpand(key)}
-                                                                        title={isExpanded ? 'Collapse underlying receipt details' : 'Expand underlying receipt details'}
-                                                                        aria-expanded={isExpanded}
-                                                                    >
-                                                                        {isExpanded ? '▼' : '▶'}
-                                                                    </button>
                                                                     <span className="adj-batch-num">{g.batchNumber}</span>
                                                                     {g.expired && (
                                                                         <span className="adj-batch-expired-tag" title="Expired batch. Can be selected for disposal/loss adjustments.">
@@ -1183,11 +1178,80 @@ export default function AdjustStockPage() {
                                                             <td>{formatDate(g.expirationDate)}</td>
                                                             <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                                                                 {formatQty(g.totalRemainingQuantity)} {selectedProduct.unit}
-                                                                {isDepleted && adjustmentType === 'DECREASE' && (
-                                                                    <span className="adj-batch-depleted-tag" style={{ marginLeft: '4px' }}>
+                                                                {isDepleted && (
+                                                                    <span className="adj-batch-depleted-tag" style={{ marginLeft: '6px' }}>
                                                                         0 Avail
                                                                     </span>
                                                                 )}
+                                                            </td>
+                                                            <td style={{ textAlign: 'right' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                                                                    <input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        max={g.totalRemainingQuantity}
+                                                                        step="1"
+                                                                        className={`adj-input adj-batch-input ${isOver ? 'adj-input--error' : ''} ${isDepleted ? 'adj-input--locked' : ''}`}
+                                                                        placeholder="0"
+                                                                        value={isDepleted ? '' : groupVal}
+                                                                        onChange={(e) => handleGroupAllocationChange(key, e.target.value)}
+                                                                        disabled={isDepleted}
+                                                                        title={isDepleted ? "This physical batch has zero available remaining stock to decrease" : undefined}
+                                                                    />
+                                                                    {isValidPositiveInt && !isDepleted && (
+                                                                        <button
+                                                                            type="button"
+                                                                            className="adj-btn adj-btn--secondary adj-btn--sm"
+                                                                            style={{ padding: '2px 6px', fontSize: '11px', height: '28px' }}
+                                                                            onClick={() => handleGroupQuickFill(g)}
+                                                                            title="Allocate up to batch available quantity"
+                                                                        >
+                                                                            Fill
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                                {isOver && (
+                                                                    <div style={{ color: '#dc2626', fontSize: '11px', marginTop: '2px' }}>
+                                                                        Exceeds available ({formatQty(g.totalRemainingQuantity)})
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                }
+
+                                                // ── INCREASE: Preserved receipt-detail allocation mode ──
+                                                const allDetails = g.details || [];
+                                                const currentLimit = batchDetailLimits[key] || INITIAL_DETAIL_LIMIT;
+                                                const visibleDetails = allDetails.slice(0, currentLimit);
+                                                const hasMore = allDetails.length > currentLimit;
+
+                                                return (
+                                                    <Fragment key={key}>
+                                                        <tr className={detailAllocSum > 0 ? 'adj-batch-row--selected' : ''}>
+                                                            <td>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                    <button
+                                                                        type="button"
+                                                                        className={`adj-batch-expand-btn ${isExpanded ? 'adj-batch-expand-btn--active' : ''}`}
+                                                                        onClick={() => toggleBatchExpand(key)}
+                                                                        title={isExpanded ? 'Collapse underlying receipt details' : 'Expand underlying receipt details'}
+                                                                        aria-expanded={isExpanded}
+                                                                    >
+                                                                        {isExpanded ? '▼' : '▶'}
+                                                                    </button>
+                                                                    <span className="adj-batch-num">{g.batchNumber}</span>
+                                                                    {g.expired && (
+                                                                        <span className="adj-batch-expired-tag" title="Expired batch">Expired</span>
+                                                                    )}
+                                                                    {g.conflictingDates && (
+                                                                        <span className="adj-batch-conflict-tag" title="Historical date conflict">⚠ Date Conflict</span>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                            <td>{formatDate(g.expirationDate)}</td>
+                                                            <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                                                {formatQty(g.totalRemainingQuantity)} {selectedProduct.unit}
                                                             </td>
                                                             <td style={{ textAlign: 'center' }}>
                                                                 <button
@@ -1201,88 +1265,36 @@ export default function AdjustStockPage() {
                                                                 </button>
                                                             </td>
                                                             <td style={{ textAlign: 'right' }}>
-                                                                {adjustmentType === 'DECREASE' ? (
-                                                                    <>
-                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
-                                                                            <input
-                                                                                type="number"
-                                                                                min="0"
-                                                                                max={g.totalRemainingQuantity}
-                                                                                step="1"
-                                                                                className={`adj-input adj-batch-input ${isOver ? 'adj-input--error' : ''} ${isDepleted ? 'adj-input--locked' : ''}`}
-                                                                                placeholder="0"
-                                                                                value={isDepleted ? '' : groupVal}
-                                                                                onChange={(e) => handleGroupAllocationChange(key, e.target.value)}
-                                                                                disabled={isDepleted}
-                                                                                title={isDepleted ? "This physical batch has zero available remaining stock to decrease" : undefined}
-                                                                            />
-                                                                            {isValidPositiveInt && !isDepleted && (
-                                                                                <button
-                                                                                    type="button"
-                                                                                    className="adj-btn adj-btn--secondary adj-btn--sm"
-                                                                                    style={{ padding: '2px 6px', fontSize: '11px', height: '28px' }}
-                                                                                    onClick={() => handleGroupQuickFill(g)}
-                                                                                    title="Allocate up to batch available quantity"
-                                                                                >
-                                                                                    Fill
-                                                                                </button>
-                                                                            )}
-                                                                        </div>
-                                                                        {isOver && (
-                                                                            <div style={{ color: '#dc2626', fontSize: '11px', marginTop: '2px' }}>
-                                                                                Exceeds available ({formatQty(g.totalRemainingQuantity)})
-                                                                            </div>
-                                                                        )}
-                                                                    </>
-                                                                ) : (
-                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
-                                                                        {detailAllocSum > 0 && (
-                                                                            <span style={{ color: '#16a34a', fontWeight: 600, fontSize: '12px' }}>
-                                                                                +{formatQty(detailAllocSum)}
-                                                                            </span>
-                                                                        )}
-                                                                        <button
-                                                                            type="button"
-                                                                            className={`adj-btn adj-btn--sm ${detailAllocSum > 0 ? 'adj-btn--secondary' : 'adj-btn--ghost'}`}
-                                                                            style={{ padding: '2px 8px', fontSize: '11px', height: '28px' }}
-                                                                            onClick={() => toggleBatchExpand(key)}
-                                                                            title="Expand batch to select exact source receipt details to restore"
-                                                                        >
-                                                                            {isExpanded ? 'Close Details' : detailAllocSum > 0 ? 'Edit Details' : 'Select Receipt (+)'}
-                                                                        </button>
-                                                                    </div>
-                                                                )}
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                                                                    {detailAllocSum > 0 && (
+                                                                        <span style={{ color: '#16a34a', fontWeight: 600, fontSize: '12px' }}>
+                                                                            +{formatQty(detailAllocSum)}
+                                                                        </span>
+                                                                    )}
+                                                                    <button
+                                                                        type="button"
+                                                                        className={`adj-btn adj-btn--sm ${detailAllocSum > 0 ? 'adj-btn--secondary' : 'adj-btn--ghost'}`}
+                                                                        style={{ padding: '2px 8px', fontSize: '11px', height: '28px' }}
+                                                                        onClick={() => toggleBatchExpand(key)}
+                                                                        title="Expand batch to select exact source receipt details to restore"
+                                                                    >
+                                                                        {isExpanded ? 'Close Details' : detailAllocSum > 0 ? 'Edit Details' : 'Select Receipt (+)'}
+                                                                    </button>
+                                                                </div>
                                                             </td>
                                                         </tr>
 
-                                                        {/* Expanded Underlying Receipt Details Row */}
                                                         {isExpanded && (
                                                             <tr className="adj-batch-subrow">
                                                                 <td colSpan="5">
                                                                     <div className="adj-batch-subtable-wrap">
                                                                         <div className="adj-batch-subtable-title">
-                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                                                <span>
-                                                                                    Source Receipts for Batch <strong>{g.batchNumber}</strong>
-                                                                                    {g.expirationDate ? ` (Exp: ${formatDate(g.expirationDate)})` : ''}
-                                                                                </span>
-                                                                                {adjustmentType === 'DECREASE' && emptyReceiptsCount > 0 && (
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        className="adj-toggle-empty-btn"
-                                                                                        onClick={() => setShowEmptyReceipts(prev => ({ ...prev, [key]: !prev[key] }))}
-                                                                                        title={showEmptyReceipts[key] ? 'Hide empty (0 remaining) receipts' : 'Reveal empty (0 remaining) receipts for audit inspection'}
-                                                                                    >
-                                                                                        {showEmptyReceipts[key]
-                                                                                            ? `Hide empty receipts (${emptyReceiptsCount})`
-                                                                                            : `Show empty receipts (${emptyReceiptsCount})`}
-                                                                                    </button>
-                                                                                )}
-                                                                            </div>
+                                                                            <span>
+                                                                                Source Receipts for Batch <strong>{g.batchNumber}</strong>
+                                                                                {g.expirationDate ? ` (Exp: ${formatDate(g.expirationDate)})` : ''}
+                                                                            </span>
                                                                             <span style={{ fontWeight: 400, textTransform: 'none', color: '#64748b' }}>
-                                                                                {adjustmentType === 'INCREASE'
-                                                                                    ? 'Enter restoration quantity into specific receipt detail(s) below (including 0-qty receipts):'
-                                                                                    : 'Underlying receipts are deducted in FIFO order (earliest received first):'}
+                                                                                Enter restoration quantity into specific receipt detail(s) below:
                                                                             </span>
                                                                         </div>
 
@@ -1294,106 +1306,75 @@ export default function AdjustStockPage() {
                                                                                     <th style={{ textAlign: 'right' }}>Remaining Qty</th>
                                                                                     <th style={{ textAlign: 'right' }}>Received Qty</th>
                                                                                     <th style={{ textAlign: 'right' }}>Unit Cost</th>
-                                                                                    {adjustmentType === 'INCREASE' ? (
-                                                                                        <th style={{ textAlign: 'right', width: '130px' }}>Restore Qty</th>
-                                                                                    ) : (
-                                                                                        <th style={{ textAlign: 'right' }}>Received Date</th>
-                                                                                    )}
+                                                                                    <th style={{ textAlign: 'right', width: '130px' }}>Restore Qty</th>
                                                                                 </tr>
                                                                             </thead>
                                                                             <tbody>
-                                                                                {filteredDetails.length === 0 ? (
-                                                                                    <tr>
-                                                                                        <td colSpan={6} className="adj-batch-subtable-empty">
-                                                                                            No active receipts with remaining stock.
-                                                                                            {emptyReceiptsCount > 0 && (
-                                                                                                <span>
-                                                                                                    {' '}
-                                                                                                    <button
-                                                                                                        type="button"
-                                                                                                        className="adj-inline-link-btn"
-                                                                                                        onClick={() => setShowEmptyReceipts(prev => ({ ...prev, [key]: true }))}
-                                                                                                    >
-                                                                                                        Show {emptyReceiptsCount} empty {emptyReceiptsCount === 1 ? 'receipt' : 'receipts'}
-                                                                                                    </button>
+                                                                                {visibleDetails.map(d => {
+                                                                                    const dVal = detailAllocations[d.stockReceiptItemId] || '';
+                                                                                    const isDetailEmpty = Number(d.remainingQuantity || 0) <= 0;
+                                                                                    return (
+                                                                                        <tr key={d.stockReceiptItemId}>
+                                                                                            <td>
+                                                                                                <span className="adj-batch-receipt-ref">
+                                                                                                    {d.receiptNumber || (d.stockReceiptId ? `Receipt #${d.stockReceiptId}` : '—')}
                                                                                                 </span>
-                                                                                            )}
-                                                                                        </td>
-                                                                                    </tr>
-                                                                                ) : (
-                                                                                    visibleDetails.map(d => {
-                                                                                        const dVal = detailAllocations[d.stockReceiptItemId] || '';
-                                                                                        const isDetailEmpty = Number(d.remainingQuantity || 0) <= 0;
-                                                                                        return (
-                                                                                            <tr key={d.stockReceiptItemId}>
-                                                                                                <td>
-                                                                                                    <span className="adj-batch-receipt-ref">
-                                                                                                        {d.receiptNumber || (d.stockReceiptId ? `Receipt #${d.stockReceiptId}` : '—')}
+                                                                                            </td>
+                                                                                            <td>
+                                                                                                <span style={{ fontFamily: 'monospace', color: '#64748b' }}>
+                                                                                                    #{d.stockReceiptItemId}
+                                                                                                </span>
+                                                                                            </td>
+                                                                                            <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                                                                                <span style={{ color: isDetailEmpty ? '#94a3b8' : 'inherit' }}>
+                                                                                                    {formatQty(d.remainingQuantity)} {selectedProduct.unit}
+                                                                                                </span>
+                                                                                                {isDetailEmpty && (
+                                                                                                    <span className="adj-batch-depleted-tag" style={{ marginLeft: '4px' }}>
+                                                                                                        Empty
                                                                                                     </span>
-                                                                                                </td>
-                                                                                                <td>
-                                                                                                    <span style={{ fontFamily: 'monospace', color: '#64748b' }}>
-                                                                                                        #{d.stockReceiptItemId}
-                                                                                                    </span>
-                                                                                                </td>
-                                                                                                <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                                                                                                    <span style={{ color: isDetailEmpty ? '#94a3b8' : 'inherit' }}>
-                                                                                                        {formatQty(d.remainingQuantity)} {selectedProduct.unit}
-                                                                                                    </span>
-                                                                                                    {isDetailEmpty && (
-                                                                                                        <span className="adj-batch-depleted-tag" style={{ marginLeft: '4px' }}>
-                                                                                                            Empty
-                                                                                                        </span>
-                                                                                                    )}
-                                                                                                </td>
-                                                                                                <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#64748b' }}>
-                                                                                                    {formatQty(d.receivedQuantity)} {selectedProduct.unit}
-                                                                                                </td>
-                                                                                                <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                                                                                                    {formatCurrency(d.unitCost)}
-                                                                                                </td>
-                                                                                                {adjustmentType === 'INCREASE' ? (
-                                                                                                    <td style={{ textAlign: 'right' }}>
-                                                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
-                                                                                                            <input
-                                                                                                                type="number"
-                                                                                                                min="0"
-                                                                                                                step="1"
-                                                                                                                className="adj-input adj-batch-input"
-                                                                                                                placeholder="0"
-                                                                                                                value={dVal}
-                                                                                                                onChange={(e) => handleDetailAllocationChange(d.stockReceiptItemId, e.target.value)}
-                                                                                                            />
-                                                                                                            {isValidPositiveInt && (
-                                                                                                                <button
-                                                                                                                    type="button"
-                                                                                                                    className="adj-btn adj-btn--secondary adj-btn--sm"
-                                                                                                                    style={{ padding: '2px 6px', fontSize: '11px', height: '28px' }}
-                                                                                                                    onClick={() => handleDetailQuickFill(d)}
-                                                                                                                    title="Allocate remaining quantity to this receipt"
-                                                                                                                >
-                                                                                                                    Fill
-                                                                                                                </button>
-                                                                                                            )}
-                                                                                                        </div>
-                                                                                                    </td>
-                                                                                                ) : (
-                                                                                                    <td style={{ textAlign: 'right', color: '#64748b', fontSize: '11px' }}>
-                                                                                                        {formatDate(d.receivedAt)}
-                                                                                                    </td>
                                                                                                 )}
-                                                                                            </tr>
-                                                                                        );
-                                                                                    })
-                                                                                )}
+                                                                                            </td>
+                                                                                            <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#64748b' }}>
+                                                                                                {formatQty(d.receivedQuantity)} {selectedProduct.unit}
+                                                                                            </td>
+                                                                                            <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                                                                                {formatCurrency(d.unitCost)}
+                                                                                            </td>
+                                                                                            <td style={{ textAlign: 'right' }}>
+                                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                                                                                                    <input
+                                                                                                        type="number"
+                                                                                                        min="0"
+                                                                                                        step="1"
+                                                                                                        className="adj-input adj-batch-input"
+                                                                                                        placeholder="0"
+                                                                                                        value={dVal}
+                                                                                                        onChange={(e) => handleDetailAllocationChange(d.stockReceiptItemId, e.target.value)}
+                                                                                                    />
+                                                                                                    {isValidPositiveInt && (
+                                                                                                        <button
+                                                                                                            type="button"
+                                                                                                            className="adj-btn adj-btn--secondary adj-btn--sm"
+                                                                                                            style={{ padding: '2px 6px', fontSize: '11px', height: '28px' }}
+                                                                                                            onClick={() => handleDetailQuickFill(d)}
+                                                                                                            title="Allocate remaining quantity to this receipt"
+                                                                                                        >
+                                                                                                            Fill
+                                                                                                        </button>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            </td>
+                                                                                        </tr>
+                                                                                    );
+                                                                                })}
                                                                             </tbody>
                                                                         </table>
 
-                                                                        {/* Compact Pagination / Load More bar for large number of receipts */}
-                                                                        {filteredDetails.length > INITIAL_DETAIL_LIMIT && (
+                                                                        {allDetails.length > INITIAL_DETAIL_LIMIT && (
                                                                             <div className="adj-batch-pagination">
                                                                                 <span className="adj-batch-pagination-info">
-                                                                                    Showing {visibleDetails.length} of {filteredDetails.length} source receipts
+                                                                                    Showing {visibleDetails.length} of {allDetails.length} source receipts
                                                                                 </span>
                                                                                 <div style={{ display: 'flex', gap: '6px' }}>
                                                                                     {hasMore && (
@@ -1416,10 +1397,10 @@ export default function AdjustStockPage() {
                                                                                             style={{ padding: '2px 8px', fontSize: '11px', height: '24px' }}
                                                                                             onClick={() => setBatchDetailLimits(prev => ({
                                                                                                 ...prev,
-                                                                                                [key]: filteredDetails.length
+                                                                                                [key]: allDetails.length
                                                                                             }))}
                                                                                         >
-                                                                                            Show all ({filteredDetails.length})
+                                                                                            Show all ({allDetails.length})
                                                                                         </button>
                                                                                     )}
                                                                                     {currentLimit > INITIAL_DETAIL_LIMIT && (
@@ -1613,7 +1594,7 @@ export default function AdjustStockPage() {
                                                             <span className="adj-batch-num">{g.batchNumber}</span>
                                                             {g.expired ? ' (Expired)' : ''}
                                                             <span style={{ color: '#64748b', fontSize: '11px', marginLeft: '6px' }}>
-                                                                Exp: {formatDate(g.expirationDate)} • {g.receiptCount} {g.receiptCount === 1 ? 'receipt' : 'receipts'}
+                                                                Exp: {formatDate(g.expirationDate)}
                                                             </span>
                                                         </span>
                                                         <span style={{ fontWeight: 600, color: '#dc2626' }}>

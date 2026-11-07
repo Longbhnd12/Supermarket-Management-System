@@ -68,7 +68,7 @@ const InventoryService = {
     getNextStockCheckSession: () => API.get('/inventory/checks/next-session'),
     performStockCheck: (data) => API.post('/inventory/checks', data),
     getStockCheckSession: (checkNumber) => API.get('/inventory/checks/session/' + encodeURIComponent(checkNumber)),
-    getAllStockCheckSessions: () => API.get('/inventory/checks/sessions'),
+    getAllStockCheckSessions: (params) => API.get('/inventory/checks/sessions', { params }),
     updateStockCheckCount: (id, data) => API.put('/inventory/checks/' + id, data),
 };
 

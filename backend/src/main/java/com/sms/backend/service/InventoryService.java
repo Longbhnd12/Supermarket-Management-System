@@ -10,6 +10,7 @@ import com.sms.backend.dto.inventory.StockAlertSummaryResponse;
 import com.sms.backend.dto.inventory.StockCheckResponse;
 import com.sms.backend.dto.inventory.StockCheckSessionRequest;
 import com.sms.backend.dto.inventory.StockCheckSessionResponse;
+import com.sms.backend.dto.inventory.StockCheckSessionPageResponse;
 import com.sms.backend.dto.inventory.UpdateStockCheckCountRequest;
 import com.sms.backend.dto.inventory.StockHistoryFilter;
 import com.sms.backend.dto.inventory.StockMovementPageResponse;
@@ -44,6 +45,7 @@ public interface InventoryService {
     StockCheckSessionResponse performStockCheck(StockCheckSessionRequest request);
     StockCheckSessionResponse getStockCheckSession(String checkNumber);
     List<StockCheckSessionResponse> getAllStockCheckSessions();
+    StockCheckSessionPageResponse getStockCheckSessions(int page, int size, String keyword);
     StockCheckResponse updateStockCheckItemCount(Long stockCheckId, UpdateStockCheckCountRequest request);
 
     // UC33 - Adjust Stock

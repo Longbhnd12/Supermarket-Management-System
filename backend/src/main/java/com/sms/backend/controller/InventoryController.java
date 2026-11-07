@@ -9,6 +9,7 @@ import com.sms.backend.dto.inventory.StockAlertFilter;
 import com.sms.backend.dto.inventory.StockAlertSummaryResponse;
 import com.sms.backend.dto.inventory.StockCheckItemRequest;
 import com.sms.backend.dto.inventory.StockCheckResponse;
+import com.sms.backend.dto.inventory.StockCheckSessionPageResponse;
 import com.sms.backend.dto.inventory.StockCheckSessionRequest;
 import com.sms.backend.dto.inventory.StockCheckSessionResponse;
 import com.sms.backend.dto.inventory.UpdateStockCheckCountRequest;
@@ -261,9 +262,12 @@ public class InventoryController {
     }
 
     @GetMapping("/checks/sessions")
-    public ResponseEntity<ApiResponse<List<StockCheckSessionResponse>>> getAllStockCheckSessions() {
+    public ResponseEntity<ApiResponse<StockCheckSessionPageResponse>> getStockCheckSessions(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String keyword) {
         return ResponseEntity.ok(ApiResponse.success("Stock check sessions retrieved",
-                inventoryService.getAllStockCheckSessions()));
+                inventoryService.getStockCheckSessions(page, size, keyword)));
     }
 
     @GetMapping("/checks")
