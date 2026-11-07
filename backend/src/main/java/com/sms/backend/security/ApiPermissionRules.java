@@ -149,6 +149,7 @@ public final class ApiPermissionRules {
             staff(GET, "/api/v1/employees/**", EMPLOYEE_VIEW),
             staff(ANY, "/api/v1/employees/**", EMPLOYEE_MANAGE),
             staff(GET, "/api/v1/suppliers/**", SUPPLIER_VIEW),
+            staff(PATCH, "/api/v1/suppliers/*/status", SUPPLIER_DISABLE, SUPPLIER_MANAGE),
             staff(HttpMethod.DELETE, "/api/v1/suppliers/**", SUPPLIER_DISABLE),
             staff(ANY, "/api/v1/suppliers/**", SUPPLIER_MANAGE),
 

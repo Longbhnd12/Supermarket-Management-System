@@ -3,13 +3,16 @@ package com.sms.backend.config;
 import com.sms.backend.entity.Category;
 import com.sms.backend.entity.Product;
 import com.sms.backend.entity.Role;
+import com.sms.backend.entity.Supplier;
 import com.sms.backend.entity.User;
 import com.sms.backend.enums.AccountStatus;
 import com.sms.backend.enums.GeneralStatus;
 import com.sms.backend.enums.RoleName;
+import com.sms.backend.enums.SupplierStatus;
 import com.sms.backend.repository.CategoryRepository;
 import com.sms.backend.repository.ProductRepository;
 import com.sms.backend.repository.RoleRepository;
+import com.sms.backend.repository.SupplierRepository;
 import com.sms.backend.repository.UserRepository;
 import com.sms.backend.security.RolePermissions;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +36,7 @@ public class DataInitializer {
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
+    private final SupplierRepository supplierRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Bean
@@ -89,10 +93,133 @@ public class DataInitializer {
                 // Ensure default product catalog exists for UC09 & related tests
                 initProductCatalog();
 
+                // Ensure default suppliers exist for UC19 & related tests
+                initSuppliers();
+
             } catch (Exception e) {
                 log.warn("Data initialization skipped or failed: {}", e.getMessage(), e);
             }
         };
+    }
+
+    private void initSuppliers() {
+        if (supplierRepository.count() > 0) {
+            log.info("Suppliers table already contains {} records. Skipping supplier seeding.", supplierRepository.count());
+            return;
+        }
+
+        log.info("Seeding default suppliers for UC19 (Supplier Management)...");
+
+        Object[][] suppliersData = {
+                // Code, Name, Contact, Phone, Email, Address, Tax, Status
+                {
+                        "SUP-001",
+                        "Công ty Cổ phần Sữa Việt Nam (Vinamilk)",
+                        "Nguyễn Thị Thu Thảo",
+                        "028 5415 5555",
+                        "vinamilk@vinamilk.com.vn",
+                        "Số 10 Tân Trào, Phường Tân Phú, Quận 7, TP. Hồ Chí Minh, Việt Nam",
+                        "0300588569",
+                        SupplierStatus.ACTIVE
+                },
+                {
+                        "SUP-002",
+                        "Acecook Việt Nam JSC",
+                        "Trần Văn Bình",
+                        "0903 889 123",
+                        "contact@acecookvietnam.vn",
+                        "Lô II-3, Đường số 11, KCN Tân Bình, P. Tây Thạnh, Q. Tân Phú, TP. HCM",
+                        "0300808687",
+                        SupplierStatus.ACTIVE
+                },
+                {
+                        "SUP-003",
+                        "Công ty TNHH Nestlé Việt Nam",
+                        "Lê Hoàng Phúc",
+                        "028 3823 4567",
+                        "procurement@nestle.com.vn",
+                        "Lầu 5, Empress Tower, 138-142 Hai Bà Trưng, P. Đa Kao, Quận 1, TP. HCM",
+                        "3600235305",
+                        SupplierStatus.ACTIVE
+                },
+                {
+                        "SUP-004",
+                        "Masan Consumer Holdings",
+                        "Đặng Minh Tâm",
+                        "0918 776 543",
+                        "sales@masangroup.com",
+                        "Tầng 12, Tòa nhà MPlaza Saigon, 39 Lê Duẩn, P. Bến Nghé, Quận 1, TP. HCM",
+                        "0302017440",
+                        SupplierStatus.ACTIVE
+                },
+                {
+                        "SUP-005",
+                        "Công ty CP Chế biến Gỗ & Nông sản Long An",
+                        "Vũ Tuyết Mai",
+                        "0272 388 9912",
+                        "supply@longanproduce.com.vn",
+                        "Ấp 3, Xã Nhựt Chánh, Huyện Bến Lức, Tỉnh Long An, Việt Nam",
+                        "1100109823",
+                        SupplierStatus.DISABLED
+                },
+                {
+                        "SUP-006",
+                        "Unilever Việt Nam International",
+                        "Phạm Quốc Dũng",
+                        "028 5413 5686",
+                        "order.vn@unilever.com",
+                        "Lô A2-3, KCN Tây Bắc Củ Chi, Xã Tân An Hội, Huyện Củ Chi, TP. HCM",
+                        "0301464870",
+                        SupplierStatus.ACTIVE
+                },
+                {
+                        "SUP-007",
+                        "Công ty TNHH Suntory PepsiCo VN",
+                        "Hoàng Bích Ngọc",
+                        "028 3821 9437",
+                        "pepsico.orders@suntorypepsico.vn",
+                        "Tầng 5, Sheraton Saigon Hotel, 88 Đồng Khởi, P. Bến Nghé, Quận 1, TP. HCM",
+                        "0300812948",
+                        SupplierStatus.ACTIVE
+                },
+                {
+                        "SUP-008",
+                        "Công ty Cổ phần Bột giặt LIX",
+                        "Đỗ Hữu Thắng",
+                        "028 3896 6803",
+                        "sales@lixco.com",
+                        "Số 3, Đường số 2, Khu phố 4, P. Linh Trung, TP. Thủ Đức, TP. HCM",
+                        "0300588632",
+                        SupplierStatus.DISABLED
+                }
+        };
+
+        for (Object[] item : suppliersData) {
+            String code = (String) item[0];
+            String name = (String) item[1];
+            String contact = (String) item[2];
+            String phone = (String) item[3];
+            String email = (String) item[4];
+            String address = (String) item[5];
+            String taxCode = (String) item[6];
+            SupplierStatus status = (SupplierStatus) item[7];
+
+            if (!supplierRepository.existsBySupplierCode(code)) {
+                Supplier s = new Supplier();
+                s.setSupplierCode(code);
+                s.setSupplierName(name);
+                s.setContactPerson(contact);
+                s.setPhone(phone);
+                s.setEmail(email);
+                s.setAddress(address);
+                s.setTaxCode(taxCode);
+                s.setStatus(status);
+                s.setCreatedAt(LocalDateTime.now().minusMonths(6));
+                s.setUpdatedAt(LocalDateTime.now().minusDays(5));
+                supplierRepository.save(s);
+            }
+        }
+        log.info("Initialized default suppliers successfully with {} suppliers.", supplierRepository.count());
     }
 
     private void initProductCatalog() {
