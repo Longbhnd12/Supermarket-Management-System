@@ -84,6 +84,7 @@ class ApiPermissionRulesTest {
             "CASHIER, POST, /api/v1/inventory/adjust, false",
             "CASHIER, GET, /api/v1/reports/revenue, false",
             "CASHIER, GET, /api/v1/system-settings, false",
+            "CASHIER, GET, /api/v1/dashboard, false",
             "CASHIER, GET, /api/v1/profile, true",
             // Manager: products, prices, promotions, approvals, reports
             "MANAGER, POST, /api/v1/products, true",
@@ -107,6 +108,7 @@ class ApiPermissionRulesTest {
             "MANAGER, DELETE, /api/v1/suppliers/4, true",
             "MANAGER, GET, /api/v1/reports/revenue, true",
             "MANAGER, GET, /api/v1/system-logs, false",
+            "MANAGER, GET, /api/v1/dashboard, true",
             "MANAGER, GET, /api/v1/roles, false",
             // Inventory staff: stock, receipts, purchase requests
             "WAREHOUSE_STAFF, POST, /api/v1/inventory/adjust, true",
@@ -129,6 +131,7 @@ class ApiPermissionRulesTest {
             "WAREHOUSE_STAFF, GET, /api/v1/reports/inventory, true",
             "WAREHOUSE_STAFF, GET, /api/v1/inventory/stock-history, true",
             "WAREHOUSE_STAFF, GET, /api/v1/inventory/stock-alerts, true",
+            "WAREHOUSE_STAFF, GET, /api/v1/dashboard, false",
             "CASHIER, GET, /api/v1/inventory/stock-alerts, false",
             // Supplier: only the portal (UC48 BR-01)
             "SUPPLIER, GET, /api/v1/supplier-portal/purchase-orders, true",
@@ -142,6 +145,7 @@ class ApiPermissionRulesTest {
             "SUPPLIER, GET, /api/v1/dashboard, false",
             // Admin: administration (BR-03 permissions)
             "ADMIN, GET, /api/v1/system-settings, true",
+            "ADMIN, GET, /api/v1/dashboard, true",
             "ADMIN, PUT, /api/v1/system-settings/1, true",
             "ADMIN, GET, /api/v1/system-logs/actions, true",
             "ADMIN, PUT, /api/v1/roles/2/permissions, true",
@@ -163,6 +167,17 @@ class ApiPermissionRulesTest {
 
         cashier.remove(Permission.PRODUCT_VIEW);
         assertFalse(ApiPermissionRules.isAllowed(RoleName.CASHIER, cashier, HttpMethod.GET, "/api/v1/products"));
+    }
+
+    /** UC42: DASHBOARD_VIEW cannot turn the management dashboard into a Cashier screen. */
+    @Test
+    void dashboardRequiresAnAdminOrManagerRoleInAdditionToPermission() {
+        assertFalse(ApiPermissionRules.isAllowed(RoleName.CASHIER, Set.of(Permission.DASHBOARD_VIEW),
+                HttpMethod.GET, "/api/v1/dashboard"));
+        assertFalse(ApiPermissionRules.isAllowed(RoleName.MANAGER, Set.of(),
+                HttpMethod.GET, "/api/v1/dashboard"));
+        assertTrue(ApiPermissionRules.isAllowed(RoleName.MANAGER, Set.of(Permission.DASHBOARD_VIEW),
+                HttpMethod.GET, "/api/v1/dashboard"));
     }
 
     /** UC48 BR-01: even with every permission, a Supplier account cannot use the staff API. */

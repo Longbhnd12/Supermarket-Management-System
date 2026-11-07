@@ -1,11 +1,10 @@
 // UC01 - Login: where each role lands after a successful login.
-// Admin, Manager, Cashier, Inventory Staff -> Dashboard of their role ("/").
-// Supplier -> Purchase Order List of the Supplier portal (SRS 4.1.1).
+// UC42 belongs to Admin and Manager only. Operational roles land directly in their workspace.
 const ROLE_HOME = {
     ADMIN: '/',
     MANAGER: '/',
-    CASHIER: '/',
-    WAREHOUSE_STAFF: '/',
+    CASHIER: '/sales/pos',
+    WAREHOUSE_STAFF: '/inventory',
     SUPPLIER: '/supplier/purchase-orders'
 };
 
@@ -28,6 +27,7 @@ export function getReturnPath(from, role) {
     if (typeof from !== 'string' || !from.startsWith('/') || from.startsWith('//')) return home;
     const path = from.split(/[?#]/)[0];
     if (AUTH_PAGES.includes(path)) return home;
+    if (path === '/' && !['ADMIN', 'MANAGER'].includes(role)) return home;
     const isSupplierPage = path === '/supplier' || path.startsWith('/supplier/');
     if ((role === 'SUPPLIER') !== isSupplierPage) return home;
     return from;
