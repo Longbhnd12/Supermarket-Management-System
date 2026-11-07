@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, Fragment } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import ProductService from '../../services/productService';
 import InventoryService from '../../services/inventoryService';
@@ -7,6 +7,24 @@ import './AdjustStockPage.css';
 function formatQty(n) {
     if (n == null || isNaN(n)) return '0';
     return new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 3 }).format(n);
+}
+
+function formatDate(iso) {
+    if (!iso) return '—';
+    try {
+        const d = new Date(iso);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}/${month}/${year}`;
+    } catch {
+        return iso;
+    }
+}
+
+function formatCurrency(n) {
+    if (n == null || isNaN(n)) return '—';
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 }
 
 const QUICK_REASONS = [
@@ -46,6 +64,16 @@ export default function AdjustStockPage() {
     const [quantityInput, setQuantityInput] = useState(urlQuantity || '');
     const [reason, setReason] = useState(urlReason || '');
     const [stockCheckId, setStockCheckId] = useState(urlStockCheckId || '');
+
+    // ── Batch Allocation State (UC33) ──
+    const [batches, setBatches] = useState([]); // List of GroupedProductBatchResponse
+    const [loadingBatches, setLoadingBatches] = useState(false);
+    const [expandedBatches, setExpandedBatches] = useState({}); // { [groupKey]: boolean }
+    const [groupedAllocations, setGroupedAllocations] = useState({}); // { [groupKey]: number } (for DECREASE)
+    const [detailAllocations, setDetailAllocations] = useState({}); // { [stockReceiptItemId]: number } (for INCREASE)
+    const [showEmptyReceipts, setShowEmptyReceipts] = useState({}); // { [groupKey]: boolean } (reveal 0-qty receipts in DECREASE)
+    const [batchDetailLimits, setBatchDetailLimits] = useState({}); // { [groupKey]: number } (pagination limit for expanded batch)
+    const INITIAL_DETAIL_LIMIT = 10;
 
     // ── Stock Check Link & Conflict State (UC32 -> UC33) ──
     const [linkedStockCheck, setLinkedStockCheck] = useState(null);
@@ -235,6 +263,39 @@ export default function AdjustStockPage() {
         setFieldErrors(prev => ({ ...prev, product: null }));
     };
 
+    // ── Helper for Grouping Key ──
+    const getGroupKey = (g) => `${(g.batchNumber || '').trim().toUpperCase()}|${g.expirationDate || ''}`;
+
+    // ── Fetch Batches for Expiry-tracked Products ──
+    useEffect(() => {
+        setGroupedAllocations({});
+        setDetailAllocations({});
+        setExpandedBatches({});
+        setShowEmptyReceipts({});
+        setBatchDetailLimits({});
+        if (!selectedProduct || !selectedProduct.trackExpiry) {
+            setBatches([]);
+            return;
+        }
+
+        let isMounted = true;
+        setLoadingBatches(true);
+        InventoryService.getGroupedProductBatches(selectedProduct.productId)
+            .then(res => {
+                if (!isMounted) return;
+                setBatches(res.data?.data || []);
+            })
+            .catch(() => {
+                if (!isMounted) return;
+                setBatches([]);
+            })
+            .finally(() => {
+                if (isMounted) setLoadingBatches(false);
+            });
+
+        return () => { isMounted = false; };
+    }, [selectedProduct?.productId, selectedProduct?.trackExpiry]);
+
     // ── Calculated New Stock ──
     const currentStock = selectedProduct?.stockQuantity ? Number(selectedProduct.stockQuantity) : 0;
     const parsedQty = Number(quantityInput);
@@ -251,6 +312,102 @@ export default function AdjustStockPage() {
 
     const isStockNegative = calculatedNewStock !== null && calculatedNewStock < 0;
 
+    // ── Batch Allocation Calculations (UC33) ──
+    const requiresBatches = Boolean(selectedProduct?.trackExpiry);
+
+    const totalBatchAllocated = useMemo(() => {
+        if (adjustmentType === 'DECREASE') {
+            return Object.values(groupedAllocations).reduce((sum, val) => {
+                const n = Number(val);
+                return sum + (Number.isInteger(n) && n > 0 ? n : 0);
+            }, 0);
+        } else {
+            return Object.values(detailAllocations).reduce((sum, val) => {
+                const n = Number(val);
+                return sum + (Number.isInteger(n) && n > 0 ? n : 0);
+            }, 0);
+        }
+    }, [adjustmentType, groupedAllocations, detailAllocations]);
+
+    const remainingToAllocate = isValidPositiveInt ? (parsedQty - totalBatchAllocated) : 0;
+
+    const hasOverDeduction = useMemo(() => {
+        if (!requiresBatches || adjustmentType !== 'DECREASE') return false;
+        return batches.some(g => {
+            const key = getGroupKey(g);
+            const allocated = Number(groupedAllocations[key] || 0);
+            return allocated > Number(g.totalRemainingQuantity || 0);
+        });
+    }, [requiresBatches, adjustmentType, batches, groupedAllocations]);
+
+    const isAllocationExact = requiresBatches ? (isValidPositiveInt && totalBatchAllocated === parsedQty) : true;
+
+    const isAllocationValid = !requiresBatches || (
+        isValidPositiveInt &&
+        isAllocationExact &&
+        !hasOverDeduction &&
+        totalBatchAllocated > 0
+    );
+
+    const toggleBatchExpand = (key) => {
+        setExpandedBatches(prev => ({ ...prev, [key]: !prev[key] }));
+    };
+
+    const handleGroupAllocationChange = (key, value) => {
+        setGroupedAllocations(prev => {
+            const next = { ...prev };
+            if (value === '' || value == null) {
+                delete next[key];
+            } else {
+                const num = parseInt(value, 10);
+                if (isNaN(num) || num <= 0) {
+                    delete next[key];
+                } else {
+                    next[key] = num;
+                }
+            }
+            return next;
+        });
+        setFieldErrors(prev => ({ ...prev, batchAllocation: null }));
+    };
+
+    const handleDetailAllocationChange = (stockReceiptItemId, value) => {
+        setDetailAllocations(prev => {
+            const next = { ...prev };
+            if (value === '' || value == null) {
+                delete next[stockReceiptItemId];
+            } else {
+                const num = parseInt(value, 10);
+                if (isNaN(num) || num <= 0) {
+                    delete next[stockReceiptItemId];
+                } else {
+                    next[stockReceiptItemId] = num;
+                }
+            }
+            return next;
+        });
+        setFieldErrors(prev => ({ ...prev, batchAllocation: null }));
+    };
+
+    const handleGroupQuickFill = (g) => {
+        if (!isValidPositiveInt) return;
+        const key = getGroupKey(g);
+        const currentVal = Number(groupedAllocations[key] || 0);
+        const otherAllocated = totalBatchAllocated - currentVal;
+        const needed = Math.max(0, parsedQty - otherAllocated);
+        const avail = Number(g.totalRemainingQuantity || 0);
+        const toSet = Math.min(needed, avail);
+        handleGroupAllocationChange(key, toSet > 0 ? toSet : '');
+    };
+
+    const handleDetailQuickFill = (detail) => {
+        if (!isValidPositiveInt) return;
+        const currentVal = Number(detailAllocations[detail.stockReceiptItemId] || 0);
+        const otherAllocated = totalBatchAllocated - currentVal;
+        const needed = Math.max(0, parsedQty - otherAllocated);
+        handleDetailAllocationChange(detail.stockReceiptItemId, needed > 0 ? needed : '');
+    };
+
     const isFormReady = Boolean(
         selectedProduct &&
         isValidPositiveInt &&
@@ -258,7 +415,8 @@ export default function AdjustStockPage() {
         reason.trim().length > 0 &&
         !stockCheckConflict &&
         !alreadyAdjustedError &&
-        !loadingStockCheck
+        !loadingStockCheck &&
+        isAllocationValid
     );
 
     // ── Validation before Opening Modal ──
@@ -283,6 +441,18 @@ export default function AdjustStockPage() {
             errors.quantity = 'Adjustment quantity must be a positive whole integer (greater than 0).';
         } else if (isStockNegative) {
             errors.quantity = `Insufficient stock! Resulting stock cannot be negative (current: ${formatQty(currentStock)}).`;
+        }
+
+        if (requiresBatches) {
+            if (batches.length === 0) {
+                errors.batchAllocation = adjustmentType === 'INCREASE'
+                    ? 'This product tracks expiration, but has no confirmed batches to increase. New batches must be added via Stock In (UC36).'
+                    : 'This product tracks expiration, but has no confirmed batches with available stock to decrease.';
+            } else if (totalBatchAllocated !== parsedQty) {
+                errors.batchAllocation = `Total allocated to batches (${formatQty(totalBatchAllocated)}) must match the adjustment quantity (${formatQty(parsedQty)}). Remaining: ${formatQty(parsedQty - totalBatchAllocated)}.`;
+            } else if (hasOverDeduction) {
+                errors.batchAllocation = 'One or more batches has an allocated decrease exceeding its available remaining quantity.';
+            }
         }
 
         if (!reason || !reason.trim()) {
@@ -318,6 +488,32 @@ export default function AdjustStockPage() {
             adjustmentQuantity: parsedQty,
             reason: reason.trim(),
             stockCheckId: stockCheckId ? Number(stockCheckId) : null,
+            batchAllocations: requiresBatches && adjustmentType === 'INCREASE'
+                ? Object.entries(detailAllocations)
+                    .filter(([, qty]) => Number(qty) > 0)
+                    .map(([itemId, qty]) => {
+                        let found = null;
+                        for (const g of batches) {
+                            const m = (g.details || []).find(d => String(d.stockReceiptItemId) === String(itemId));
+                            if (m) { found = { ...m, batchNumber: g.batchNumber, expirationDate: g.expirationDate }; break; }
+                        }
+                        return {
+                            stockReceiptItemId: Number(itemId),
+                            batchNumber: found?.batchNumber || null,
+                            expirationDate: found?.expirationDate || null,
+                            quantity: Number(qty)
+                        };
+                    })
+                : null,
+            groupedBatchAllocations: requiresBatches && adjustmentType === 'DECREASE'
+                ? batches
+                    .filter(g => Number(groupedAllocations[getGroupKey(g)]) > 0)
+                    .map(g => ({
+                        batchNumber: g.batchNumber,
+                        expirationDate: g.expirationDate,
+                        quantity: Number(groupedAllocations[getGroupKey(g)])
+                    }))
+                : null
         };
 
         try {
@@ -338,11 +534,23 @@ export default function AdjustStockPage() {
                 );
             }
 
+            // Reload batches if product is batch-tracked
+            if (selectedProduct.trackExpiry) {
+                InventoryService.getGroupedProductBatches(selectedProduct.productId).then(bRes => {
+                    setBatches(bRes.data?.data || []);
+                }).catch(() => {});
+            }
+
             // Reset adjustment details form to initial state (preserve selectedProduct & successData)
             setAdjustmentType('INCREASE');
             setQuantityInput('');
             setReason('');
             setStockCheckId('');
+            setGroupedAllocations({});
+            setDetailAllocations({});
+            setExpandedBatches({});
+            setShowEmptyReceipts({});
+            setBatchDetailLimits({});
             setFieldErrors({});
         } catch (err) {
             setShowConfirmModal(false);
@@ -363,10 +571,15 @@ export default function AdjustStockPage() {
         setStockCheckConflict('');
         setAlreadyAdjustedError('');
 
-        // Reset Type, Quantity, Reason to defaults
+        // Reset Type, Quantity, Reason, Batch Allocations to defaults
         setAdjustmentType('INCREASE');
         setQuantityInput('');
         setReason('');
+        setGroupedAllocations({});
+        setDetailAllocations({});
+        setExpandedBatches({});
+        setShowEmptyReceipts({});
+        setBatchDetailLimits({});
         setFieldErrors({});
 
         // Display warning banner that original audit discrepancy remains unresolved
@@ -381,6 +594,12 @@ export default function AdjustStockPage() {
         setQuantityInput('');
         setReason('');
         setStockCheckId('');
+        setBatches([]);
+        setGroupedAllocations({});
+        setDetailAllocations({});
+        setExpandedBatches({});
+        setShowEmptyReceipts({});
+        setBatchDetailLimits({});
         setSuccessData(null);
         setApiError('');
         setFieldErrors({});
@@ -666,6 +885,16 @@ export default function AdjustStockPage() {
                                     <span className="adj-detail-val">{formatQty(selectedProduct.minimumStockLevel)}</span>
                                 </div>
                                 <div className="adj-detail-item">
+                                    <span className="adj-detail-label">Expiry Tracking</span>
+                                    <span className="adj-detail-val">
+                                        {selectedProduct.trackExpiry ? (
+                                            <span style={{ color: '#0284c7', fontWeight: 600 }}>Enabled (FEFO Batches)</span>
+                                        ) : (
+                                            <span style={{ color: '#64748b' }}>Disabled (Direct Stock)</span>
+                                        )}
+                                    </span>
+                                </div>
+                                <div className="adj-detail-item">
                                     <span className="adj-detail-label">Current Stock on Hand</span>
                                     <span className="adj-stock-highlight">
                                         {formatQty(selectedProduct.stockQuantity)}
@@ -711,7 +940,14 @@ export default function AdjustStockPage() {
                             <button
                                 type="button"
                                 className={`adj-type-btn adj-type-btn--inc ${adjustmentType === 'INCREASE' ? 'adj-type-btn--active' : ''} ${isStockCheckLocked ? 'adj-type-btn--locked' : ''}`}
-                                onClick={() => !isStockCheckLocked && setAdjustmentType('INCREASE')}
+                                onClick={() => {
+                                    if (!isStockCheckLocked && adjustmentType !== 'INCREASE') {
+                                        setAdjustmentType('INCREASE');
+                                        setGroupedAllocations({});
+                                        setDetailAllocations({});
+                                        setFieldErrors(prev => ({ ...prev, batchAllocation: null }));
+                                    }
+                                }}
                                 disabled={isStockCheckLocked}
                                 title={isStockCheckLocked ? "Locked to audited Stock Check discrepancy" : "Increase stock"}
                             >
@@ -723,7 +959,14 @@ export default function AdjustStockPage() {
                             <button
                                 type="button"
                                 className={`adj-type-btn adj-type-btn--dec ${adjustmentType === 'DECREASE' ? 'adj-type-btn--active' : ''} ${isStockCheckLocked ? 'adj-type-btn--locked' : ''}`}
-                                onClick={() => !isStockCheckLocked && setAdjustmentType('DECREASE')}
+                                onClick={() => {
+                                    if (!isStockCheckLocked && adjustmentType !== 'DECREASE') {
+                                        setAdjustmentType('DECREASE');
+                                        setGroupedAllocations({});
+                                        setDetailAllocations({});
+                                        setFieldErrors(prev => ({ ...prev, batchAllocation: null }));
+                                    }
+                                }}
                                 disabled={isStockCheckLocked}
                                 title={isStockCheckLocked ? "Locked to audited Stock Check discrepancy" : "Decrease stock"}
                             >
@@ -810,6 +1053,408 @@ export default function AdjustStockPage() {
                             </div>
                         )}
                     </div>
+
+                    {/* Batch Allocation Section (UC33) - Shown when product tracks expiry */}
+                    {selectedProduct && selectedProduct.trackExpiry && (
+                        <div className="adj-batch-section">
+                            <div className="adj-batch-header">
+                                <div>
+                                    <div className="adj-label" style={{ margin: 0 }}>
+                                        Batch Allocation <span className="adj-req">*</span>
+                                    </div>
+                                    <span className="adj-batch-subtitle">
+                                        {adjustmentType === 'DECREASE'
+                                            ? 'Allocate decrease across physical batches (deducted from underlying receipts using earliest receipt date first).'
+                                            : 'Select physical batch and exact receipt detail to restore quantity to (preserves unit cost and receipt history).'}
+                                    </span>
+                                </div>
+                                {isValidPositiveInt && (
+                                    <span className={`adj-alloc-badge ${totalBatchAllocated === parsedQty && !hasOverDeduction ? 'adj-alloc-badge--matched' : 'adj-alloc-badge--pending'}`}>
+                                        {totalBatchAllocated === parsedQty && !hasOverDeduction
+                                            ? '✓ Allocation Matched'
+                                            : `Pending: ${formatQty(Math.abs(remainingToAllocate))} ${remainingToAllocate > 0 ? 'remaining' : 'over'}`}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Live Allocation Summary Bar */}
+                            {isValidPositiveInt && (
+                                <div className="adj-alloc-summary-bar">
+                                    <div className="adj-alloc-summary-item">
+                                        <span className="adj-alloc-summary-lbl">Required:</span>
+                                        <span className="adj-alloc-summary-val">{formatQty(parsedQty)}</span>
+                                    </div>
+                                    <span className="adj-alloc-summary-divider">|</span>
+                                    <div className="adj-alloc-summary-item">
+                                        <span className="adj-alloc-summary-lbl">Allocated:</span>
+                                        <span className="adj-alloc-summary-val" style={{ color: totalBatchAllocated === parsedQty ? '#16a34a' : '#2563eb' }}>
+                                            {formatQty(totalBatchAllocated)}
+                                        </span>
+                                    </div>
+                                    <span className="adj-alloc-summary-divider">|</span>
+                                    <div className="adj-alloc-summary-item">
+                                        <span className="adj-alloc-summary-lbl">Remaining:</span>
+                                        <span className="adj-alloc-summary-val" style={{ color: remainingToAllocate === 0 ? '#16a34a' : remainingToAllocate > 0 ? '#b45309' : '#dc2626' }}>
+                                            {formatQty(remainingToAllocate)}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {loadingBatches ? (
+                                <div className="adj-batch-loading">Loading confirmed physical batches…</div>
+                            ) : batches.length === 0 ? (
+                                <div className="adj-batch-empty">
+                                    {adjustmentType === 'INCREASE'
+                                        ? 'No confirmed batches found. In accordance with inventory schema rules, new batch stock must be registered via UC36 (Stock In / Stock Receipt).'
+                                        : 'No confirmed batches found for this product. Cannot deduct stock from unrecorded batches.'}
+                                </div>
+                            ) : (
+                                <div className="adj-batch-table-wrap">
+                                    <table className="adj-batch-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Batch No.</th>
+                                                <th>Expiry Date</th>
+                                                <th style={{ textAlign: 'right' }}>
+                                                    {adjustmentType === 'INCREASE' ? 'Current Batch Qty' : 'Available'}
+                                                </th>
+                                                <th style={{ textAlign: 'center' }}>Source Receipts</th>
+                                                <th style={{ textAlign: 'right', width: '150px' }}>Adjust Qty</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {batches.map(g => {
+                                                const key = getGroupKey(g);
+                                                const isExpanded = Boolean(expandedBatches[key]);
+                                                const groupVal = groupedAllocations[key] || '';
+                                                const groupAllocated = Number(groupVal) > 0;
+                                                const isDepleted = Number(g.totalRemainingQuantity || 0) <= 0;
+                                                const isOver = adjustmentType === 'DECREASE' && Number(groupVal) > (g.totalRemainingQuantity || 0);
+
+                                                // Sum of detail allocations for this physical batch (used for INCREASE)
+                                                const detailAllocSum = (g.details || []).reduce(
+                                                    (sum, d) => sum + (Number(detailAllocations[d.stockReceiptItemId]) || 0),
+                                                    0
+                                                );
+
+                                                // Filter source receipt details according to UX requirements:
+                                                // - In DECREASE mode: show only remainingQuantity > 0 by default, toggleable to show empty receipts
+                                                // - In INCREASE mode: preserve all receipt details including zero-remaining for selection
+                                                const allDetails = g.details || [];
+                                                const emptyReceiptsCount = allDetails.filter(d => Number(d.remainingQuantity || 0) <= 0).length;
+                                                const shouldShowEmpty = adjustmentType === 'INCREASE' || Boolean(showEmptyReceipts[key]);
+                                                const filteredDetails = shouldShowEmpty ? allDetails : allDetails.filter(d => Number(d.remainingQuantity || 0) > 0);
+
+                                                // Client-side pagination/limiting for batches with many receipt details
+                                                const currentLimit = batchDetailLimits[key] || INITIAL_DETAIL_LIMIT;
+                                                const visibleDetails = filteredDetails.slice(0, currentLimit);
+                                                const hasMore = filteredDetails.length > currentLimit;
+
+                                                return (
+                                                    <Fragment key={key}>
+                                                        <tr
+                                                            className={`${groupAllocated || detailAllocSum > 0 ? 'adj-batch-row--selected' : ''} ${isOver ? 'adj-batch-row--error' : ''} ${isDepleted && adjustmentType === 'DECREASE' ? 'adj-batch-row--depleted' : ''}`}
+                                                        >
+                                                            <td>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                    <button
+                                                                        type="button"
+                                                                        className={`adj-batch-expand-btn ${isExpanded ? 'adj-batch-expand-btn--active' : ''}`}
+                                                                        onClick={() => toggleBatchExpand(key)}
+                                                                        title={isExpanded ? 'Collapse underlying receipt details' : 'Expand underlying receipt details'}
+                                                                        aria-expanded={isExpanded}
+                                                                    >
+                                                                        {isExpanded ? '▼' : '▶'}
+                                                                    </button>
+                                                                    <span className="adj-batch-num">{g.batchNumber}</span>
+                                                                    {g.expired && (
+                                                                        <span className="adj-batch-expired-tag" title="Expired batch. Can be selected for disposal/loss adjustments.">
+                                                                            Expired
+                                                                        </span>
+                                                                    )}
+                                                                    {g.conflictingDates && (
+                                                                        <span className="adj-batch-conflict-tag" title="Inconsistency detected: Multiple confirmed receipts for this batch number have conflicting expiration dates in history. Kept separate for safety.">
+                                                                            ⚠ Date Conflict
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                            <td>{formatDate(g.expirationDate)}</td>
+                                                            <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                                                {formatQty(g.totalRemainingQuantity)} {selectedProduct.unit}
+                                                                {isDepleted && adjustmentType === 'DECREASE' && (
+                                                                    <span className="adj-batch-depleted-tag" style={{ marginLeft: '4px' }}>
+                                                                        0 Avail
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td style={{ textAlign: 'center' }}>
+                                                                <button
+                                                                    type="button"
+                                                                    className="adj-batch-source-pill"
+                                                                    onClick={() => toggleBatchExpand(key)}
+                                                                    title="Click to view underlying receipt details"
+                                                                >
+                                                                    {g.receiptCount} {g.receiptCount === 1 ? 'receipt' : 'receipts'}
+                                                                    <span style={{ fontSize: '10px' }}>{isExpanded ? '▲' : '▼'}</span>
+                                                                </button>
+                                                            </td>
+                                                            <td style={{ textAlign: 'right' }}>
+                                                                {adjustmentType === 'DECREASE' ? (
+                                                                    <>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                                                                            <input
+                                                                                type="number"
+                                                                                min="0"
+                                                                                max={g.totalRemainingQuantity}
+                                                                                step="1"
+                                                                                className={`adj-input adj-batch-input ${isOver ? 'adj-input--error' : ''} ${isDepleted ? 'adj-input--locked' : ''}`}
+                                                                                placeholder="0"
+                                                                                value={isDepleted ? '' : groupVal}
+                                                                                onChange={(e) => handleGroupAllocationChange(key, e.target.value)}
+                                                                                disabled={isDepleted}
+                                                                                title={isDepleted ? "This physical batch has zero available remaining stock to decrease" : undefined}
+                                                                            />
+                                                                            {isValidPositiveInt && !isDepleted && (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    className="adj-btn adj-btn--secondary adj-btn--sm"
+                                                                                    style={{ padding: '2px 6px', fontSize: '11px', height: '28px' }}
+                                                                                    onClick={() => handleGroupQuickFill(g)}
+                                                                                    title="Allocate up to batch available quantity"
+                                                                                >
+                                                                                    Fill
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                        {isOver && (
+                                                                            <div style={{ color: '#dc2626', fontSize: '11px', marginTop: '2px' }}>
+                                                                                Exceeds available ({formatQty(g.totalRemainingQuantity)})
+                                                                            </div>
+                                                                        )}
+                                                                    </>
+                                                                ) : (
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                                                                        {detailAllocSum > 0 && (
+                                                                            <span style={{ color: '#16a34a', fontWeight: 600, fontSize: '12px' }}>
+                                                                                +{formatQty(detailAllocSum)}
+                                                                            </span>
+                                                                        )}
+                                                                        <button
+                                                                            type="button"
+                                                                            className={`adj-btn adj-btn--sm ${detailAllocSum > 0 ? 'adj-btn--secondary' : 'adj-btn--ghost'}`}
+                                                                            style={{ padding: '2px 8px', fontSize: '11px', height: '28px' }}
+                                                                            onClick={() => toggleBatchExpand(key)}
+                                                                            title="Expand batch to select exact source receipt details to restore"
+                                                                        >
+                                                                            {isExpanded ? 'Close Details' : detailAllocSum > 0 ? 'Edit Details' : 'Select Receipt (+)'}
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+
+                                                        {/* Expanded Underlying Receipt Details Row */}
+                                                        {isExpanded && (
+                                                            <tr className="adj-batch-subrow">
+                                                                <td colSpan="5">
+                                                                    <div className="adj-batch-subtable-wrap">
+                                                                        <div className="adj-batch-subtable-title">
+                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                                                <span>
+                                                                                    Source Receipts for Batch <strong>{g.batchNumber}</strong>
+                                                                                    {g.expirationDate ? ` (Exp: ${formatDate(g.expirationDate)})` : ''}
+                                                                                </span>
+                                                                                {adjustmentType === 'DECREASE' && emptyReceiptsCount > 0 && (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        className="adj-toggle-empty-btn"
+                                                                                        onClick={() => setShowEmptyReceipts(prev => ({ ...prev, [key]: !prev[key] }))}
+                                                                                        title={showEmptyReceipts[key] ? 'Hide empty (0 remaining) receipts' : 'Reveal empty (0 remaining) receipts for audit inspection'}
+                                                                                    >
+                                                                                        {showEmptyReceipts[key]
+                                                                                            ? `Hide empty receipts (${emptyReceiptsCount})`
+                                                                                            : `Show empty receipts (${emptyReceiptsCount})`}
+                                                                                    </button>
+                                                                                )}
+                                                                            </div>
+                                                                            <span style={{ fontWeight: 400, textTransform: 'none', color: '#64748b' }}>
+                                                                                {adjustmentType === 'INCREASE'
+                                                                                    ? 'Enter restoration quantity into specific receipt detail(s) below (including 0-qty receipts):'
+                                                                                    : 'Underlying receipts are deducted in FIFO order (earliest received first):'}
+                                                                            </span>
+                                                                        </div>
+
+                                                                        <table className="adj-batch-subtable">
+                                                                            <thead>
+                                                                                <tr>
+                                                                                    <th>Receipt Ref</th>
+                                                                                    <th>Detail ID</th>
+                                                                                    <th style={{ textAlign: 'right' }}>Remaining Qty</th>
+                                                                                    <th style={{ textAlign: 'right' }}>Received Qty</th>
+                                                                                    <th style={{ textAlign: 'right' }}>Unit Cost</th>
+                                                                                    {adjustmentType === 'INCREASE' ? (
+                                                                                        <th style={{ textAlign: 'right', width: '130px' }}>Restore Qty</th>
+                                                                                    ) : (
+                                                                                        <th style={{ textAlign: 'right' }}>Received Date</th>
+                                                                                    )}
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody>
+                                                                                {filteredDetails.length === 0 ? (
+                                                                                    <tr>
+                                                                                        <td colSpan={6} className="adj-batch-subtable-empty">
+                                                                                            No active receipts with remaining stock.
+                                                                                            {emptyReceiptsCount > 0 && (
+                                                                                                <span>
+                                                                                                    {' '}
+                                                                                                    <button
+                                                                                                        type="button"
+                                                                                                        className="adj-inline-link-btn"
+                                                                                                        onClick={() => setShowEmptyReceipts(prev => ({ ...prev, [key]: true }))}
+                                                                                                    >
+                                                                                                        Show {emptyReceiptsCount} empty {emptyReceiptsCount === 1 ? 'receipt' : 'receipts'}
+                                                                                                    </button>
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                ) : (
+                                                                                    visibleDetails.map(d => {
+                                                                                        const dVal = detailAllocations[d.stockReceiptItemId] || '';
+                                                                                        const isDetailEmpty = Number(d.remainingQuantity || 0) <= 0;
+                                                                                        return (
+                                                                                            <tr key={d.stockReceiptItemId}>
+                                                                                                <td>
+                                                                                                    <span className="adj-batch-receipt-ref">
+                                                                                                        {d.receiptNumber || (d.stockReceiptId ? `Receipt #${d.stockReceiptId}` : '—')}
+                                                                                                    </span>
+                                                                                                </td>
+                                                                                                <td>
+                                                                                                    <span style={{ fontFamily: 'monospace', color: '#64748b' }}>
+                                                                                                        #{d.stockReceiptItemId}
+                                                                                                    </span>
+                                                                                                </td>
+                                                                                                <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                                                                                    <span style={{ color: isDetailEmpty ? '#94a3b8' : 'inherit' }}>
+                                                                                                        {formatQty(d.remainingQuantity)} {selectedProduct.unit}
+                                                                                                    </span>
+                                                                                                    {isDetailEmpty && (
+                                                                                                        <span className="adj-batch-depleted-tag" style={{ marginLeft: '4px' }}>
+                                                                                                            Empty
+                                                                                                        </span>
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#64748b' }}>
+                                                                                                    {formatQty(d.receivedQuantity)} {selectedProduct.unit}
+                                                                                                </td>
+                                                                                                <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                                                                                    {formatCurrency(d.unitCost)}
+                                                                                                </td>
+                                                                                                {adjustmentType === 'INCREASE' ? (
+                                                                                                    <td style={{ textAlign: 'right' }}>
+                                                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                                                                                                            <input
+                                                                                                                type="number"
+                                                                                                                min="0"
+                                                                                                                step="1"
+                                                                                                                className="adj-input adj-batch-input"
+                                                                                                                placeholder="0"
+                                                                                                                value={dVal}
+                                                                                                                onChange={(e) => handleDetailAllocationChange(d.stockReceiptItemId, e.target.value)}
+                                                                                                            />
+                                                                                                            {isValidPositiveInt && (
+                                                                                                                <button
+                                                                                                                    type="button"
+                                                                                                                    className="adj-btn adj-btn--secondary adj-btn--sm"
+                                                                                                                    style={{ padding: '2px 6px', fontSize: '11px', height: '28px' }}
+                                                                                                                    onClick={() => handleDetailQuickFill(d)}
+                                                                                                                    title="Allocate remaining quantity to this receipt"
+                                                                                                                >
+                                                                                                                    Fill
+                                                                                                                </button>
+                                                                                                            )}
+                                                                                                        </div>
+                                                                                                    </td>
+                                                                                                ) : (
+                                                                                                    <td style={{ textAlign: 'right', color: '#64748b', fontSize: '11px' }}>
+                                                                                                        {formatDate(d.receivedAt)}
+                                                                                                    </td>
+                                                                                                )}
+                                                                                            </tr>
+                                                                                        );
+                                                                                    })
+                                                                                )}
+                                                                            </tbody>
+                                                                        </table>
+
+                                                                        {/* Compact Pagination / Load More bar for large number of receipts */}
+                                                                        {filteredDetails.length > INITIAL_DETAIL_LIMIT && (
+                                                                            <div className="adj-batch-pagination">
+                                                                                <span className="adj-batch-pagination-info">
+                                                                                    Showing {visibleDetails.length} of {filteredDetails.length} source receipts
+                                                                                </span>
+                                                                                <div style={{ display: 'flex', gap: '6px' }}>
+                                                                                    {hasMore && (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            className="adj-btn adj-btn--secondary adj-btn--sm"
+                                                                                            style={{ padding: '2px 8px', fontSize: '11px', height: '24px' }}
+                                                                                            onClick={() => setBatchDetailLimits(prev => ({
+                                                                                                ...prev,
+                                                                                                [key]: (prev[key] || INITIAL_DETAIL_LIMIT) + 10
+                                                                                            }))}
+                                                                                        >
+                                                                                            Load 10 more
+                                                                                        </button>
+                                                                                    )}
+                                                                                    {hasMore && (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            className="adj-btn adj-btn--ghost adj-btn--sm"
+                                                                                            style={{ padding: '2px 8px', fontSize: '11px', height: '24px' }}
+                                                                                            onClick={() => setBatchDetailLimits(prev => ({
+                                                                                                ...prev,
+                                                                                                [key]: filteredDetails.length
+                                                                                            }))}
+                                                                                        >
+                                                                                            Show all ({filteredDetails.length})
+                                                                                        </button>
+                                                                                    )}
+                                                                                    {currentLimit > INITIAL_DETAIL_LIMIT && (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            className="adj-btn adj-btn--ghost adj-btn--sm"
+                                                                                            style={{ padding: '2px 8px', fontSize: '11px', height: '24px' }}
+                                                                                            onClick={() => setBatchDetailLimits(prev => ({
+                                                                                                ...prev,
+                                                                                                [key]: INITIAL_DETAIL_LIMIT
+                                                                                            }))}
+                                                                                        >
+                                                                                            Show less
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        )}
+                                                    </Fragment>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {fieldErrors.batchAllocation && (
+                                <span className="adj-field-error">{fieldErrors.batchAllocation}</span>
+                            )}
+                        </div>
+                    )}
 
                     {/* Audit Session Reference */}
                     <div className="adj-form-group">
@@ -950,6 +1595,66 @@ export default function AdjustStockPage() {
                                     </div>
                                 )}
                             </div>
+
+                            {requiresBatches && (
+                                (adjustmentType === 'DECREASE' && Object.values(groupedAllocations).some(v => v > 0)) ||
+                                (adjustmentType === 'INCREASE' && Object.values(detailAllocations).some(v => v > 0))
+                            ) && (
+                                <div className="adj-modal-batch-list">
+                                    <div className="adj-modal-batch-title">Batch Allocations ({adjustmentType})</div>
+                                    {adjustmentType === 'DECREASE' ? (
+                                        batches
+                                            .filter(g => (groupedAllocations[getGroupKey(g)] || 0) > 0)
+                                            .map(g => {
+                                                const key = getGroupKey(g);
+                                                return (
+                                                    <div key={key} className="adj-modal-batch-row">
+                                                        <span>
+                                                            <span className="adj-batch-num">{g.batchNumber}</span>
+                                                            {g.expired ? ' (Expired)' : ''}
+                                                            <span style={{ color: '#64748b', fontSize: '11px', marginLeft: '6px' }}>
+                                                                Exp: {formatDate(g.expirationDate)} • {g.receiptCount} {g.receiptCount === 1 ? 'receipt' : 'receipts'}
+                                                            </span>
+                                                        </span>
+                                                        <span style={{ fontWeight: 600, color: '#dc2626' }}>
+                                                            −{formatQty(groupedAllocations[key])} {selectedProduct?.unit}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })
+                                    ) : (
+                                        Object.entries(detailAllocations)
+                                            .filter(([, qty]) => Number(qty) > 0)
+                                            .map(([itemId, qty]) => {
+                                                let foundDetail = null;
+                                                let foundGroup = null;
+                                                for (const g of batches) {
+                                                    const m = (g.details || []).find(d => String(d.stockReceiptItemId) === String(itemId));
+                                                    if (m) {
+                                                        foundDetail = m;
+                                                        foundGroup = g;
+                                                        break;
+                                                    }
+                                                }
+                                                return (
+                                                    <div key={itemId} className="adj-modal-batch-row">
+                                                        <span>
+                                                            <span className="adj-batch-num">{foundGroup?.batchNumber || '—'}</span>
+                                                            <span style={{ color: '#64748b', fontSize: '11px', marginLeft: '6px' }}>
+                                                                Receipt: {foundDetail?.receiptNumber || (foundDetail?.stockReceiptId ? `#${foundDetail.stockReceiptId}` : '—')}
+                                                                {` • Detail #${itemId}`}
+                                                                {foundDetail?.unitCost != null ? ` • Cost: ${formatCurrency(foundDetail.unitCost)}` : ''}
+                                                            </span>
+                                                        </span>
+                                                        <span style={{ fontWeight: 600, color: '#16a34a' }}>
+                                                            +{formatQty(qty)} {selectedProduct?.unit}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })
+                                    )}
+                                </div>
+                            )}
 
                             <p className="adj-modal-warning">
                                 ⚠ This action will immediately update the recorded inventory on hand and create an immutable Stock Movement entry in the system.

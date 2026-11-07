@@ -240,11 +240,23 @@
     color: #be123c;
 }
 
+.sms-summary-count-group {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+}
+
 .sms-summary-count {
     font-size: 1.75rem;
     font-weight: 700;
     color: #0f172a;
     font-variant-numeric: tabular-nums;
+}
+
+.sms-summary-unit {
+    font-size: 0.825rem;
+    font-weight: 500;
+    color: #64748b;
 }
 
 .sms-summary-info {

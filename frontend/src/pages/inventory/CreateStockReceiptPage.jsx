@@ -294,6 +294,22 @@ export default function CreateStockReceiptPage() {
             }
         });
 
+        // Validate intra-receipt batch consistency for expiry-tracked items (Requirement 6)
+        const batchExpiryMap = new Map();
+        items.forEach((item, idx) => {
+            if (item.trackExpiry && item.batchNumber && item.batchNumber.trim() && item.expirationDate) {
+                const key = `${item.productId}:${item.batchNumber.trim().toLowerCase()}`;
+                if (batchExpiryMap.has(key)) {
+                    const firstDate = batchExpiryMap.get(key);
+                    if (firstDate !== item.expirationDate) {
+                        newErrors[`item_${idx}_expirationDate`] = `Conflicting expiration date for batch "${item.batchNumber.trim()}". Must match earlier line (${firstDate}).`;
+                    }
+                } else {
+                    batchExpiryMap.set(key, item.expirationDate);
+                }
+            }
+        });
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };

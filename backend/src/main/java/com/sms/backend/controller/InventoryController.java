@@ -109,6 +109,28 @@ public class InventoryController {
         return ResponseEntity.ok(ApiResponse.success("Stock adjusted successfully", result));
     }
 
+    /**
+     * GET /api/v1/inventory/products/{productId}/batches
+     * Retrieves confirmed inventory batches for a product to support batch allocation (UC33).
+     */
+    @GetMapping("/products/{productId}/batches")
+    public ResponseEntity<ApiResponse<List<com.sms.backend.dto.inventory.ProductBatchResponse>>> getProductBatches(
+            @PathVariable Long productId) {
+        List<com.sms.backend.dto.inventory.ProductBatchResponse> result = inventoryService.getProductBatches(productId);
+        return ResponseEntity.ok(ApiResponse.success("Product batches retrieved", result));
+    }
+
+    /**
+     * GET /api/v1/inventory/products/{productId}/batches/grouped
+     * Retrieves grouped confirmed physical batches for a product (UC33).
+     */
+    @GetMapping("/products/{productId}/batches/grouped")
+    public ResponseEntity<ApiResponse<List<com.sms.backend.dto.inventory.GroupedProductBatchResponse>>> getGroupedProductBatches(
+            @PathVariable Long productId) {
+        List<com.sms.backend.dto.inventory.GroupedProductBatchResponse> result = inventoryService.getGroupedProductBatches(productId);
+        return ResponseEntity.ok(ApiResponse.success("Grouped product batches retrieved", result));
+    }
+
     // =========================================================================
     // Stock Receipts
     // =========================================================================

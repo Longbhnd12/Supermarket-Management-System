@@ -22,9 +22,21 @@ const InventoryService = {
     // UC33 - Adjust Stock
     /**
      * Submits a stock adjustment request.
-     * @param {Object} data - { productId, adjustmentType, adjustmentQuantity, reason, stockCheckId }
+     * @param {Object} data - { productId, adjustmentType, adjustmentQuantity, reason, stockCheckId, batchAllocations }
      */
     adjustStock: (data) => API.post('/inventory/adjust', data),
+
+    /**
+     * Retrieves confirmed inventory batches for a product (UC33).
+     * @param {number|string} productId
+     */
+    getProductBatches: (productId) => API.get('/inventory/products/' + productId + '/batches'),
+
+    /**
+     * Retrieves confirmed grouped physical batches for a product (UC33).
+     * @param {number|string} productId
+     */
+    getGroupedProductBatches: (productId) => API.get('/inventory/products/' + productId + '/batches/grouped'),
 
     // Stock Receipts
     getAllReceipts: (params) => API.get('/inventory/receipts', { params }),

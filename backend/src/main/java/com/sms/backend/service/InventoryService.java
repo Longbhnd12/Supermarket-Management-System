@@ -48,6 +48,8 @@ public interface InventoryService {
 
     // UC33 - Adjust Stock
     StockAdjustmentResponse adjustStock(StockAdjustmentRequest request);
+    List<com.sms.backend.dto.inventory.ProductBatchResponse> getProductBatches(Long productId);
+    List<com.sms.backend.dto.inventory.GroupedProductBatchResponse> getGroupedProductBatches(Long productId);
 
     // UC37 - Stock Receipt List
     StockReceiptPageResponse getStockReceiptList(StockReceiptFilter filter);

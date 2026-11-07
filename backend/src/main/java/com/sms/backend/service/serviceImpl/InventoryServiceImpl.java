@@ -63,13 +63,17 @@ import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Locale;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -210,23 +214,52 @@ public class InventoryServiceImpl implements InventoryService {
                 .orElse(BigDecimal.ZERO);
     }
 
+    /**
+     * UC31: Stock status is QUANTITY-LEVEL only — independent of batch expiry.
+     * IN_STOCK / LOW_STOCK / OUT_OF_STOCK solely based on stockQuantity vs minimumStockLevel.
+     * Batch expiry conditions are reported separately via batchExpiryAlerts.
+     */
     private String deriveStockStatus(Product p) {
-        BigDecimal qty = p.getStockQuantity();
-        BigDecimal minLevel = p.getMinimumStockLevel();
+        BigDecimal qty = p.getStockQuantity() != null ? p.getStockQuantity() : BigDecimal.ZERO;
+        BigDecimal minLevel = p.getMinimumStockLevel() != null ? p.getMinimumStockLevel() : BigDecimal.ZERO;
         if (qty.compareTo(BigDecimal.ZERO) <= 0) return "OUT_OF_STOCK";
-        if (Boolean.TRUE.equals(p.getTrackExpiry())) {
-            LocalDate threshold = LocalDate.now().plusDays(getNearExpiryThresholdDays());
-            boolean nearExpiry = stockReceiptDetailRepository.findByProduct(p).stream()
-                    .filter(d -> d.getStockReceipt().getStatus() == StockReceiptStatus.CONFIRMED)
-                    .filter(d -> d.getRemainingQuantity() != null
-                              && d.getRemainingQuantity().compareTo(BigDecimal.ZERO) > 0)
-                    .anyMatch(d -> d.getExpirationDate() != null
-                               && !d.getExpirationDate().isBefore(LocalDate.now())
-                               && !d.getExpirationDate().isAfter(threshold));
-            if (nearExpiry) return "NEAR_EXPIRY";
-        }
-        if (qty.compareTo(minLevel) <= 0) return "LOW_STOCK";
+        if (minLevel.compareTo(BigDecimal.ZERO) > 0 && qty.compareTo(minLevel) <= 0) return "LOW_STOCK";
         return "IN_STOCK";
+    }
+
+    /**
+     * UC31: Batch expiry alerts for a product — one entry per CONFIRMED batch that is
+     * near-expiry or already expired, with remainingQuantity > 0 and trackExpiry=true.
+     */
+    private List<InventoryResponse.BatchExpiryAlertInfo> deriveBatchExpiryAlerts(Product p) {
+        if (!Boolean.TRUE.equals(p.getTrackExpiry())) return List.of();
+        LocalDate today = LocalDate.now();
+        LocalDate nearExpiryThreshold = today.plusDays(getNearExpiryThresholdDays());
+
+        return stockReceiptDetailRepository.findByProduct(p).stream()
+                .filter(d -> d.getStockReceipt().getStatus() == StockReceiptStatus.CONFIRMED)
+                .filter(d -> d.getRemainingQuantity() != null
+                          && d.getRemainingQuantity().compareTo(BigDecimal.ZERO) > 0)
+                .filter(d -> d.getExpirationDate() != null
+                          && !d.getExpirationDate().isAfter(nearExpiryThreshold))
+                .map(d -> {
+                    LocalDate exp = d.getExpirationDate();
+                    long days = java.time.temporal.ChronoUnit.DAYS.between(today, exp);
+                    String alertType = exp.isBefore(today) ? "EXPIRED" : "NEAR_EXPIRY";
+                    String receiptNum = d.getStockReceipt() != null
+                            ? d.getStockReceipt().getReceiptNumber() : null;
+                    return new InventoryResponse.BatchExpiryAlertInfo(
+                            d.getStockReceiptItemId(),
+                            d.getBatchNumber(),
+                            receiptNum,
+                            d.getRemainingQuantity(),
+                            exp,
+                            days,
+                            alertType
+                    );
+                })
+                .sorted(Comparator.comparing(InventoryResponse.BatchExpiryAlertInfo::expirationDate))
+                .collect(Collectors.toList());
     }
 
     private InventoryResponse toInventoryResponse(Product p) {
@@ -240,7 +273,8 @@ public class InventoryServiceImpl implements InventoryService {
                 p.getUnit(),
                 p.getStockQuantity(),
                 p.getMinimumStockLevel(),
-                deriveStockStatus(p)
+                deriveStockStatus(p),
+                deriveBatchExpiryAlerts(p)
         );
     }
 
@@ -289,6 +323,125 @@ public class InventoryServiceImpl implements InventoryService {
     // =========================================================================
 
     @Override
+    public List<com.sms.backend.dto.inventory.ProductBatchResponse> getProductBatches(Long productId) {
+        if (productId == null) {
+            throw new BadRequestException("Product ID is required");
+        }
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + productId));
+
+        LocalDate today = LocalDate.now();
+
+        return stockReceiptDetailRepository.findByProduct(product).stream()
+                .filter(d -> d.getStockReceipt() != null
+                          && d.getStockReceipt().getStatus() == StockReceiptStatus.CONFIRMED)
+                .sorted(Comparator
+                        .comparing((StockReceiptDetail d) -> d.getExpirationDate() == null
+                                ? LocalDate.MAX : d.getExpirationDate())
+                        .thenComparing(d -> d.getStockReceipt().getReceivedAt() == null
+                                ? LocalDateTime.MAX : d.getStockReceipt().getReceivedAt())
+                        .thenComparing(StockReceiptDetail::getStockReceiptItemId))
+                .map(d -> {
+                    LocalDate exp = d.getExpirationDate();
+                    boolean isExpired = exp != null && exp.isBefore(today);
+                    String receiptNum = d.getStockReceipt() != null ? d.getStockReceipt().getReceiptNumber() : null;
+                    Long receiptId = d.getStockReceipt() != null ? d.getStockReceipt().getStockReceiptId() : null;
+                    LocalDateTime receivedAt = d.getStockReceipt() != null ? d.getStockReceipt().getReceivedAt() : null;
+
+                    return new com.sms.backend.dto.inventory.ProductBatchResponse(
+                            d.getStockReceiptItemId(),
+                            product.getProductId(),
+                            d.getBatchNumber(),
+                            exp,
+                            d.getRemainingQuantity() != null ? d.getRemainingQuantity() : BigDecimal.ZERO,
+                            d.getQuantity(),
+                            d.getUnitCost(),
+                            receiptNum,
+                            receiptId,
+                            receivedAt,
+                            isExpired
+                    );
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<com.sms.backend.dto.inventory.GroupedProductBatchResponse> getGroupedProductBatches(Long productId) {
+        if (productId == null) {
+            throw new BadRequestException("Product ID is required");
+        }
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + productId));
+
+        List<com.sms.backend.dto.inventory.ProductBatchResponse> detailResponses = getProductBatches(productId);
+        LocalDate today = LocalDate.now();
+
+        // Normalization helper (conservative, trimmed and uppercase)
+        java.util.function.Function<String, String> normalizeBatch = s -> s == null ? "" : s.trim().toUpperCase(Locale.ROOT);
+
+        // Record for grouping key: physical batch identity is (normalizedBatchNumber, expirationDate)
+        record GroupKey(String normalizedBatch, LocalDate expirationDate) {}
+
+        // Check for historical conflicting expiration dates for the same product and batchNumber
+        Map<String, Set<LocalDate>> dateSetsByBatch = new HashMap<>();
+        for (com.sms.backend.dto.inventory.ProductBatchResponse d : detailResponses) {
+            String nb = normalizeBatch.apply(d.batchNumber());
+            if (!nb.isEmpty()) {
+                dateSetsByBatch.computeIfAbsent(nb, k -> new HashSet<>()).add(d.expirationDate());
+            }
+        }
+
+        Map<GroupKey, List<com.sms.backend.dto.inventory.ProductBatchResponse>> groups = new LinkedHashMap<>();
+        for (com.sms.backend.dto.inventory.ProductBatchResponse d : detailResponses) {
+            GroupKey key = new GroupKey(normalizeBatch.apply(d.batchNumber()), d.expirationDate());
+            groups.computeIfAbsent(key, k -> new ArrayList<>()).add(d);
+        }
+
+        List<com.sms.backend.dto.inventory.GroupedProductBatchResponse> result = new ArrayList<>();
+        for (Map.Entry<GroupKey, List<com.sms.backend.dto.inventory.ProductBatchResponse>> entry : groups.entrySet()) {
+            GroupKey key = entry.getKey();
+            List<com.sms.backend.dto.inventory.ProductBatchResponse> list = entry.getValue();
+
+            // Sort details within the group: earliest receivedAt first, then stockReceiptItemId
+            list.sort(Comparator
+                    .comparing((com.sms.backend.dto.inventory.ProductBatchResponse d) -> d.receivedAt() == null ? LocalDateTime.MAX : d.receivedAt())
+                    .thenComparing(com.sms.backend.dto.inventory.ProductBatchResponse::stockReceiptItemId));
+
+            String displayBatchNumber = list.getFirst().batchNumber();
+            LocalDate expDate = key.expirationDate();
+            BigDecimal totalRemaining = list.stream()
+                    .map(d -> d.remainingQuantity() != null ? d.remainingQuantity() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal totalReceived = list.stream()
+                    .map(d -> d.receivedQuantity() != null ? d.receivedQuantity() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            boolean isExpired = expDate != null && expDate.isBefore(today);
+
+            Set<LocalDate> dates = dateSetsByBatch.get(key.normalizedBatch());
+            boolean hasConflictingDates = dates != null && dates.size() > 1;
+
+            result.add(new com.sms.backend.dto.inventory.GroupedProductBatchResponse(
+                    product.getProductId(),
+                    displayBatchNumber,
+                    expDate,
+                    totalRemaining,
+                    totalReceived,
+                    list.size(),
+                    isExpired,
+                    hasConflictingDates,
+                    list
+            ));
+        }
+
+        // Sort grouped batches: earliest expiration date first (FEFO order), then batchNumber
+        result.sort(Comparator
+                .comparing((com.sms.backend.dto.inventory.GroupedProductBatchResponse g) -> g.expirationDate() == null ? LocalDate.MAX : g.expirationDate())
+                .thenComparing(com.sms.backend.dto.inventory.GroupedProductBatchResponse::batchNumber, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
+
+        return result;
+    }
+
+    @Override
     @Transactional
     public StockAdjustmentResponse adjustStock(StockAdjustmentRequest request) {
         if (request == null) {
@@ -328,31 +481,31 @@ public class InventoryServiceImpl implements InventoryService {
             if (stockMovementRepository.existsByReferenceTypeAndReferenceId(StockReferenceType.STOCK_CHECK, request.stockCheckId())) {
                 throw new BusinessException("Stock adjustment has already been applied for stock check item: " + request.stockCheckId());
             }
-            StockCheck sc = stockCheckRepository.findById(request.stockCheckId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Stock check record not found with ID: " + request.stockCheckId()));
+            StockCheck sc = stockCheckRepository.findById(request.stockCheckId()).orElse(null);
+            if (sc != null) {
+                if (!sc.getProduct().getProductId().equals(request.productId())) {
+                    throw new BadRequestException("Stock check session does not match the specified product");
+                }
+                if ("COMPLETED".equalsIgnoreCase(sc.getStatus()) || "ADJUSTED".equalsIgnoreCase(sc.getStatus())) {
+                    throw new BusinessException("Stock adjustment has already been applied for this stock check item");
+                }
 
-            if (!sc.getProduct().getProductId().equals(request.productId())) {
-                throw new BadRequestException("Stock check session does not match the specified product");
-            }
-            if ("COMPLETED".equalsIgnoreCase(sc.getStatus()) || "ADJUSTED".equalsIgnoreCase(sc.getStatus())) {
-                throw new BusinessException("Stock adjustment has already been applied for this stock check item");
-            }
+                // Verify discrepancy exists and matches requested adjustment type and quantity
+                BigDecimal diff = sc.getDifference() != null ? sc.getDifference() : BigDecimal.ZERO;
+                if (diff.compareTo(BigDecimal.ZERO) == 0) {
+                    throw new BadRequestException("Cannot adjust stock for a balanced stock check record (variance is 0)");
+                }
+                String expectedType = diff.compareTo(BigDecimal.ZERO) < 0 ? "DECREASE" : "INCREASE";
+                if (!expectedType.equalsIgnoreCase(typeStr)) {
+                    throw new BadRequestException("Adjustment type must be " + expectedType + " for this stock check discrepancy");
+                }
+                BigDecimal expectedQty = diff.abs();
+                if (qty.compareTo(expectedQty) != 0) {
+                    throw new BadRequestException("Adjustment quantity (" + qty + ") does not match audited discrepancy (" + expectedQty + ")");
+                }
 
-            // Verify discrepancy exists and matches requested adjustment type and quantity
-            BigDecimal diff = sc.getDifference() != null ? sc.getDifference() : BigDecimal.ZERO;
-            if (diff.compareTo(BigDecimal.ZERO) == 0) {
-                throw new BadRequestException("Cannot adjust stock for a balanced stock check record (variance is 0)");
+                linkedStockCheck = sc;
             }
-            String expectedType = diff.compareTo(BigDecimal.ZERO) < 0 ? "DECREASE" : "INCREASE";
-            if (!expectedType.equalsIgnoreCase(typeStr)) {
-                throw new BadRequestException("Adjustment type must be " + expectedType + " for this stock check discrepancy");
-            }
-            BigDecimal expectedQty = diff.abs();
-            if (qty.compareTo(expectedQty) != 0) {
-                throw new BadRequestException("Adjustment quantity (" + qty + ") does not match audited discrepancy (" + expectedQty + ")");
-            }
-
-            linkedStockCheck = sc;
         }
 
         // 5. Lock product and fetch current stock (pessimistic write lock for concurrency safety)
@@ -375,6 +528,193 @@ public class InventoryServiceImpl implements InventoryService {
             linkedStockCheck.setStatus("COMPLETED");
             stockCheckRepository.save(linkedStockCheck);
         }
+
+        // Lock batches for this product
+        List<StockReceiptDetail> lockedBatches = stockReceiptDetailRepository.lockBatches(product.getProductId());
+        List<StockReceiptDetail> confirmedBatches = lockedBatches.stream()
+                .filter(d -> d.getStockReceipt() != null && d.getStockReceipt().getStatus() == StockReceiptStatus.CONFIRMED)
+                .toList();
+
+        java.util.Map<Long, StockReceiptDetail> batchMap = confirmedBatches.stream()
+                .collect(Collectors.toMap(StockReceiptDetail::getStockReceiptItemId, d -> d));
+
+        List<StockAdjustmentRequest.BatchAllocationRequest> allocations = request.batchAllocations();
+        List<StockAdjustmentRequest.GroupedBatchAllocationRequest> groupedAllocations = request.groupedBatchAllocations();
+        List<java.util.Map.Entry<StockReceiptDetail, BigDecimal>> executedBatchAllocations = new ArrayList<>();
+
+        if ("DECREASE".equals(typeStr) && groupedAllocations != null && !groupedAllocations.isEmpty()) {
+            // Grouped batch allocation for DECREASE
+            if (allocations != null && !allocations.isEmpty()) {
+                throw new BadRequestException("Provide either grouped batch allocations or item allocations, not both.");
+            }
+
+            Set<String> seenGroupKeys = new HashSet<>();
+            BigDecimal totalAllocated = BigDecimal.ZERO;
+            java.util.function.Function<String, String> norm = s -> s == null ? "" : s.trim().toUpperCase(Locale.ROOT);
+
+            for (StockAdjustmentRequest.GroupedBatchAllocationRequest groupAlloc : groupedAllocations) {
+                if (groupAlloc.batchNumber() == null || groupAlloc.batchNumber().trim().isEmpty()) {
+                    throw new BadRequestException("Batch number is required in grouped batch allocation");
+                }
+                String normBatch = norm.apply(groupAlloc.batchNumber());
+                String groupKey = normBatch + "|" + (groupAlloc.expirationDate() != null ? groupAlloc.expirationDate() : "");
+                if (!seenGroupKeys.add(groupKey)) {
+                    throw new BadRequestException("Duplicate grouped batch allocation for batch: " + groupAlloc.batchNumber());
+                }
+                if (groupAlloc.quantity() == null || groupAlloc.quantity().compareTo(BigDecimal.ZERO) <= 0) {
+                    throw new BadRequestException("Allocated quantity must be greater than 0 for batch: " + groupAlloc.batchNumber());
+                }
+                if (groupAlloc.quantity().remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) != 0) {
+                    throw new BadRequestException("Allocated quantity must be a whole integer for batch: " + groupAlloc.batchNumber());
+                }
+
+                // Find matching confirmed receipt details for this physical batch
+                List<StockReceiptDetail> matchingDetails = confirmedBatches.stream()
+                        .filter(d -> {
+                            String dNorm = norm.apply(d.getBatchNumber());
+                            if (!dNorm.equals(normBatch)) return false;
+                            if (groupAlloc.expirationDate() == null) {
+                                return d.getExpirationDate() == null;
+                            }
+                            return groupAlloc.expirationDate().equals(d.getExpirationDate());
+                        })
+                        .sorted(Comparator
+                                .comparing((StockReceiptDetail d) -> d.getStockReceipt().getReceivedAt() == null ? LocalDateTime.MAX : d.getStockReceipt().getReceivedAt())
+                                .thenComparing(StockReceiptDetail::getStockReceiptItemId))
+                        .toList();
+
+                if (matchingDetails.isEmpty()) {
+                    throw new BadRequestException("Physical batch '" + groupAlloc.batchNumber() + "' not found or has no confirmed receipts for product " + product.getProductName());
+                }
+
+                BigDecimal totalAvailableInGroup = matchingDetails.stream()
+                        .map(d -> d.getRemainingQuantity() != null ? d.getRemainingQuantity() : BigDecimal.ZERO)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                if (groupAlloc.quantity().compareTo(totalAvailableInGroup) > 0) {
+                    throw new BadRequestException("Insufficient remaining quantity in physical batch '" + groupAlloc.batchNumber()
+                            + "'. Available: " + totalAvailableInGroup + ", requested decrease: " + groupAlloc.quantity());
+                }
+
+                // Deterministic allocation policy: earliest receipt date first within SAME physical batch, tie-break by stockReceiptItemId
+                BigDecimal remainingToDeduct = groupAlloc.quantity();
+                for (StockReceiptDetail detail : matchingDetails) {
+                    if (remainingToDeduct.compareTo(BigDecimal.ZERO) <= 0) break;
+                    BigDecimal detailRemaining = detail.getRemainingQuantity() != null ? detail.getRemainingQuantity() : BigDecimal.ZERO;
+                    if (detailRemaining.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+                    BigDecimal deduct = detailRemaining.min(remainingToDeduct);
+                    detail.setRemainingQuantity(detailRemaining.subtract(deduct));
+                    remainingToDeduct = remainingToDeduct.subtract(deduct);
+
+                    stockReceiptDetailRepository.save(detail);
+                    executedBatchAllocations.add(java.util.Map.entry(detail, deduct));
+                }
+
+                if (remainingToDeduct.compareTo(BigDecimal.ZERO) > 0) {
+                    throw new BadRequestException("Failed to fully allocate decrease of " + groupAlloc.quantity() + " for batch " + groupAlloc.batchNumber());
+                }
+
+                totalAllocated = totalAllocated.add(groupAlloc.quantity());
+            }
+
+            if (totalAllocated.compareTo(qty) != 0) {
+                throw new BadRequestException("Sum of allocated batch quantities (" + totalAllocated
+                        + ") must equal total adjustment quantity (" + qty + ")");
+            }
+        } else if (allocations != null && !allocations.isEmpty()) {
+            if ("INCREASE".equals(typeStr) && groupedAllocations != null && !groupedAllocations.isEmpty()) {
+                throw new BadRequestException("Grouped allocation cannot be used for stock increase. Specific receipt detail must be selected.");
+            }
+
+            // Validate unique batches in allocation request
+            Set<Long> seenBatchIds = new HashSet<>();
+            BigDecimal totalAllocated = BigDecimal.ZERO;
+
+            for (StockAdjustmentRequest.BatchAllocationRequest alloc : allocations) {
+                if (alloc.stockReceiptItemId() == null) {
+                    throw new BadRequestException("Batch item ID is required in batch allocation");
+                }
+                if (!seenBatchIds.add(alloc.stockReceiptItemId())) {
+                    throw new BadRequestException("Duplicate batch allocation for batch ID: " + alloc.stockReceiptItemId());
+                }
+                if (alloc.quantity() == null || alloc.quantity().compareTo(BigDecimal.ZERO) <= 0) {
+                    throw new BadRequestException("Allocated quantity must be greater than 0 for batch ID: " + alloc.stockReceiptItemId());
+                }
+                if (alloc.quantity().remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) != 0) {
+                    throw new BadRequestException("Allocated quantity must be a whole integer for batch ID: " + alloc.stockReceiptItemId());
+                }
+
+                StockReceiptDetail batch = batchMap.get(alloc.stockReceiptItemId());
+                if (batch == null) {
+                    throw new BadRequestException("Batch record #" + alloc.stockReceiptItemId()
+                            + " not found or does not belong to confirmed receipt for product " + product.getProductName());
+                }
+
+                // Verify batch number and expiration date consistency if provided in the allocation request
+                if (alloc.batchNumber() != null && !alloc.batchNumber().trim().isEmpty()) {
+                    String reqBatch = alloc.batchNumber().trim().toUpperCase(Locale.ROOT);
+                    String actualBatch = batch.getBatchNumber() != null ? batch.getBatchNumber().trim().toUpperCase(Locale.ROOT) : "";
+                    if (!reqBatch.equals(actualBatch)) {
+                        throw new BadRequestException("Batch number mismatch for receipt detail #" + alloc.stockReceiptItemId()
+                                + ". Expected: " + actualBatch + ", requested: " + alloc.batchNumber());
+                    }
+                }
+                if (alloc.expirationDate() != null) {
+                    if (batch.getExpirationDate() == null || !alloc.expirationDate().equals(batch.getExpirationDate())) {
+                        throw new BadRequestException("Expiration date mismatch for receipt detail #" + alloc.stockReceiptItemId()
+                                + ". Expected: " + batch.getExpirationDate() + ", requested: " + alloc.expirationDate());
+                    }
+                }
+
+                if ("DECREASE".equals(typeStr)) {
+                    BigDecimal currentRemaining = batch.getRemainingQuantity() != null ? batch.getRemainingQuantity() : BigDecimal.ZERO;
+                    if (alloc.quantity().compareTo(currentRemaining) > 0) {
+                        throw new BadRequestException("Insufficient remaining quantity in batch "
+                                + (batch.getBatchNumber() != null ? batch.getBatchNumber() : ("#" + batch.getStockReceiptItemId()))
+                                + ". Available: " + currentRemaining + ", requested decrease: " + alloc.quantity());
+                    }
+                }
+
+                totalAllocated = totalAllocated.add(alloc.quantity());
+                executedBatchAllocations.add(java.util.Map.entry(batch, alloc.quantity()));
+            }
+
+            if (totalAllocated.compareTo(qty) != 0) {
+                throw new BadRequestException("Sum of allocated batch quantities (" + totalAllocated
+                        + ") must equal total adjustment quantity (" + qty + ")");
+            }
+
+            // Apply batch modifications
+            for (var entry : executedBatchAllocations) {
+                StockReceiptDetail batch = entry.getKey();
+                BigDecimal allocQty = entry.getValue();
+                BigDecimal currentRemaining = batch.getRemainingQuantity() != null ? batch.getRemainingQuantity() : BigDecimal.ZERO;
+
+                if ("INCREASE".equals(typeStr)) {
+                    batch.setRemainingQuantity(currentRemaining.add(allocQty));
+                } else {
+                    batch.setRemainingQuantity(currentRemaining.subtract(allocQty));
+                }
+                stockReceiptDetailRepository.save(batch);
+            }
+        } else {
+            // No allocations provided
+            if ("INCREASE".equals(typeStr) && groupedAllocations != null && !groupedAllocations.isEmpty()) {
+                throw new BadRequestException("Stock increase requires selecting specific receipt details to restore quantity to, in order to preserve unit cost and receipt history.");
+            }
+
+            if (Boolean.TRUE.equals(product.getTrackExpiry())) {
+                if (!confirmedBatches.isEmpty()) {
+                    throw new BadRequestException("Batch allocation is required for expiry-tracked product: "
+                            + product.getProductName() + ". Please select the affected batch(es).");
+                } else if ("INCREASE".equals(typeStr)) {
+                    throw new BadRequestException("Cannot increase stock without a valid batch for expiry-tracked product: "
+                            + product.getProductName() + ". Newly discovered batches must be imported via Stock Receipt (UC36).");
+                }
+            }
+        }
+
         BigDecimal newStock;
         BigDecimal quantityChange;
 
@@ -398,21 +738,52 @@ public class InventoryServiceImpl implements InventoryService {
         // 7. Record StockMovement
         User currentUser = resolveCurrentUser();
         LocalDateTime now = LocalDateTime.now();
+        Long firstMovementId = null;
 
-        StockMovement movement = new StockMovement();
-        movement.setProduct(product);
-        movement.setMovementType(StockMovementType.ADJUSTMENT);
-        movement.setQuantityChange(quantityChange);
-        movement.setReferenceType(StockReferenceType.STOCK_CHECK);
-        movement.setReferenceId(request.stockCheckId() != null ? request.stockCheckId() : 0L);
-        movement.setReason(reason);
-        movement.setCreatedBy(currentUser);
-        movement.setCreatedAt(now);
+        if (!executedBatchAllocations.isEmpty()) {
+            for (var entry : executedBatchAllocations) {
+                StockReceiptDetail batch = entry.getKey();
+                BigDecimal allocQty = entry.getValue();
+                BigDecimal batchQtyChange = "INCREASE".equals(typeStr) ? allocQty : allocQty.negate();
+                String batchReason = reason;
+                if (executedBatchAllocations.size() > 1 && batch.getBatchNumber() != null) {
+                    batchReason = reason + " [Batch: " + batch.getBatchNumber() + "]";
+                }
 
-        StockMovement savedMovement = stockMovementRepository.save(movement);
+                StockMovement m = new StockMovement();
+                m.setProduct(product);
+                m.setStockReceiptDetail(batch);
+                m.setMovementType(StockMovementType.ADJUSTMENT);
+                m.setQuantityChange(batchQtyChange);
+                m.setReferenceType(StockReferenceType.STOCK_CHECK);
+                m.setReferenceId(request.stockCheckId() != null ? request.stockCheckId() : 0L);
+                m.setReason(batchReason);
+                m.setCreatedBy(currentUser);
+                m.setCreatedAt(now);
+
+                StockMovement saved = stockMovementRepository.save(m);
+                if (firstMovementId == null) {
+                    firstMovementId = saved.getMovementId();
+                }
+            }
+        } else {
+            StockMovement m = new StockMovement();
+            m.setProduct(product);
+            m.setStockReceiptDetail(null);
+            m.setMovementType(StockMovementType.ADJUSTMENT);
+            m.setQuantityChange(quantityChange);
+            m.setReferenceType(StockReferenceType.STOCK_CHECK);
+            m.setReferenceId(request.stockCheckId() != null ? request.stockCheckId() : 0L);
+            m.setReason(reason);
+            m.setCreatedBy(currentUser);
+            m.setCreatedAt(now);
+
+            StockMovement saved = stockMovementRepository.save(m);
+            firstMovementId = saved.getMovementId();
+        }
 
         return new StockAdjustmentResponse(
-                savedMovement.getMovementId(),
+                firstMovementId,
                 product.getProductId(),
                 product.getProductCode(),
                 product.getProductName(),
@@ -536,6 +907,9 @@ public class InventoryServiceImpl implements InventoryService {
             validatedItems.add(new ItemValidationContext(product, itemReq.quantity(), itemReq.unitCost(), batchNumber, expirationDate, subtotal));
         }
 
+        // 5b. Validate batch identity consistency for expiry-tracked products (UC36)
+        validateBatchIdentityConsistency(validatedItems, null);
+
         // 6. Build and save StockReceipt header
         StockReceipt receipt = new StockReceipt();
         receipt.setReceiptNumber(receiptNumber);
@@ -603,14 +977,44 @@ public class InventoryServiceImpl implements InventoryService {
             throw new BusinessException("Only DRAFT receipts can be confirmed");
         }
 
+        List<StockReceiptDetail> details = stockReceiptDetailRepository.findByStockReceipt(receipt);
+        if (details.isEmpty()) {
+            throw new BadRequestException("Stock receipt must contain at least one product item to confirm");
+        }
+
+        // Validate perishable items and batch consistency before confirming (UC36)
+        for (StockReceiptDetail d : details) {
+            if (Boolean.TRUE.equals(d.getProduct().getTrackExpiry())) {
+                if (d.getBatchNumber() == null || d.getBatchNumber().trim().isEmpty()) {
+                    throw new BadRequestException("Batch number is required for perishable product: " + d.getProduct().getProductName());
+                }
+                if (d.getExpirationDate() == null) {
+                    throw new BadRequestException("Expiration date is required for perishable product: " + d.getProduct().getProductName());
+                }
+                if (d.getExpirationDate().isBefore(LocalDate.now())) {
+                    throw new BadRequestException("Expiration date cannot be in the past for product: " + d.getProduct().getProductName());
+                }
+            }
+        }
+
+        List<ItemValidationContext> validationItems = details.stream()
+                .map(d -> new ItemValidationContext(
+                        d.getProduct(),
+                        d.getQuantity(),
+                        d.getUnitCost(),
+                        d.getBatchNumber(),
+                        d.getExpirationDate(),
+                        d.getSubtotal()
+                ))
+                .toList();
+        validateBatchIdentityConsistency(validationItems, receipt.getStockReceiptId());
+
         LocalDateTime now = LocalDateTime.now();
         receipt.setStatus(StockReceiptStatus.CONFIRMED);
         receipt.setReceivedAt(now);
         receipt = stockReceiptRepository.save(receipt);
 
         User operator = resolveCurrentUser();
-
-        List<StockReceiptDetail> details = stockReceiptDetailRepository.findByStockReceipt(receipt);
         for (StockReceiptDetail detail : details) {
             detail.setRemainingQuantity(detail.getQuantity());
             stockReceiptDetailRepository.save(detail);
@@ -724,6 +1128,9 @@ public class InventoryServiceImpl implements InventoryService {
             validatedItems.add(new ItemValidationContext(product, itemReq.quantity(), itemReq.unitCost(), batchNumber, expirationDate, subtotal));
         }
 
+        // 3b. Validate batch identity consistency for expiry-tracked products (UC36)
+        validateBatchIdentityConsistency(validatedItems, receipt.getStockReceiptId());
+
         // 4. Update header (preserve original receiptNumber, createdAt, createdBy, and DRAFT status initially)
         receipt.setSupplier(supplier);
         receipt.setPurchaseOrder(purchaseOrder);
@@ -809,6 +1216,74 @@ public class InventoryServiceImpl implements InventoryService {
             LocalDate expirationDate,
             BigDecimal subtotal
     ) {}
+
+    private record BatchIdentityKey(Long productId, String normalizedBatchNumber) {}
+    private record BatchIdentityInfo(Product product, String originalBatchNumber, LocalDate expirationDate) {}
+
+    /**
+     * Validates batch identity consistency for expiry-tracked products (UC36):
+     * 1. Multiple entries within the same receipt for the same product and batch number must have identical expiration dates.
+     * 2. Any combination of product and batch number matching an existing confirmed batch in the system must have identical expiration dates.
+     * If dates match, another receipt detail is allowed to be created (preserved as separate records).
+     * If dates differ, a BadRequestException is thrown.
+     *
+     * @param items List of validated items or receipt details to check
+     * @param excludeReceiptId Receipt ID to exclude from confirmed check (e.g. current receipt being confirmed or edited)
+     */
+    private void validateBatchIdentityConsistency(List<ItemValidationContext> items, Long excludeReceiptId) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+
+        Map<BatchIdentityKey, BatchIdentityInfo> uniqueBatchesInReceipt = new LinkedHashMap<>();
+
+        // 1. Intra-receipt consistency check (Requirement 6)
+        for (ItemValidationContext item : items) {
+            Product product = item.product();
+            if (product != null && Boolean.TRUE.equals(product.getTrackExpiry())) {
+                String rawBatch = item.batchNumber();
+                String batchNumber = rawBatch != null ? rawBatch.trim() : "";
+                LocalDate expirationDate = item.expirationDate();
+
+                if (!batchNumber.isEmpty() && expirationDate != null) {
+                    BatchIdentityKey key = new BatchIdentityKey(product.getProductId(), batchNumber.toLowerCase());
+                    BatchIdentityInfo existing = uniqueBatchesInReceipt.get(key);
+                    if (existing != null) {
+                        if (!existing.expirationDate().equals(expirationDate)) {
+                            throw new BadRequestException("Conflicting expiration dates for product '" + product.getProductName()
+                                    + "' with batch number '" + existing.originalBatchNumber() + "' within the same receipt: "
+                                    + existing.expirationDate() + " vs " + expirationDate
+                                    + ". A physical batch must have a consistent expiration date.");
+                        }
+                    } else {
+                        uniqueBatchesInReceipt.put(key, new BatchIdentityInfo(product, batchNumber, expirationDate));
+                    }
+                }
+            }
+        }
+
+        // 2. Consistency check against existing confirmed batches in DB (Requirements 2, 3, 4, 5)
+        for (Map.Entry<BatchIdentityKey, BatchIdentityInfo> entry : uniqueBatchesInReceipt.entrySet()) {
+            BatchIdentityInfo info = entry.getValue();
+            List<StockReceiptDetail> confirmedBatches = stockReceiptDetailRepository
+                    .findConfirmedBatchesByProductAndBatchNumber(info.product().getProductId(), info.originalBatchNumber());
+
+            for (StockReceiptDetail confirmed : confirmedBatches) {
+                if (excludeReceiptId != null && confirmed.getStockReceipt() != null
+                        && excludeReceiptId.equals(confirmed.getStockReceipt().getStockReceiptId())) {
+                    continue;
+                }
+
+                if (confirmed.getExpirationDate() != null && !confirmed.getExpirationDate().equals(info.expirationDate())) {
+                    String receiptRef = confirmed.getStockReceipt() != null ? confirmed.getStockReceipt().getReceiptNumber() : "existing";
+                    throw new BadRequestException("Batch '" + info.originalBatchNumber() + "' for product '" + info.product().getProductName()
+                            + "' already exists in confirmed stock receipt '" + receiptRef
+                            + "' with expiration date " + confirmed.getExpirationDate()
+                            + ". Cannot receive the same batch with a different expiration date (" + info.expirationDate() + ").");
+                }
+            }
+        }
+    }
 
     // =========================================================================
     // UC34 - Stock History
@@ -1400,6 +1875,8 @@ public class InventoryServiceImpl implements InventoryService {
                         .comparing((StockAlertItemResponse a) -> getAlertSeverityOrder(a.alertType()))
                         .thenComparing(a -> a.expiryDate() != null ? a.expiryDate() : LocalDate.MAX)
                         .thenComparing(a -> a.productName() != null ? a.productName() : "")
+                        .thenComparing(a -> a.batchNumber() != null ? a.batchNumber() : "")
+                        .thenComparing(a -> a.alertId() != null ? a.alertId() : "")
                 )
                 .collect(Collectors.toList());
 
