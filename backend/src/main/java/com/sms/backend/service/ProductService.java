@@ -19,7 +19,9 @@ public interface ProductService {
 
     List<ProductResponse> getProductsByCategory(Long categoryId);
 
-    ProductResponse getProductById(Long id);
+    com.sms.backend.dto.product.ProductDetailResponse getProductById(Long id);
+
+    com.sms.backend.dto.product.ProductDetailResponse getProductDetails(Long id);
 
     ProductResponse getProductByCode(String productCode);
 

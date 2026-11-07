@@ -1,18 +1,26 @@
 package com.sms.backend.service.serviceImpl;
 
+import com.sms.backend.dto.product.ActivePromotionDTO;
 import com.sms.backend.dto.product.PriceHistoryResponse;
 import com.sms.backend.dto.product.PriceUpdateRequest;
+import com.sms.backend.dto.product.ProductDetailResponse;
 import com.sms.backend.dto.product.ProductRequest;
 import com.sms.backend.dto.product.ProductResponse;
+import com.sms.backend.dto.product.SupplierSummaryDTO;
 import com.sms.backend.entity.Category;
 import com.sms.backend.entity.Product;
+import com.sms.backend.entity.Promotion;
+import com.sms.backend.entity.Supplier;
 import com.sms.backend.entity.SystemLog;
 import com.sms.backend.entity.User;
 import com.sms.backend.enums.GeneralStatus;
+import com.sms.backend.enums.PromotionType;
 import com.sms.backend.exception.BadRequestException;
 import com.sms.backend.exception.ResourceNotFoundException;
 import com.sms.backend.repository.CategoryRepository;
 import com.sms.backend.repository.ProductRepository;
+import com.sms.backend.repository.PromotionRepository;
+import com.sms.backend.repository.SupplierRepository;
 import com.sms.backend.repository.SystemLogRepository;
 import com.sms.backend.security.CurrentUserProvider;
 import com.sms.backend.service.ProductService;
@@ -32,6 +40,8 @@ public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final PromotionRepository promotionRepository;
+    private final SupplierRepository supplierRepository;
     private final SystemLogRepository systemLogRepository;
     private final CurrentUserProvider currentUserProvider;
 
@@ -62,8 +72,88 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public ProductResponse getProductById(Long id) {
-        return toResponse(findById(id));
+    public ProductDetailResponse getProductById(Long id) {
+        return getProductDetails(id);
+    }
+
+    @Override
+    public ProductDetailResponse getProductDetails(Long id) {
+        Product p = findById(id);
+
+        // Find active promotion (Sequence Diagram Step 6 & 7)
+        ActivePromotionDTO activePromo = null;
+        try {
+            LocalDateTime now = LocalDateTime.now();
+            List<Promotion> promotions = promotionRepository.findEffective(GeneralStatus.ACTIVE, now);
+            for (Promotion promo : promotions) {
+                boolean matchesProduct = promo.getProduct() != null && promo.getProduct().getProductId().equals(p.getProductId());
+                boolean matchesCategory = promo.getCategory() != null && p.getCategory() != null
+                        && promo.getCategory().getCategoryId().equals(p.getCategory().getCategoryId());
+
+                if (matchesProduct || matchesCategory) {
+                    BigDecimal discountedPrice = p.getSellingPrice();
+                    if (promo.getPromotionType() == PromotionType.PERCENTAGE) {
+                        BigDecimal factor = BigDecimal.valueOf(100).subtract(promo.getDiscountValue())
+                                .divide(BigDecimal.valueOf(100), 4, java.math.RoundingMode.HALF_UP);
+                        discountedPrice = p.getSellingPrice().multiply(factor).setScale(0, java.math.RoundingMode.HALF_UP);
+                    } else if (promo.getPromotionType() == PromotionType.FIXED_AMOUNT) {
+                        discountedPrice = p.getSellingPrice().subtract(promo.getDiscountValue());
+                        if (discountedPrice.compareTo(BigDecimal.ZERO) < 0) {
+                            discountedPrice = BigDecimal.ZERO;
+                        }
+                    }
+
+                    activePromo = new ActivePromotionDTO(
+                            promo.getPromotionId(),
+                            promo.getPromotionName(),
+                            promo.getPromotionType(),
+                            promo.getDiscountValue(),
+                            discountedPrice,
+                            2,
+                            promo.getStartAt(),
+                            promo.getEndAt()
+                    );
+                    break;
+                }
+            }
+        } catch (Exception ignored) {}
+
+        // Find primary supplier
+        SupplierSummaryDTO primarySupplier = null;
+        try {
+            var suppliers = supplierRepository.findAll();
+            if (!suppliers.isEmpty()) {
+                var sup = suppliers.get(0);
+                primarySupplier = new SupplierSummaryDTO(
+                        sup.getSupplierId(),
+                        sup.getSupplierCode(),
+                        sup.getSupplierName(),
+                        sup.getContactPerson(),
+                        sup.getPhone(),
+                        "SLA 24h"
+                );
+            }
+        } catch (Exception ignored) {}
+
+        String spec = p.getUnit() != null ? "Quy cách đóng gói: " + p.getUnit() : "Quy chuẩn siêu thị";
+
+        return new ProductDetailResponse(
+                p.getProductId(),
+                p.getCategory().getCategoryId(),
+                p.getCategory().getCategoryName(),
+                p.getProductCode(),
+                p.getBarcode(),
+                p.getProductName(),
+                p.getUnit(),
+                p.getSellingPrice(),
+                p.getStockQuantity(),
+                p.getMinimumStockLevel(),
+                p.getTrackExpiry(),
+                p.getStatus(),
+                activePromo,
+                primarySupplier,
+                spec
+        );
     }
 
     @Override

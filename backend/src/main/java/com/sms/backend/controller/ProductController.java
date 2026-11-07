@@ -36,7 +36,7 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<ProductResponse>> getProductById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<com.sms.backend.dto.product.ProductDetailResponse>> getProductById(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success("Product retrieved", productService.getProductById(id)));
     }
 

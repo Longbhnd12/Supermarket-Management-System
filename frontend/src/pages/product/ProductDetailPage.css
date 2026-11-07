@@ -1,0 +1,1020 @@
+/* ==========================================================================
+   ProductDetailPage.css — UC13: View Product Details
+   Master SKU Product Detail Screen Styling
+   ========================================================================== */
+
+/* ─── 1. Page Container ─────────────────────────────────────────────────────── */
+
+.prdd-page {
+    padding: 24px 32px 48px;
+    background-color: var(--sms-bg, #f4f6fb);
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: var(--sms-text, #19233b);
+}
+
+.prdd-loading-screen,
+.prdd-error-screen {
+    padding: 80px 24px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+
+.prdd-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #cbd5e1;
+    border-top-color: var(--sms-primary, #2458dc);
+    border-radius: 50%;
+    animation: prdd-spin 0.75s linear infinite;
+}
+
+@keyframes prdd-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ─── 2. Top Action Bar ─────────────────────────────────────────────────────── */
+
+.prdd-top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.prdd-top-bar-left {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.prdd-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.prdd-back-btn:hover {
+    background: #f8fafc;
+    border-color: #94a3b8;
+    color: var(--sms-primary, #2458dc);
+}
+
+.prdd-badge-uc {
+    background: #eff4fc;
+    color: #2458dc;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+}
+
+.prdd-badge-read-only {
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 6px;
+}
+
+.prdd-top-bar-right {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.prdd-btn-sim {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.prdd-btn-sim:hover {
+    background: #eff4fc;
+    color: #2458dc;
+    border-color: #cbd5e1;
+}
+
+.prdd-btn-sim--active {
+    background: #fef2f2;
+    color: #dc2626;
+    border-color: #fca5a5;
+}
+
+.prdd-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 16px;
+    height: 38px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.prdd-btn--primary {
+    background: var(--sms-primary, #2458dc);
+    color: #ffffff;
+}
+
+.prdd-btn--primary:hover {
+    background: var(--sms-primary-dark, #1746bb);
+    box-shadow: 0 2px 6px rgba(36, 88, 220, 0.25);
+}
+
+.prdd-btn-sub-tag {
+    font-size: 9.5px;
+    background: rgba(255, 255, 255, 0.25);
+    padding: 2px 5px;
+    border-radius: 4px;
+    margin-left: 2px;
+}
+
+.prdd-btn--secondary {
+    background: #ffffff;
+    color: #334155;
+    border-color: #cbd5e1;
+}
+
+.prdd-btn--secondary:hover {
+    background: #f8fafc;
+    border-color: #94a3b8;
+}
+
+/* ─── 3. Product Header Banner Card ─────────────────────────────────────────── */
+
+.prdd-card {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid var(--sms-border, #e5e9f3);
+    box-shadow: 0 1px 4px rgba(25, 35, 59, 0.03);
+    overflow: hidden;
+}
+
+.prdd-banner-card {
+    padding: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.prdd-banner-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex: 1;
+    min-width: 0;
+}
+
+.prdd-packshot-box {
+    width: 68px;
+    height: 68px;
+    border-radius: 12px;
+    background: #eff4fc;
+    border: 1px solid #dbeafe;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.prdd-banner-meta {
+    flex: 1;
+    min-width: 0;
+}
+
+.prdd-banner-tags-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.prdd-tag-cat {
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: #eff4fc;
+    color: #2458dc;
+}
+
+.prdd-tag-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.prdd-tag-status--active {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+}
+
+.prdd-tag-status--inactive {
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+}
+
+.prdd-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.prdd-product-title {
+    font-size: 21px;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 8px;
+    line-height: 1.35;
+}
+
+.prdd-product-subline {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 12.5px;
+    color: #64748b;
+}
+
+.prdd-sub-item strong {
+    color: #1e293b;
+}
+
+.prdd-sub-sep {
+    color: #cbd5e1;
+}
+
+/* Banner Right Metrics */
+.prdd-banner-metrics {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    padding-left: 28px;
+    border-left: 1px solid #f1f5f9;
+    flex-shrink: 0;
+}
+
+.prdd-metric-item {
+    text-align: right;
+}
+
+.prdd-metric-lbl {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    display: block;
+    margin-bottom: 2px;
+}
+
+.prdd-metric-val {
+    font-size: 26px;
+    font-weight: 800;
+    color: #0f172a;
+    font-feature-settings: 'tnum';
+    line-height: 1.2;
+}
+
+.prdd-metric-val--price {
+    color: #2458dc;
+}
+
+.prdd-metric-unit {
+    font-size: 14px;
+    font-weight: 600;
+    color: #64748b;
+}
+
+/* ─── 4. Main 2-Column Grid ─────────────────────────────────────────────────── */
+
+.prdd-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.75fr) minmax(320px, 1.15fr);
+    gap: 24px;
+    align-items: start;
+}
+
+.prdd-col-left,
+.prdd-col-right {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.prdd-card-header {
+    padding: 18px 24px;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+
+.prdd-card-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.prdd-card-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.prdd-side-card-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.prdd-card-tag {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    background: #f8fafc;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+}
+
+.prdd-side-tag {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    background: #eff4fc;
+    color: #2458dc;
+    border-radius: 4px;
+}
+
+/* ─── 5. Card 1: General Information ────────────────────────────────────────── */
+
+.prdd-info-grid {
+    padding: 20px 24px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.prdd-info-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.prdd-info-cell--full {
+    grid-column: 1 / -1;
+}
+
+.prdd-info-lbl {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #64748b;
+}
+
+.prdd-info-val {
+    font-size: 13.5px;
+    color: #1e293b;
+}
+
+.prdd-info-val--bold {
+    font-weight: 700;
+    color: #0f172a;
+    font-size: 14.5px;
+}
+
+.prdd-sku-copy-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.prdd-sku-code {
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.prdd-copy-btn {
+    position: relative;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #475569;
+    transition: all 0.15s ease;
+}
+
+.prdd-copy-btn:hover {
+    background: #e2e8f0;
+    color: var(--sms-primary, #2458dc);
+}
+
+.prdd-copied-tooltip {
+    position: absolute;
+    bottom: -24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e293b;
+    color: #ffffff;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    animation: prdd-fade-in 0.15s ease;
+}
+
+@keyframes prdd-fade-in {
+    from { opacity: 0; transform: translate(-50%, -4px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.prdd-category-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13.5px;
+    color: #1e293b;
+    font-weight: 500;
+}
+
+.prdd-cat-dot {
+    color: #2458dc;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.prdd-barcode-line {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.prdd-barcode-num {
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.prdd-verified-pill {
+    font-size: 11px;
+    font-weight: 600;
+    color: #059669;
+    background: #ecfdf5;
+    padding: 2px 7px;
+    border-radius: 4px;
+}
+
+.prdd-no-barcode-text {
+    color: #94a3b8;
+    font-style: italic;
+    font-size: 13px;
+}
+
+.prdd-status-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #1e293b;
+}
+
+.prdd-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.prdd-dot--active { background: #10b981; }
+.prdd-dot--inactive { background: #94a3b8; }
+
+.prdd-pos-compat-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: #475569;
+}
+
+/* ─── 6. Card 2: Pricing & Inventory ────────────────────────────────────────── */
+
+.prdd-health-badge {
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 12px;
+}
+
+.prdd-health--healthy {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+}
+
+.prdd-health--low {
+    background: #fffbeb;
+    color: #d97706;
+    border: 1px solid #fde68a;
+}
+
+.prdd-health--out {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+
+.prdd-pricing-stats-grid {
+    padding: 20px 24px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.prdd-price-stat-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.prdd-stat-title {
+    font-size: 11.5px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.prdd-stat-val {
+    font-size: 22px;
+    font-weight: 800;
+    color: #0f172a;
+    font-feature-settings: 'tnum';
+    line-height: 1.25;
+}
+
+.prdd-stat-val--blue { color: #2458dc; }
+.prdd-stat-val--orange { color: #d97706; }
+
+.prdd-stat-unit {
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.prdd-stat-sub {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+/* Stock Safety Margin Bar */
+.prdd-safety-margin-wrap {
+    margin: 0 24px 24px;
+    padding: 16px 20px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.prdd-margin-text-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12.5px;
+}
+
+.prdd-margin-lbl {
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.prdd-margin-ratio {
+    color: #64748b;
+    font-feature-settings: 'tnum';
+}
+
+.prdd-margin-ratio strong {
+    color: #0f172a;
+}
+
+.prdd-progress-track {
+    position: relative;
+    height: 10px;
+    background: #e2e8f0;
+    border-radius: 6px;
+    overflow: visible;
+}
+
+.prdd-progress-fill {
+    height: 100%;
+    background: #2458dc;
+    border-radius: 6px;
+    transition: width 0.3s ease;
+}
+
+.prdd-progress-fill--warn {
+    background: #d97706;
+}
+
+.prdd-progress-marker {
+    position: absolute;
+    top: -3px;
+    width: 3px;
+    height: 16px;
+    background: #dc2626;
+    border-radius: 2px;
+    transform: translateX(-50%);
+}
+
+.prdd-scale-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10.5px;
+    color: #64748b;
+}
+
+.prdd-scale-threshold {
+    color: #dc2626;
+    font-weight: 600;
+}
+
+/* ─── 7. Card 3: Expiry Tracking Policy ─────────────────────────────────────── */
+
+.prdd-expiry-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.prdd-expiry-badge--yes {
+    background: #eff4fc;
+    color: #2458dc;
+    border: 1px solid #dbeafe;
+}
+
+.prdd-expiry-badge--no {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.prdd-policy-boxes-grid {
+    padding: 20px 24px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.prdd-policy-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.prdd-policy-box-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.prdd-policy-desc {
+    margin: 0;
+    font-size: 12px;
+    color: #475569;
+    line-height: 1.45;
+}
+
+/* ─── 8. Right Column: Barcode Visualizer ───────────────────────────────────── */
+
+.prdd-barcode-render-box {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+}
+
+.prdd-barcode-svg-wrap {
+    width: 200px;
+    height: 70px;
+    display: flex;
+    justify-content: center;
+}
+
+.prdd-barcode-svg {
+    width: 100%;
+    height: 100%;
+}
+
+.prdd-barcode-digits {
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.25em;
+    color: #0f172a;
+    margin-top: 8px;
+}
+
+.prdd-barcode-empty-box {
+    padding: 36px 20px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    color: #94a3b8;
+}
+
+.prdd-barcode-empty-icon {
+    font-size: 24px;
+    opacity: 0.6;
+}
+
+.prdd-barcode-empty-text {
+    font-size: 14px;
+    font-weight: 700;
+    color: #64748b;
+}
+
+.prdd-barcode-empty-sub {
+    font-size: 11.5px;
+}
+
+.prdd-barcode-caption {
+    margin: 0;
+    padding: 12px 20px;
+    background: #f8fafc;
+    border-top: 1px solid #f1f5f9;
+    font-size: 11.5px;
+    color: #64748b;
+    text-align: center;
+}
+
+/* ─── 9. Promotion Rules ────────────────────────────────────────────────────── */
+
+.prdd-btn-toggle-demo {
+    background: none;
+    border: none;
+    font-size: 11px;
+    font-weight: 600;
+    color: #2458dc;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+}
+
+.prdd-promo-content {
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.prdd-promo-badges {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.prdd-promo-pill-flash {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+}
+
+.prdd-promo-id {
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 11px;
+    color: #64748b;
+}
+
+.prdd-promo-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.4;
+}
+
+.prdd-promo-details-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+}
+
+.prdd-promo-detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.prdd-promo-lbl {
+    color: #64748b;
+}
+
+.prdd-promo-val {
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.prdd-promo-val--price {
+    color: #2458dc;
+    font-weight: 700;
+    font-size: 13.5px;
+}
+
+.prdd-promo-footer {
+    display: flex;
+    justify-content: flex-start;
+}
+
+.prdd-promo-countdown {
+    font-size: 11px;
+    font-weight: 600;
+    color: #d97706;
+}
+
+.prdd-no-promo-box {
+    padding: 24px;
+    text-align: center;
+    font-size: 12.5px;
+    color: #64748b;
+}
+
+/* ─── 10. Primary Supplier ──────────────────────────────────────────────────── */
+
+.prdd-supplier-header-lbl {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #64748b;
+}
+
+.prdd-supplier-id {
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 11px;
+    color: #64748b;
+}
+
+.prdd-supplier-body {
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.prdd-supplier-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: #eff4fc;
+    color: #2458dc;
+    font-weight: 800;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #dbeafe;
+    flex-shrink: 0;
+}
+
+.prdd-supplier-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.prdd-supplier-name {
+    margin: 0 0 3px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.prdd-supplier-sla {
+    margin: 0;
+    font-size: 11.5px;
+    color: #64748b;
+}
+
+/* ─── 11. Responsive Design ─────────────────────────────────────────────────── */
+
+@media (max-width: 1024px) {
+    .prdd-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .prdd-page {
+        padding: 16px;
+    }
+    .prdd-banner-card {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .prdd-banner-metrics {
+        padding-left: 0;
+        border-left: none;
+        padding-top: 16px;
+        border-top: 1px solid #f1f5f9;
+        width: 100%;
+        justify-content: space-between;
+    }
+    .prdd-info-grid {
+        grid-template-columns: 1fr;
+    }
+    .prdd-pricing-stats-grid {
+        grid-template-columns: 1fr;
+    }
+    .prdd-policy-boxes-grid {
+        grid-template-columns: 1fr;
+    }
+    .prdd-top-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .prdd-top-bar-right {
+        justify-content: stretch;
+    }
+    .prdd-top-bar-right .prdd-btn,
+    .prdd-top-bar-right .prdd-btn-sim {
+        flex: 1;
+    }
+}
+
