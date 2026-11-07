@@ -22,5 +22,7 @@ public interface SupplierService {
 
     SupplierResponse updateSupplier(Long id, SupplierRequest request);
 
+    SupplierResponse updateStatus(Long id, SupplierStatus status);
+
     void deleteSupplier(Long id);
 }

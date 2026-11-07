@@ -58,6 +58,7 @@ import CreateStockReceiptPage from './pages/inventory/CreateStockReceiptPage';
 
 // Supplier
 import SupplierListPage from './pages/supplier/SupplierListPage';
+import SupplierDetailPage from './pages/supplier/SupplierDetailPage';
 
 // Promotion
 import PromotionListPage from './pages/promotion/PromotionListPage';
@@ -171,6 +172,7 @@ export default function App() {
                     {/* Suppliers, promotions */}
                     <Route element={<RequirePermission access={PAGE_ACCESS.suppliers} />}>
                         <Route path="/suppliers" element={<SupplierListPage />} />
+                        <Route path="/suppliers/:id" element={<SupplierDetailPage />} />
                     </Route>
                     <Route element={<RequirePermission access={PAGE_ACCESS.promotions} />}>
                         <Route path="/promotions" element={<PromotionListPage />} />
