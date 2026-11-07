@@ -110,7 +110,6 @@ public final class ApiPermissionRules {
             open(GET, "/api/v1/test-error"),
             open(ANY, "/error"),
             open(POST, "/api/v1/auth/login"),
-            open(POST, "/api/v1/auth/register"),
             open(POST, "/api/v1/auth/forgot-password"),
             open(POST, "/api/v1/auth/reset-password"),
             // Logout works even with an expired token: it only clears the cookie
@@ -173,6 +172,8 @@ public final class ApiPermissionRules {
             staff(GET, "/api/v1/inventory/stock-history", STOCK_HISTORY_VIEW),
             staff(GET, "/api/v1/inventory/movements", STOCK_HISTORY_VIEW),
             staff(GET, "/api/v1/inventory/alerts", STOCK_ALERT_VIEW),
+            // UC33: product batches (FEFO) loaded by the Adjust Stock page
+            staff(GET, "/api/v1/inventory/products/*/batches/**", INVENTORY_VIEW, STOCK_ADJUST),
             staff(GET, "/api/v1/inventory/stock-alerts", STOCK_ALERT_VIEW),
             staff(GET, "/api/v1/inventory/receipts/**", STOCK_IMPORT, INVENTORY_VIEW),
             staff(ANY, "/api/v1/inventory/receipts/**", STOCK_IMPORT),

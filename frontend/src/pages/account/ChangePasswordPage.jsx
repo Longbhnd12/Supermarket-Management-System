@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { KeyRound } from 'lucide-react';
 import authService from '../../services/authService';
+import PasswordInput from '../../common/PasswordInput';
 import '../user/UserManagement.css';
 import './AccountPages.css';
 
@@ -81,20 +82,23 @@ export default function ChangePasswordPage() {
         }
     };
 
-    const input = (field, autoComplete, type = 'password') => (
+    const input = (field, autoComplete, type = 'password') => {
+        const props = {
+            value: form[field],
+            onChange: update(field),
+            autoComplete,
+            maxLength: field === 'identifier' ? 150 : 255,
+            'aria-invalid': Boolean(fieldErrors[field])
+        };
+        return (
         <label className="um-field">
             {LABELS[field]}
-            <input
-                type={type}
-                value={form[field]}
-                onChange={update(field)}
-                autoComplete={autoComplete}
-                maxLength={field === 'identifier' ? 150 : 255}
-                aria-invalid={Boolean(fieldErrors[field])}
-            />
+            {/* Password fields have the show/hide (eye) button */}
+            {type === 'password' ? <PasswordInput {...props} /> : <input type={type} {...props} />}
             {fieldErrors[field] && <span className="um-field-error">{fieldErrors[field]}</span>}
         </label>
-    );
+        );
+    };
 
     return (
         <div className="um-page">

@@ -1,8 +1,23 @@
 import { useState } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
+import {
+    AlertCircle,
+    BarChart3,
+    CheckCircle2,
+    Eye,
+    EyeOff,
+    Loader2,
+    Lock,
+    ShoppingCart,
+    Store,
+    TriangleAlert,
+    UserRound,
+    Warehouse
+} from 'lucide-react';
 import { useAuth } from '../../context/authContext';
 import { getReturnPath } from '../../utils/authRedirect';
 import './AuthPage.css';
+import './LoginPage.css';
 
 // UC01 - Login (SRS 3.2.1, SDD 4.2.2)
 const EMPTY_ERRORS = { identifier: '', password: '' };
@@ -15,13 +30,20 @@ function validate(identifier, password) {
     };
 }
 
+const FEATURES = [
+    { icon: ShoppingCart, text: 'Fast checkout at the POS with invoices and VNPay' },
+    { icon: Warehouse, text: 'Stock, receipts and purchase orders in one place' },
+    { icon: BarChart3, text: 'Sales, revenue and inventory reports' }
+];
+
 export default function LoginPage() {
     const { status, currentUser, login } = useAuth();
     const location = useLocation();
-    // Coming back from Forgot Password (UC45): success message + the account to sign in with
+    // Coming back from Forgot Password (UC45) or a session that expired: message + the account to sign in with
     const [identifier, setIdentifier] = useState(location.state?.identifier || '');
     const [notice, setNotice] = useState(location.state?.notice || '');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [fieldErrors, setFieldErrors] = useState(EMPTY_ERRORS);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -50,13 +72,10 @@ export default function LoginPage() {
         }
     };
 
-    // "Close" clears the login form
-    const close = () => {
-        setIdentifier('');
-        setPassword('');
-        setFieldErrors(EMPTY_ERRORS);
-        setError('');
-        setNotice('');
+    // Typing in a field removes its error message
+    const changeField = (field, setter) => (event) => {
+        setter(event.target.value);
+        if (fieldErrors[field]) setFieldErrors((current) => ({ ...current, [field]: '' }));
     };
 
     if (status === 'loading') return <div className="auth-loading">Checking your session…</div>;
@@ -66,49 +85,118 @@ export default function LoginPage() {
         return <Navigate to={getReturnPath(location.state?.from, currentUser?.role)} replace />;
     }
 
+    const noticeIsWarning = location.state?.noticeTone === 'warning';
+
     return (
-        <main className="auth-page">
-            <section className="auth-card">
-                <h1>RETAIL SMS</h1>
-                <p>Sign in to continue.</p>
-                {notice && (
-                    <p className={location.state?.noticeTone === 'warning' ? 'auth-warning' : 'auth-success'} role="status">
-                        {notice}
-                    </p>
-                )}
-                <form onSubmit={submit} noValidate>
-                    <label>
-                        Username/Email
-                        <input
-                            value={identifier}
-                            onChange={(event) => setIdentifier(event.target.value)}
-                            autoComplete="username"
-                            maxLength={150}
-                            aria-invalid={Boolean(fieldErrors.identifier)}
-                            autoFocus
-                        />
-                        {fieldErrors.identifier && <span className="auth-field-error">{fieldErrors.identifier}</span>}
-                    </label>
-                    <label>
-                        Password
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(event) => setPassword(event.target.value)}
-                            autoComplete="current-password"
-                            maxLength={255}
-                            aria-invalid={Boolean(fieldErrors.password)}
-                        />
-                        {fieldErrors.password && <span className="auth-field-error">{fieldErrors.password}</span>}
-                    </label>
-                    {error && <p className="auth-error" role="alert">{error}</p>}
-                    <Link className="auth-forgot" to="/forgot-password">Forgot password?</Link>
-                    <div className="auth-actions">
-                        <button type="button" className="auth-secondary" onClick={close} disabled={loading}>Close</button>
-                        <button type="submit" disabled={loading}>{loading ? 'Signing in…' : 'Login'}</button>
+        <main className="login-page">
+            <section className="login-brand" aria-hidden="true">
+                <div className="login-brand-logo">
+                    <span className="login-logo-icon"><Store size={26} /></span>
+                    <span>
+                        <strong>RETAIL SMS</strong>
+                        <small>Store Operations</small>
+                    </span>
+                </div>
+                <div className="login-brand-copy">
+                    <h2>Supermarket Management System</h2>
+                    <p>Everything the store team needs, from the checkout counter to the warehouse.</p>
+                    <ul>
+                        {FEATURES.map(({ icon: Icon, text }) => (
+                            <li key={text}><span><Icon size={18} /></span>{text}</li>
+                        ))}
+                    </ul>
+                </div>
+                <p className="login-brand-footer">© 2026 Supermarket Management System</p>
+            </section>
+
+            <section className="login-panel">
+                <div className="login-card">
+                    <div className="login-mobile-logo">
+                        <span className="login-logo-icon"><Store size={22} /></span>
+                        <strong>RETAIL SMS</strong>
                     </div>
-                </form>
-                <p>New account? <Link to="/register">Register</Link></p>
+
+                    <h1>Welcome back</h1>
+                    <p className="login-subtitle">Sign in to your account to continue.</p>
+
+                    {notice && (
+                        <div className={`login-alert ${noticeIsWarning ? 'login-alert--warning' : 'login-alert--success'}`} role="status">
+                            {noticeIsWarning ? <TriangleAlert size={18} /> : <CheckCircle2 size={18} />}
+                            <span>{notice}</span>
+                        </div>
+                    )}
+                    {error && (
+                        <div className="login-alert login-alert--error" role="alert">
+                            <AlertCircle size={18} />
+                            <span>{error}</span>
+                        </div>
+                    )}
+
+                    <form onSubmit={submit} noValidate className="login-form">
+                        <div className="login-field">
+                            <label htmlFor="login-identifier">Username or email</label>
+                            <div className={`login-input${fieldErrors.identifier ? ' login-input--invalid' : ''}`}>
+                                <UserRound size={18} aria-hidden="true" />
+                                <input
+                                    id="login-identifier"
+                                    value={identifier}
+                                    onChange={changeField('identifier', setIdentifier)}
+                                    placeholder="Enter your username or email"
+                                    autoComplete="username"
+                                    maxLength={150}
+                                    aria-invalid={Boolean(fieldErrors.identifier)}
+                                    aria-describedby={fieldErrors.identifier ? 'login-identifier-error' : undefined}
+                                    autoFocus
+                                />
+                            </div>
+                            {fieldErrors.identifier && (
+                                <span id="login-identifier-error" className="login-field-error">
+                                    <AlertCircle size={14} aria-hidden="true" />{fieldErrors.identifier}
+                                </span>
+                            )}
+                        </div>
+
+                        <div className="login-field">
+                            <div className="login-label-row">
+                                <label htmlFor="login-password">Password</label>
+                                <Link className="login-forgot" to="/forgot-password">Forgot password?</Link>
+                            </div>
+                            <div className={`login-input${fieldErrors.password ? ' login-input--invalid' : ''}`}>
+                                <Lock size={18} aria-hidden="true" />
+                                <input
+                                    id="login-password"
+                                    type={showPassword ? 'text' : 'password'}
+                                    value={password}
+                                    onChange={changeField('password', setPassword)}
+                                    placeholder="Enter your password"
+                                    autoComplete="current-password"
+                                    maxLength={255}
+                                    aria-invalid={Boolean(fieldErrors.password)}
+                                    aria-describedby={fieldErrors.password ? 'login-password-error' : undefined}
+                                />
+                                <button
+                                    type="button"
+                                    className="login-eye"
+                                    onClick={() => setShowPassword((shown) => !shown)}
+                                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                    title={showPassword ? 'Hide password' : 'Show password'}
+                                >
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
+                            {fieldErrors.password && (
+                                <span id="login-password-error" className="login-field-error">
+                                    <AlertCircle size={14} aria-hidden="true" />{fieldErrors.password}
+                                </span>
+                            )}
+                        </div>
+
+                        <button type="submit" className="login-submit" disabled={loading}>
+                            {loading && <Loader2 size={18} className="login-spinner" aria-hidden="true" />}
+                            {loading ? 'Signing in…' : 'Login'}
+                        </button>
+                    </form>
+                </div>
             </section>
         </main>
     );

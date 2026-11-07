@@ -53,23 +53,23 @@ This table is generated from the code.
 | 2 | GET | `/api/v1/test-error` | Public (no login) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 3 | ANY | `/error` | Public (no login) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 4 | POST | `/api/v1/auth/login` | Public (no login) | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 5 | POST | `/api/v1/auth/register` | Public (no login) | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 6 | POST | `/api/v1/auth/forgot-password` | Public (no login) | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 7 | POST | `/api/v1/auth/reset-password` | Public (no login) | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 8 | POST | `/api/v1/auth/logout` | Public (no login) | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 9 | GET | `/api/v1/payments/vnpay/ipn` | Public (no login) | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 10 | GET | `/api/v1/auth/me` | Any logged-in account | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 11 | POST | `/api/v1/auth/change-password` | Any logged-in account | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 12 | ANY | `/api/v1/profile` | Any logged-in account | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 13 | GET | `/api/v1/users` | Any staff role | ✓ | ✓ | ✓ | ✓ |  |
-| 14 | GET | `/api/v1/users/**` | `USER_VIEW` | ✓ |  |  |  |  |
-| 15 | ANY | `/api/v1/users/**` | `USER_MANAGE` | ✓ |  |  |  |  |
-| 16 | ANY | `/api/v1/roles/**` | `ROLE_MANAGE` | ✓ |  |  |  |  |
-| 17 | ANY | `/api/v1/system-settings/**` | `SYSTEM_SETTINGS_MANAGE` | ✓ |  |  |  |  |
-| 18 | GET | `/api/v1/system-logs/**` | `SYSTEM_LOG_VIEW` | ✓ |  |  |  |  |
-| 19 | GET | `/api/v1/dashboard` | `DASHBOARD_VIEW` | ✓ | ✓ | ✓ | ✓ |  |
-| 20 | ANY | `/api/v1/notifications/**` | `NOTIFICATION_VIEW` (any role) | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 21 | GET | `/api/v1/products/**` | `PRODUCT_VIEW` | ✓ | ✓ | ✓ | ✓ |  |
+| 5 | POST | `/api/v1/auth/forgot-password` | Public (no login) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 6 | POST | `/api/v1/auth/reset-password` | Public (no login) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 7 | POST | `/api/v1/auth/logout` | Public (no login) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 8 | GET | `/api/v1/payments/vnpay/ipn` | Public (no login) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 9 | GET | `/api/v1/auth/me` | Any logged-in account | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 10 | POST | `/api/v1/auth/change-password` | Any logged-in account | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 11 | ANY | `/api/v1/profile` | Any logged-in account | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 12 | GET | `/api/v1/users` | Any staff role | ✓ | ✓ | ✓ | ✓ |  |
+| 13 | GET | `/api/v1/users/**` | `USER_VIEW` | ✓ |  |  |  |  |
+| 14 | ANY | `/api/v1/users/**` | `USER_MANAGE` | ✓ |  |  |  |  |
+| 15 | ANY | `/api/v1/roles/**` | `ROLE_MANAGE` | ✓ |  |  |  |  |
+| 16 | ANY | `/api/v1/system-settings/**` | `SYSTEM_SETTINGS_MANAGE` | ✓ |  |  |  |  |
+| 17 | GET | `/api/v1/system-logs/**` | `SYSTEM_LOG_VIEW` | ✓ |  |  |  |  |
+| 18 | GET | `/api/v1/dashboard` | `DASHBOARD_VIEW` | ✓ | ✓ | ✓ | ✓ |  |
+| 19 | ANY | `/api/v1/notifications/**` | `NOTIFICATION_VIEW` (any role) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 20 | GET | `/api/v1/products/**` | `PRODUCT_VIEW` | ✓ | ✓ | ✓ | ✓ |  |
+| 21 | PATCH | `/api/v1/products/*/price` | `PRODUCT_MANAGE` or `PRICE_MANAGE` | ✓ | ✓ |  |  |  |
 | 22 | ANY | `/api/v1/products/**` | `PRODUCT_MANAGE` | ✓ | ✓ |  |  |  |
 | 23 | GET | `/api/v1/categories/**` | `PRODUCT_VIEW` | ✓ | ✓ | ✓ | ✓ |  |
 | 24 | ANY | `/api/v1/categories/**` | `CATEGORY_MANAGE` | ✓ | ✓ |  |  |  |
@@ -78,47 +78,49 @@ This table is generated from the code.
 | 27 | GET | `/api/v1/employees/**` | `EMPLOYEE_VIEW` | ✓ | ✓ |  |  |  |
 | 28 | ANY | `/api/v1/employees/**` | `EMPLOYEE_MANAGE` | ✓ | ✓ |  |  |  |
 | 29 | GET | `/api/v1/suppliers/**` | `SUPPLIER_VIEW` | ✓ | ✓ | ✓ | ✓ |  |
-| 30 | DELETE | `/api/v1/suppliers/**` | `SUPPLIER_DISABLE` | ✓ | ✓ |  |  |  |
-| 31 | ANY | `/api/v1/suppliers/**` | `SUPPLIER_MANAGE` | ✓ | ✓ | ✓ | ✓ |  |
-| 32 | GET | `/api/v1/sales/*/invoice` | `INVOICE_VIEW` + role ADMIN/MANAGER/CASHIER | ✓ | ✓ | ✓ |  |  |
-| 33 | GET | `/api/v1/sales/*/invoice/pdf` | `INVOICE_VIEW` + role ADMIN/MANAGER/CASHIER | ✓ | ✓ | ✓ |  |  |
-| 34 | GET | `/api/v1/invoices/**` | `INVOICE_VIEW` + role ADMIN/MANAGER/CASHIER | ✓ | ✓ | ✓ |  |  |
-| 35 | GET | `/api/v1/sales/products` | `POS_SALE` | ✓ |  | ✓ |  |  |
-| 36 | GET | `/api/v1/sales/**` | `SALE_VIEW` or `POS_SALE` | ✓ | ✓ | ✓ |  |  |
-| 37 | ANY | `/api/v1/sales/**` | `POS_SALE` | ✓ |  | ✓ |  |  |
-| 38 | GET | `/api/v1/payments/reference/*` | `SALE_VIEW` or `POS_SALE` | ✓ | ✓ | ✓ |  |  |
-| 39 | GET | `/api/v1/payments/sales/*` | `SALE_VIEW` or `POS_SALE` | ✓ | ✓ | ✓ |  |  |
-| 40 | ANY | `/api/v1/payments/**` | `POS_SALE` | ✓ |  | ✓ |  |  |
-| 41 | GET | `/api/v1/inventory` | `INVENTORY_VIEW` | ✓ | ✓ |  | ✓ |  |
-| 42 | GET | `/api/v1/inventory/export` | `INVENTORY_VIEW` or `REPORT_INVENTORY` | ✓ | ✓ |  | ✓ |  |
-| 43 | POST | `/api/v1/inventory/adjust` | `STOCK_ADJUST` | ✓ |  |  | ✓ |  |
-| 44 | GET | `/api/v1/inventory/history` | `STOCK_HISTORY_VIEW` | ✓ | ✓ |  | ✓ |  |
-| 45 | GET | `/api/v1/inventory/stock-history` | `STOCK_HISTORY_VIEW` | ✓ | ✓ |  | ✓ |  |
-| 46 | GET | `/api/v1/inventory/movements` | `STOCK_HISTORY_VIEW` | ✓ | ✓ |  | ✓ |  |
-| 47 | GET | `/api/v1/inventory/alerts` | `STOCK_ALERT_VIEW` | ✓ | ✓ |  | ✓ |  |
-| 48 | GET | `/api/v1/inventory/stock-alerts` | `STOCK_ALERT_VIEW` | ✓ | ✓ |  | ✓ |  |
-| 49 | GET | `/api/v1/inventory/receipts/**` | `INVENTORY_VIEW` or `STOCK_IMPORT` | ✓ | ✓ |  | ✓ |  |
-| 50 | ANY | `/api/v1/inventory/receipts/**` | `STOCK_IMPORT` | ✓ |  |  | ✓ |  |
-| 51 | GET | `/api/v1/inventory/checks/**` | `INVENTORY_VIEW` or `STOCK_CHECK` | ✓ | ✓ |  | ✓ |  |
-| 52 | ANY | `/api/v1/inventory/checks/**` | `STOCK_CHECK` | ✓ |  |  | ✓ |  |
-| 53 | GET | `/api/v1/stock-receipts/next-number` | `STOCK_IMPORT` | ✓ |  |  | ✓ |  |
-| 54 | GET | `/api/v1/stock-receipts/**` | `INVENTORY_VIEW` or `STOCK_IMPORT` | ✓ | ✓ |  | ✓ |  |
-| 55 | ANY | `/api/v1/stock-receipts/**` | `STOCK_IMPORT` | ✓ |  |  | ✓ |  |
-| 56 | GET | `/api/v1/purchase-orders/pending` | `PURCHASE_REQUEST_APPROVE` | ✓ | ✓ |  |  |  |
-| 57 | GET | `/api/v1/purchase-orders/next-number` | `PURCHASE_REQUEST_CREATE` | ✓ |  |  | ✓ |  |
-| 58 | GET | `/api/v1/purchase-orders/low-stock-suggestions` | `PURCHASE_REQUEST_CREATE` | ✓ |  |  | ✓ |  |
-| 59 | GET | `/api/v1/purchase-orders/**` | `PURCHASE_REQUEST_CREATE` or `PURCHASE_REQUEST_APPROVE` or `PURCHASE_ORDER_VIEW` | ✓ | ✓ |  | ✓ |  |
-| 60 | POST | `/api/v1/purchase-orders` | `PURCHASE_REQUEST_CREATE` | ✓ |  |  | ✓ |  |
-| 61 | POST | `/api/v1/purchase-orders/requests` | `PURCHASE_REQUEST_CREATE` | ✓ |  |  | ✓ |  |
-| 62 | POST | `/api/v1/purchase-orders/*/approve` | `PURCHASE_REQUEST_APPROVE` | ✓ | ✓ |  |  |  |
-| 63 | POST | `/api/v1/purchase-orders/*/reject` | `PURCHASE_REQUEST_APPROVE` | ✓ | ✓ |  |  |  |
-| 64 | POST | `/api/v1/purchase-orders/*/supplier-proposal/review` | `PURCHASE_REQUEST_APPROVE` | ✓ | ✓ |  |  |  |
-| 65 | POST | `/api/v1/purchase-orders/*/cancel` | `PURCHASE_REQUEST_CREATE` or `PURCHASE_REQUEST_APPROVE` | ✓ | ✓ |  | ✓ |  |
-| 66 | ANY | `/api/v1/supplier-portal/**` | `SUPPLIER_PORTAL` (any role) | ✓ |  |  |  | ✓ |
-| 67 | GET | `/api/v1/reports/sales` | `REPORT_SALES` | ✓ | ✓ |  |  |  |
-| 68 | GET | `/api/v1/reports/revenue` | `REPORT_REVENUE` | ✓ | ✓ |  |  |  |
-| 69 | GET | `/api/v1/reports/product-sales` | `REPORT_PRODUCT_SALES` | ✓ | ✓ |  |  |  |
-| 70 | GET | `/api/v1/reports/inventory` | `REPORT_INVENTORY` | ✓ | ✓ |  | ✓ |  |
+| 30 | PATCH | `/api/v1/suppliers/*/status` | `SUPPLIER_MANAGE` or `SUPPLIER_DISABLE` | ✓ | ✓ | ✓ | ✓ |  |
+| 31 | DELETE | `/api/v1/suppliers/**` | `SUPPLIER_DISABLE` | ✓ | ✓ |  |  |  |
+| 32 | ANY | `/api/v1/suppliers/**` | `SUPPLIER_MANAGE` | ✓ | ✓ | ✓ | ✓ |  |
+| 33 | GET | `/api/v1/sales/*/invoice` | `INVOICE_VIEW` + role ADMIN/MANAGER/CASHIER | ✓ | ✓ | ✓ |  |  |
+| 34 | GET | `/api/v1/sales/*/invoice/pdf` | `INVOICE_VIEW` + role ADMIN/MANAGER/CASHIER | ✓ | ✓ | ✓ |  |  |
+| 35 | GET | `/api/v1/invoices/**` | `INVOICE_VIEW` + role ADMIN/MANAGER/CASHIER | ✓ | ✓ | ✓ |  |  |
+| 36 | GET | `/api/v1/sales/products` | `POS_SALE` | ✓ |  | ✓ |  |  |
+| 37 | GET | `/api/v1/sales/**` | `SALE_VIEW` or `POS_SALE` | ✓ | ✓ | ✓ |  |  |
+| 38 | ANY | `/api/v1/sales/**` | `POS_SALE` | ✓ |  | ✓ |  |  |
+| 39 | GET | `/api/v1/payments/reference/*` | `SALE_VIEW` or `POS_SALE` | ✓ | ✓ | ✓ |  |  |
+| 40 | GET | `/api/v1/payments/sales/*` | `SALE_VIEW` or `POS_SALE` | ✓ | ✓ | ✓ |  |  |
+| 41 | ANY | `/api/v1/payments/**` | `POS_SALE` | ✓ |  | ✓ |  |  |
+| 42 | GET | `/api/v1/inventory` | `INVENTORY_VIEW` | ✓ | ✓ |  | ✓ |  |
+| 43 | GET | `/api/v1/inventory/export` | `INVENTORY_VIEW` or `REPORT_INVENTORY` | ✓ | ✓ |  | ✓ |  |
+| 44 | POST | `/api/v1/inventory/adjust` | `STOCK_ADJUST` | ✓ |  |  | ✓ |  |
+| 45 | GET | `/api/v1/inventory/history` | `STOCK_HISTORY_VIEW` | ✓ | ✓ |  | ✓ |  |
+| 46 | GET | `/api/v1/inventory/stock-history` | `STOCK_HISTORY_VIEW` | ✓ | ✓ |  | ✓ |  |
+| 47 | GET | `/api/v1/inventory/movements` | `STOCK_HISTORY_VIEW` | ✓ | ✓ |  | ✓ |  |
+| 48 | GET | `/api/v1/inventory/alerts` | `STOCK_ALERT_VIEW` | ✓ | ✓ |  | ✓ |  |
+| 49 | GET | `/api/v1/inventory/products/*/batches/**` | `INVENTORY_VIEW` or `STOCK_ADJUST` | ✓ | ✓ |  | ✓ |  |
+| 50 | GET | `/api/v1/inventory/stock-alerts` | `STOCK_ALERT_VIEW` | ✓ | ✓ |  | ✓ |  |
+| 51 | GET | `/api/v1/inventory/receipts/**` | `INVENTORY_VIEW` or `STOCK_IMPORT` | ✓ | ✓ |  | ✓ |  |
+| 52 | ANY | `/api/v1/inventory/receipts/**` | `STOCK_IMPORT` | ✓ |  |  | ✓ |  |
+| 53 | GET | `/api/v1/inventory/checks/**` | `INVENTORY_VIEW` or `STOCK_CHECK` | ✓ | ✓ |  | ✓ |  |
+| 54 | ANY | `/api/v1/inventory/checks/**` | `STOCK_CHECK` | ✓ |  |  | ✓ |  |
+| 55 | GET | `/api/v1/stock-receipts/next-number` | `STOCK_IMPORT` | ✓ |  |  | ✓ |  |
+| 56 | GET | `/api/v1/stock-receipts/**` | `INVENTORY_VIEW` or `STOCK_IMPORT` | ✓ | ✓ |  | ✓ |  |
+| 57 | ANY | `/api/v1/stock-receipts/**` | `STOCK_IMPORT` | ✓ |  |  | ✓ |  |
+| 58 | GET | `/api/v1/purchase-orders/pending` | `PURCHASE_REQUEST_APPROVE` | ✓ | ✓ |  |  |  |
+| 59 | GET | `/api/v1/purchase-orders/next-number` | `PURCHASE_REQUEST_CREATE` | ✓ |  |  | ✓ |  |
+| 60 | GET | `/api/v1/purchase-orders/low-stock-suggestions` | `PURCHASE_REQUEST_CREATE` | ✓ |  |  | ✓ |  |
+| 61 | GET | `/api/v1/purchase-orders/**` | `PURCHASE_REQUEST_CREATE` or `PURCHASE_REQUEST_APPROVE` or `PURCHASE_ORDER_VIEW` | ✓ | ✓ |  | ✓ |  |
+| 62 | POST | `/api/v1/purchase-orders` | `PURCHASE_REQUEST_CREATE` | ✓ |  |  | ✓ |  |
+| 63 | POST | `/api/v1/purchase-orders/requests` | `PURCHASE_REQUEST_CREATE` | ✓ |  |  | ✓ |  |
+| 64 | POST | `/api/v1/purchase-orders/*/approve` | `PURCHASE_REQUEST_APPROVE` | ✓ | ✓ |  |  |  |
+| 65 | POST | `/api/v1/purchase-orders/*/reject` | `PURCHASE_REQUEST_APPROVE` | ✓ | ✓ |  |  |  |
+| 66 | POST | `/api/v1/purchase-orders/*/supplier-proposal/review` | `PURCHASE_REQUEST_APPROVE` | ✓ | ✓ |  |  |  |
+| 67 | POST | `/api/v1/purchase-orders/*/cancel` | `PURCHASE_REQUEST_CREATE` or `PURCHASE_REQUEST_APPROVE` | ✓ | ✓ |  | ✓ |  |
+| 68 | ANY | `/api/v1/supplier-portal/**` | `SUPPLIER_PORTAL` (any role) | ✓ |  |  |  | ✓ |
+| 69 | GET | `/api/v1/reports/sales` | `REPORT_SALES` | ✓ | ✓ |  |  |  |
+| 70 | GET | `/api/v1/reports/revenue` | `REPORT_REVENUE` | ✓ | ✓ |  |  |  |
+| 71 | GET | `/api/v1/reports/product-sales` | `REPORT_PRODUCT_SALES` | ✓ | ✓ |  |  |  |
+| 72 | GET | `/api/v1/reports/inventory` | `REPORT_INVENTORY` | ✓ | ✓ |  | ✓ |  |
 | | ANY | anything else | **Denied** (deny by default) | | | | | |
 
 ## To confirm by each module owner

@@ -1,7 +1,6 @@
 import API from './api';
 
 const authService = {
-    register: async (details) => (await API.post('/auth/register', details)).data,
     login: async (credentials) => (await API.post('/auth/login', credentials)).data,
     // No toast: AuthProvider shows its own "Cannot connect" screen and keeps the user logged in
     getMe: async () => (await API.get('/auth/me', { skipGlobalError: true })).data,

@@ -16,3 +16,6 @@
 .auth-card button.auth-text-button{padding:0;background:none;color:#1d4ed8;font-weight:600;font-size:14px}
 .auth-card button.auth-text-button:disabled{color:#94a3b8;opacity:1}
 .auth-warning{margin:0 0 12px;padding:10px 12px;border-radius:7px;background:#fffaeb;color:#b54708!important;font-weight:600}
+/* Error messages in red (".auth-card p" is more specific than ".auth-error" and made them gray) */
+.auth-card .auth-error,.auth-card .auth-field-error{color:#d92d20}
+.auth-card input[aria-invalid="true"]{border-color:#d92d20}

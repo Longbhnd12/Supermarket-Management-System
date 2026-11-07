@@ -19,7 +19,7 @@ export const LOGIN_NOTICES = {
     'other-tab': 'You have been logged out in another tab.'
 };
 
-const AUTH_PAGES = ['/login', '/register', '/forgot-password'];
+const AUTH_PAGES = ['/login', '/forgot-password'];
 
 // After the session expired, go back to the page the user was on, if that page fits the role:
 // a Supplier only uses the Supplier portal, staff never land in it.
