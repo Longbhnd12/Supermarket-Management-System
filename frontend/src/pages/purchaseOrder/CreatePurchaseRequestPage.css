@@ -368,7 +368,7 @@
 }
 
 .sms-suggestion-category {
-    font-size: 0.7rem;
+    font-size: 0.775rem;
     color: #64748b;
     background-color: #f1f5f9;
     padding: 0.1rem 0.35rem;
@@ -394,10 +394,10 @@
 }
 
 .sms-stock-pill {
-    padding: 0.1rem 0.4rem;
+    padding: 0.15rem 0.45rem;
     border-radius: 4px;
     font-weight: 600;
-    font-size: 0.725rem;
+    font-size: 0.775rem;
 }
 
 .sms-stock-pill--out {
@@ -629,7 +629,7 @@
 
 .sms-code-tag {
     font-family: monospace;
-    font-size: 0.725rem;
+    font-size: 0.775rem;
     background-color: #e0f2fe;
     color: #0369a1;
     padding: 0.05rem 0.35rem;
@@ -638,7 +638,7 @@
 }
 
 .sms-cat-tag {
-    font-size: 0.725rem;
+    font-size: 0.775rem;
     background-color: #f1f5f9;
     color: #475569;
     padding: 0.05rem 0.35rem;
@@ -647,7 +647,7 @@
 
 .sms-barcode-tag {
     font-family: monospace;
-    font-size: 0.725rem;
+    font-size: 0.775rem;
     background-color: #fef3c7;
     color: #92400e;
     padding: 0.05rem 0.35rem;

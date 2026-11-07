@@ -196,7 +196,7 @@
 
 .csr-card__title {
     margin: 0;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
     color: var(--sms-text, #19233b);
     display: flex;
@@ -205,14 +205,14 @@
 }
 
 .csr-card__hint {
-    font-size: 12px;
-    color: var(--sms-text-secondary, #69748c);
+    font-size: 13px;
+    color: var(--sms-text-secondary, #475569);
 }
 
 .csr-card__count {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
-    color: var(--sms-text-secondary, #69748c);
+    color: var(--sms-text-secondary, #475569);
     background: var(--sms-border, #e5e9f3);
     padding: 2px 8px;
     border-radius: 10px;
@@ -244,11 +244,11 @@
 }
 
 .csr-label {
-    font-size: 11px;
+    font-size: 12.5px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--sms-text-secondary, #69748c);
+    letter-spacing: 0.05em;
+    color: var(--sms-text-secondary, #475569);
 }
 
 .csr-required {
@@ -256,12 +256,12 @@
 }
 
 .csr-help-text {
-    font-size: 11px;
-    color: var(--sms-text-secondary, #69748c);
+    font-size: 12px;
+    color: var(--sms-text-secondary, #475569);
 }
 
 .csr-error-msg {
-    font-size: 11px;
+    font-size: 12px;
     color: #e53e3e;
     font-weight: 500;
 }
@@ -274,7 +274,7 @@
     padding: 0 12px;
     border: 1px solid var(--sms-border, #e5e9f3);
     border-radius: 8px;
-    font-size: 13px;
+    font-size: 14px;
     color: var(--sms-text, #19233b);
     background: #fff;
     transition: border-color 0.18s, box-shadow 0.18s;
@@ -416,7 +416,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 11px;
+    font-size: 12.5px;
     color: var(--sms-text-secondary, #69748c);
 }
 
@@ -444,7 +444,7 @@
     align-items: center;
     padding: 3px 10px;
     border-radius: 20px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
@@ -466,7 +466,7 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 11px;
+    font-size: 12px;
     padding: 2px 7px;
     border-radius: 4px;
     font-weight: 500;
@@ -494,7 +494,7 @@
     align-items: center;
     gap: 3px;
     padding: 3px 8px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--sms-primary, #2458dc);
     background: #eff6ff;
@@ -515,7 +515,7 @@
     align-items: center;
     padding: 2px 7px;
     border-radius: 4px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     white-space: nowrap;
 }
@@ -534,7 +534,7 @@
 
 .csr-sku-chip {
     font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
-    font-size: 11px;
+    font-size: 12px;
     color: var(--sms-primary, #2458dc);
     background: rgba(36, 88, 220, 0.07);
     border-radius: 4px;
@@ -542,22 +542,22 @@
 }
 
 .csr-barcode-chip {
-    font-size: 11px;
-    color: var(--sms-text-secondary, #69748c);
+    font-size: 12px;
+    color: var(--sms-text-secondary, #475569);
 }
 
 .csr-unit-badge {
-    font-size: 10px;
+    font-size: 12px;
     text-transform: uppercase;
     background: #e2e8f0;
     color: #334155;
-    padding: 1px 5px;
-    border-radius: 3px;
+    padding: 2px 6px;
+    border-radius: 4px;
 }
 
 .csr-na-text {
-    font-size: 12px;
-    color: var(--sms-text-secondary, #69748c);
+    font-size: 12.5px;
+    color: var(--sms-text-secondary, #475569);
     font-style: italic;
 }
 
@@ -571,17 +571,17 @@
 .csr-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 14px;
 }
 
 .csr-table th {
     padding: 10px 14px;
     text-align: left;
-    font-size: 11px;
+    font-size: 12.5px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--sms-text-secondary, #69748c);
+    letter-spacing: 0.05em;
+    color: var(--sms-text-secondary, #475569);
     background: var(--sms-bg-subtle, #fafbfd);
     border-bottom: 1px solid var(--sms-border, #e5e9f3);
     white-space: nowrap;
@@ -675,7 +675,7 @@
 
 .csr-cell-error {
     display: block;
-    font-size: 10px;
+    font-size: 12px;
     color: #e53e3e;
     margin-top: 3px;
     text-align: left;

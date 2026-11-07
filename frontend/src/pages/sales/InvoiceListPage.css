@@ -5,40 +5,40 @@
 .invoice-list-account { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--sms-border, #e5e9f3); border-radius: 9px; padding: 9px 13px; background: var(--sms-card-bg, #fff); font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
 .invoice-list-account svg { color: var(--sms-primary, #2458dc); flex-shrink: 0; }
 .invoice-list-page .sale-filters { grid-template-columns: minmax(240px, 2fr) repeat(2, minmax(150px, 1fr)) auto; padding: 22px; gap: 18px; border-radius: var(--sms-radius, 12px); background: var(--sms-card-bg, #fff); }
-.invoice-list-page .sale-filters label { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--sms-text-secondary, #69748c); }
+.invoice-list-page .sale-filters label { text-transform: none; letter-spacing: 0; font-size: 13.5px; color: var(--sms-text-secondary, #475569); }
 .invoice-list-page .sale-filters input { height: 42px; font-size: 14px; border-radius: 8px; transition: border-color .15s, box-shadow .15s; }
 .invoice-list-page .sale-search-field svg { top: 13px; }
 .invoice-list-page input:focus-visible, .invoice-list-page select:focus-visible, .invoice-list-page button:focus-visible, .invoice-list-page a:focus-visible { outline: 2px solid var(--sms-primary, #2458dc); outline-offset: 3px; }
-.invoice-list-page .sale-button { min-height: 42px; padding: 0 16px; border-radius: 8px; }
+.invoice-list-page .sale-button { min-height: 42px; padding: 0 16px; border-radius: 8px; font-size: 14px; font-weight: 600; }
 .invoice-list-page .sale-button--primary { background: var(--sms-primary, #2458dc); box-shadow: 0 3px 6px #2458dc18; }
 .invoice-list-page .sale-button--primary:hover { background: var(--sms-primary-dark, #1947bd); }
 .invoice-list-page .sale-button--secondary { background: #fff; border: 1px solid var(--sms-border, #e5e9f3); }
 .invoice-list-table-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 19px 22px; }
 .invoice-list-table-heading > div, .invoice-list-table-heading > span { display: flex; align-items: center; gap: 9px; }
 .invoice-list-table-heading > div > svg { color: var(--sms-primary, #2458dc); }
-.invoice-list-table-heading h2 { margin: 0; font-size: 16px; font-weight: 650; }
-.invoice-list-table-heading > span { color: var(--sms-text-secondary, #69748c); font-size: 12px; }
-.invoice-list-count { border-radius: 6px; padding: 3px 8px; background: #eef2ff; color: var(--sms-primary, #2458dc); font-size: 12px; font-weight: 700; }
+.invoice-list-table-heading h2 { margin: 0; font-size: 18px; font-weight: 650; }
+.invoice-list-table-heading > span { color: var(--sms-text-secondary, #475569); font-size: 13px; }
+.invoice-list-count { border-radius: 6px; padding: 3px 8px; background: #eef2ff; color: var(--sms-primary, #2458dc); font-size: 12.5px; font-weight: 700; }
 .invoice-list-page .sale-table-card { border-radius: var(--sms-radius, 12px); box-shadow: 0 4px 20px #19233b04; }
-.invoice-list-page table { table-layout: fixed; min-width: 960px; }
+.invoice-list-page table { table-layout: fixed; min-width: 960px; font-size: 14px; }
 .invoice-list-page th:nth-child(1) { width: 25%; }
 .invoice-list-page th:nth-child(2) { width: 24%; }
 .invoice-list-page th:nth-child(3) { width: 17%; }
 .invoice-list-page th:nth-child(4) { width: 13%; }
 .invoice-list-page th:nth-child(5) { width: 13%; text-align: right; }
 .invoice-list-page th:nth-child(6) { width: 8%; text-align: right; }
-.invoice-list-page .sale-table-card th { padding: 13px 18px; background: #f8f9fc; border-top: 1px solid #eef1f6; font-size: 11px; letter-spacing: .05em; }
-.invoice-list-page .sale-table-card td { padding: 18px; line-height: 1.6; font-size: 13px; }
+.invoice-list-page .sale-table-card th { padding: 12px 18px; background: #f8f9fc; border-top: 1px solid #eef1f6; font-size: 12.5px; letter-spacing: .04em; color: var(--sms-text-secondary, #475569); }
+.invoice-list-page .sale-table-card td { padding: 14px 18px; line-height: 1.5; font-size: 14px; }
 .invoice-list-page tbody tr:hover { background: #fafbff; }
 .invoice-list-number span, .invoice-list-sale span { display: block; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .invoice-list-number { color: var(--sms-primary, #2458dc); font-weight: 600; }
-.invoice-list-sale { color: var(--sms-text-secondary, #69748c); }
+.invoice-list-sale { color: var(--sms-text-secondary, #475569); }
 .invoice-list-date { font-variant-numeric: tabular-nums; }
-.invoice-list-cashier { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; background: #f1f4f9; border-radius: 6px; overflow-wrap: anywhere; max-width: 100%; }
+.invoice-list-cashier { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; background: #f1f4f9; border-radius: 6px; overflow-wrap: anywhere; max-width: 100%; font-size: 13px; }
 .invoice-list-cashier svg { color: #7c8aa3; flex-shrink: 0; }
 .invoice-list-page .sale-amount { text-align: right; font-variant-numeric: tabular-nums; }
 .invoice-list-page td:last-child { text-align: right; }
-.invoice-list-view, .invoice-list-view:visited { display: inline-flex; align-items: center; gap: 4px; padding: 6px 9px; background: #eef2ff; color: var(--sms-primary, #2458dc); border-radius: 7px; font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.invoice-list-view, .invoice-list-view:visited { display: inline-flex; align-items: center; gap: 4px; padding: 6px 11px; background: #eef2ff; color: var(--sms-primary, #2458dc); border-radius: 7px; font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap; }
 .invoice-list-view:hover { background: #e0e7ff; }
 .invoice-list-page .sale-pagination { padding: 16px 22px; }
 .invoice-list-page .sale-pagination button { padding: 0 11px; gap: 5px; }

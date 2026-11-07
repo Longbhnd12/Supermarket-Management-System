@@ -353,7 +353,7 @@
 }
 
 .sd-barcode-sub {
-    font-size: 11px;
+    font-size: 12px;
     color: #94a3b8;
 }
 
@@ -369,7 +369,7 @@
 }
 
 .sd-prod-cat {
-    font-size: 11px;
+    font-size: 12px;
     color: #64748b;
 }
 
@@ -381,7 +381,7 @@
 
 .sd-qty-unit {
     color: #94a3b8;
-    font-size: 11px;
+    font-size: 12px;
 }
 
 /* ── Badges ── */
@@ -413,7 +413,7 @@
     display: inline-block;
     padding: 3px 8px;
     border-radius: 4px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
 }
@@ -450,7 +450,7 @@
     background: #dcfce7;
     color: #15803d;
     font-weight: 600;
-    font-size: 11px;
+    font-size: 12px;
     padding: 3px 8px;
     border-radius: 4px;
 }
@@ -637,7 +637,7 @@
     border: 1px solid #cbd5e1;
     color: #334155;
     padding: 4px 10px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     border-radius: 4px;
     cursor: pointer;
@@ -714,7 +714,7 @@
 .sd-edit-preview-sub {
     display: block;
     color: #64748b;
-    font-size: 11px;
+    font-size: 12px;
 }
 
 /* ── Stale Discrepancy Styling ── */
@@ -730,7 +730,7 @@
     display: inline-block;
     background: #fef3c7;
     color: #b45309;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     padding: 2px 6px;
     border-radius: 4px;
@@ -752,14 +752,14 @@
 }
 
 .sd-current-stock-sub {
-    font-size: 11px;
+    font-size: 12px;
     color: #b45309;
     font-weight: 500;
     margin-top: 2px;
 }
 
 .sd-stale-note {
-    font-size: 11px;
+    font-size: 12px;
     color: #b45309;
     font-style: italic;
 }
@@ -802,7 +802,7 @@
     display: inline-block;
     background: #f1f5f9;
     color: #64748b;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     padding: 2px 6px;
     border-radius: 4px;

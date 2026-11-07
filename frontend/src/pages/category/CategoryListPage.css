@@ -9,7 +9,7 @@
     padding: 24px 32px 48px;
     background-color: var(--sms-bg, #f4f6fb);
     min-height: 100vh;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-family: var(--sms-font-sans);
     color: var(--sms-text, #19233b);
 }
 
@@ -134,7 +134,7 @@
     background: #eff4fc;
     color: #2458dc;
     border-radius: 6px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.02em;
 }
@@ -147,13 +147,13 @@
     color: #475569;
     border: 1px solid #e2e8f0;
     border-radius: 6px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
 }
 
 .cat-subtitle {
-    font-size: 13.5px;
-    color: var(--sms-text-secondary, #69748c);
+    font-size: 14px;
+    color: var(--sms-text-secondary, #475569);
     margin: 0;
     max-width: 780px;
     line-height: 1.45;
@@ -428,14 +428,14 @@
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    font-size: 13px;
+    font-size: 14px;
     text-align: left;
 }
 
 .cat-table th {
     background: #f8fafc;
-    color: #475569;
-    font-size: 11px;
+    color: var(--sms-text-secondary, #475569);
+    font-size: 12.5px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;

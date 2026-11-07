@@ -48,11 +48,12 @@
 }
 
 .sms-account-card strong {
-    font-size: 14px;
+    font-size: 15px;
+    font-weight: 600;
 }
 
 .sms-account-card span {
-    font-size: 12px;
+    font-size: 13px;
     color: var(--sms-text-secondary);
     word-break: break-all;
 }
@@ -64,6 +65,7 @@
     border-radius: 20px;
     background: #e4ecff;
     color: var(--sms-primary);
+    font-size: 12px;
     font-weight: 600;
 }
 
@@ -79,6 +81,7 @@
     color: var(--sms-text);
     font: inherit;
     font-size: 14px;
+    font-weight: 500;
     text-align: left;
     text-decoration: none;
     cursor: pointer;

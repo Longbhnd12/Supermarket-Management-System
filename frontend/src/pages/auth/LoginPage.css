@@ -2,8 +2,8 @@
 .login-page {
     --login-primary: #2458dc;
     --login-primary-dark: #1746bb;
-    --login-text: #19233b;
-    --login-muted: #69748c;
+    --login-text: var(--sms-text, #0f172a);
+    --login-muted: var(--sms-text-secondary, #475569);
     --login-border: #d5dcea;
     --login-error: #d92d20;
     --login-error-bg: #fef3f2;
@@ -237,7 +237,7 @@
 
 .login-forgot {
     color: var(--login-primary);
-    font-size: 13px;
+    font-size: 13.5px;
     font-weight: 600;
     text-decoration: none;
 }
