@@ -69,6 +69,23 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
             Pageable pageable
     );
 
+    /**
+     * Returns purchase orders for a supplier that are eligible for goods receiving (ACCEPTED or PARTIALLY_FULFILLED).
+     * Fetches supplier, requestedBy, and approvedBy eagerly to avoid lazy-load issues.
+     */
+    @Query("""
+            SELECT po
+            FROM PurchaseOrder po
+            JOIN FETCH po.supplier s
+            JOIN FETCH po.requestedBy u
+            LEFT JOIN FETCH po.approvedBy ab
+            WHERE s.supplierId = :supplierId
+              AND po.status IN (com.sms.backend.enums.PurchaseOrderStatus.ACCEPTED,
+                                com.sms.backend.enums.PurchaseOrderStatus.PARTIALLY_FULFILLED)
+            ORDER BY po.updatedAt DESC, po.orderId DESC
+            """)
+    List<PurchaseOrder> findEligibleBySupplier(@Param("supplierId") Long supplierId);
+
     @Query("""
             SELECT po.status, COUNT(po)
             FROM PurchaseOrder po

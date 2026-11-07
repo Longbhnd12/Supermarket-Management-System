@@ -456,6 +456,60 @@
     border: 1px solid #6ee7b7;
 }
 
+.csr-badge--warning {
+    background: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+.csr-po-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.csr-po-chip--ordered {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.csr-po-chip--received {
+    background: #f8fafc;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+}
+
+.csr-po-chip--remaining {
+    background: #e0f2fe;
+    color: #0369a1;
+    font-weight: 700;
+}
+
+.csr-btn-add-batch {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--sms-primary, #2458dc);
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.csr-btn-add-batch:hover {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
 .csr-tag {
     display: inline-flex;
     align-items: center;

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import StockReceiptService from '../../services/stockReceiptService';
 import { useAuth } from '../../context/authContext';
 import './StockReceiptDetailPage.css';
@@ -128,7 +128,7 @@ function buildPrintHtml(receipt) {
     </div>
     <div class="meta-item"><label>Total Cost</label><span>${escHtml(formatCurrency(receipt.totalCost))}</span></div>
     <div class="meta-item"><label>Supplier</label><span>${escHtml(receipt.supplierName)}</span></div>
-    <div class="meta-item"><label>PO Reference</label><span>${escHtml(receipt.poNumber || '—')}</span></div>
+    <div class="meta-item"><label>PO Reference</label><span>${escHtml(receipt.poNumber || 'No linked purchase order')}</span></div>
     <div class="meta-item"><label>Created By</label><span>${escHtml(receipt.createdByUsername)}</span></div>
     <div class="meta-item"><label>Created At</label><span>${escHtml(formatDateTime(receipt.createdAt))}</span></div>
     <div class="meta-item"><label>Received At</label><span>${escHtml(formatDateTime(receipt.receivedAt))}</span></div>
@@ -531,11 +531,23 @@ export default function StockReceiptDetailPage() {
                         <span className="srd-meta-value">{receipt.supplierName}</span>
                     </div>
                     <div className="srd-meta-item">
-                        <span className="srd-meta-label">PO Reference</span>
+                        <span className="srd-meta-label">Purchase Order</span>
                         <span className="srd-meta-value">
-                            {receipt.poNumber
-                                ? <span className="srd-meta-value--mono">{receipt.poNumber}</span>
-                                : <span className="srd-null">—</span>}
+                            {receipt.poNumber ? (
+                                <Link
+                                    to={`/purchase-orders/${receipt.purchaseOrderId}`}
+                                    className="srd-meta-value--mono"
+                                    style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                    title="View Purchase Order Details"
+                                >
+                                    {receipt.poNumber}
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" />
+                                    </svg>
+                                </Link>
+                            ) : (
+                                <span className="srd-null">No linked purchase order</span>
+                            )}
                         </span>
                     </div>
                     <div className="srd-meta-item">

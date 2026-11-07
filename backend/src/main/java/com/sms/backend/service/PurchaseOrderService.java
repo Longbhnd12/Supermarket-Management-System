@@ -48,4 +48,10 @@ public interface PurchaseOrderService {
     }
 
     PurchaseOrderResponse cancelPurchaseOrder(Long id);
+
+    /**
+     * Returns purchase orders eligible for goods receiving for a given supplier.
+     * Eligible statuses: ACCEPTED, PARTIALLY_FULFILLED.
+     */
+    List<PurchaseOrderResponse> getEligiblePurchaseOrdersBySupplier(Long supplierId);
 }

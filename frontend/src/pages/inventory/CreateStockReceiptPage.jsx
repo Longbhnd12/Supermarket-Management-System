@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import StockReceiptService from '../../services/stockReceiptService';
 import SupplierService from '../../services/supplierService';
 import ProductService from '../../services/productService';
+import PurchaseOrderService from '../../services/purchaseOrderService';
 import './CreateStockReceiptPage.css';
 
 // ─── Formatting helpers ────────────────────────────────────────────────────────
@@ -33,6 +34,9 @@ export default function CreateStockReceiptPage() {
     const [supplierId, setSupplierId]       = useState('');
     const [purchaseOrderId, setPurchaseOrderId] = useState('');
     const [suppliers, setSuppliers]         = useState([]);
+    const [eligibleOrders, setEligibleOrders] = useState([]);
+    const [loadingOrders, setLoadingOrders] = useState(false);
+    const [selectedPo, setSelectedPo]       = useState(null);
 
     // ── Products List & Selection State ──
     const [allProducts, setAllProducts]     = useState([]);
@@ -53,6 +57,47 @@ export default function CreateStockReceiptPage() {
     const [pageError, setPageError]         = useState('');
     const [nonEditableError, setNonEditableError] = useState(null);
     const [errors, setErrors]               = useState({});
+
+    // ── Helper to load eligible POs for a supplier ──
+    const loadEligibleOrders = useCallback(async (supId, preselectedPoId = null) => {
+        if (!supId) {
+            setEligibleOrders([]);
+            setSelectedPo(null);
+            return;
+        }
+        setLoadingOrders(true);
+        try {
+            const res = await PurchaseOrderService.getEligibleForSupplier(supId);
+            let orders = res.data?.data || [];
+
+            // If a PO was already linked (e.g. in draft), ensure it is available in options
+            if (preselectedPoId && !orders.some(o => o.orderId === Number(preselectedPoId))) {
+                try {
+                    const poRes = await PurchaseOrderService.getById(preselectedPoId);
+                    if (poRes.data?.data) {
+                        orders = [poRes.data.data, ...orders];
+                    }
+                } catch (ignored) {}
+            }
+
+            setEligibleOrders(orders);
+
+            if (preselectedPoId) {
+                const found = orders.find(o => o.orderId === Number(preselectedPoId));
+                if (found) {
+                    setSelectedPo(found);
+                } else {
+                    const poRes = await PurchaseOrderService.getById(preselectedPoId);
+                    setSelectedPo(poRes.data?.data || null);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to load eligible purchase orders', err);
+            setEligibleOrders([]);
+        } finally {
+            setLoadingOrders(false);
+        }
+    }, []);
 
     // ── Load initial data: active suppliers, active products, and receipt details (edit) or next number (create) ──
     useEffect(() => {
@@ -93,8 +138,26 @@ export default function CreateStockReceiptPage() {
                         setSupplierId(receipt.supplierId ? String(receipt.supplierId) : '');
                         setPurchaseOrderId(receipt.purchaseOrderId ? String(receipt.purchaseOrderId) : '');
 
+                        let poData = null;
+                        if (receipt.purchaseOrderId) {
+                            try {
+                                const poRes = await PurchaseOrderService.getById(receipt.purchaseOrderId);
+                                poData = poRes.data?.data || null;
+                                setSelectedPo(poData);
+                            } catch (ignored) {}
+                        }
+
+                        if (receipt.supplierId) {
+                            loadEligibleOrders(receipt.supplierId, receipt.purchaseOrderId);
+                        }
+
                         const mappedItems = (receipt.details || []).map(d => {
                             const matchedProd = prodList.find(p => p.productId === d.productId);
+                            const poDetail = poData?.details?.find(p => p.productId === d.productId);
+                            const ordered = poDetail ? (poDetail.orderedQuantity != null ? Number(poDetail.orderedQuantity) : Number(poDetail.requestedQuantity)) : null;
+                            const prevRec = poDetail ? (Number(poDetail.receivedQuantity) || 0) : null;
+                            const remaining = poDetail ? Math.max(0, ordered - prevRec) : null;
+
                             return {
                                 productId: d.productId,
                                 productCode: d.productCode,
@@ -106,6 +169,9 @@ export default function CreateStockReceiptPage() {
                                 unitCost: d.unitCost,
                                 batchNumber: d.batchNumber || '',
                                 expirationDate: d.expirationDate ? String(d.expirationDate).split('T')[0] : '',
+                                orderedQuantity: ordered,
+                                previouslyReceived: prevRec,
+                                remainingQuantity: remaining,
                             };
                         });
                         setItems(mappedItems);
@@ -129,7 +195,7 @@ export default function CreateStockReceiptPage() {
         loadData();
 
         return () => { isMounted = false; };
-    }, [isEditMode, editId]);
+    }, [isEditMode, editId, loadEligibleOrders]);
 
     // ── Close search dropdown when clicking outside ──
     useEffect(() => {
@@ -146,20 +212,40 @@ export default function CreateStockReceiptPage() {
     const searchResults = useMemo(() => {
         if (!searchKeyword.trim()) return [];
         const kw = searchKeyword.toLowerCase().trim();
-        return allProducts.filter(p =>
+        let list = allProducts;
+        if (selectedPo && selectedPo.details) {
+            const allowedIds = new Set(selectedPo.details.map(d => d.productId));
+            list = list.filter(p => allowedIds.has(p.productId));
+        }
+        return list.filter(p =>
             p.productName.toLowerCase().includes(kw) ||
             p.productCode.toLowerCase().includes(kw) ||
             (p.barcode && p.barcode.toLowerCase().includes(kw)) ||
             (p.categoryName && p.categoryName.toLowerCase().includes(kw))
         ).slice(0, 8);
-    }, [searchKeyword, allProducts]);
+    }, [searchKeyword, allProducts, selectedPo]);
 
     // ── Add product to items ──
     const handleAddProduct = useCallback((product) => {
+        if (selectedPo && selectedPo.details) {
+            const inPo = selectedPo.details.some(d => d.productId === product.productId);
+            if (!inPo) {
+                setPageError(`Product "${product.productName}" is not included in Purchase Order ${selectedPo.poNumber}. Only products ordered in this PO can be received.`);
+                setIsSearchOpen(false);
+                return;
+            }
+        }
+
+        const poDetail = selectedPo?.details?.find(d => d.productId === product.productId);
+        const ordered = poDetail ? (poDetail.orderedQuantity != null ? Number(poDetail.orderedQuantity) : Number(poDetail.requestedQuantity)) : null;
+        const prevRec = poDetail ? (Number(poDetail.receivedQuantity) || 0) : null;
+        const remaining = poDetail ? Math.max(0, ordered - prevRec) : null;
+        const unitCost = poDetail ? (Number(poDetail.unitPrice) || 0) : (product.sellingPrice != null ? Number(product.sellingPrice) : 0);
+
         setItems(prevItems => {
             const existingIndex = prevItems.findIndex(it => it.productId === product.productId);
-            if (existingIndex >= 0) {
-                // If already added, increment quantity by 1
+            if (existingIndex >= 0 && !product.trackExpiry) {
+                // If standard item already added, increment quantity by 1
                 const updated = [...prevItems];
                 const item = updated[existingIndex];
                 updated[existingIndex] = {
@@ -179,10 +265,13 @@ export default function CreateStockReceiptPage() {
                     barcode: product.barcode,
                     unit: product.unit || 'pcs',
                     trackExpiry: Boolean(product.trackExpiry),
-                    quantity: 1,
-                    unitCost: product.sellingPrice != null ? Number(product.sellingPrice) : 0,
+                    quantity: remaining != null && remaining > 0 ? remaining : 1,
+                    unitCost: unitCost,
                     batchNumber: '',
                     expirationDate: '',
+                    orderedQuantity: ordered,
+                    previouslyReceived: prevRec,
+                    remainingQuantity: remaining,
                 }
             ];
         });
@@ -192,7 +281,95 @@ export default function CreateStockReceiptPage() {
         setIsSearchOpen(false);
         setBarcodeError('');
         setPageError('');
-    }, []);
+    }, [selectedPo]);
+
+    // ── Supplier change ──
+    const handleSupplierChange = (newSupId) => {
+        setSupplierId(newSupId);
+        setPurchaseOrderId('');
+        setSelectedPo(null);
+        setErrors(prev => {
+            const next = { ...prev };
+            delete next.supplierId;
+            return next;
+        });
+        if (newSupId) {
+            loadEligibleOrders(newSupId);
+        } else {
+            setEligibleOrders([]);
+        }
+    };
+
+    // ── Purchase Order change ──
+    const handlePurchaseOrderChange = async (e) => {
+        const poIdStr = e.target.value;
+        setPurchaseOrderId(poIdStr);
+        setPageError('');
+
+        if (!poIdStr) {
+            setSelectedPo(null);
+            return;
+        }
+
+        try {
+            const res = await PurchaseOrderService.getById(poIdStr);
+            const po = res.data?.data;
+            setSelectedPo(po);
+
+            if (po && po.details && po.details.length > 0) {
+                const poItems = po.details
+                    .filter(d => {
+                        const ordered = d.orderedQuantity != null ? Number(d.orderedQuantity) : Number(d.requestedQuantity);
+                        const received = Number(d.receivedQuantity) || 0;
+                        return (ordered - received) > 0;
+                    })
+                    .map(d => {
+                        const matchedProd = allProducts.find(p => p.productId === d.productId);
+                        const ordered = d.orderedQuantity != null ? Number(d.orderedQuantity) : Number(d.requestedQuantity);
+                        const received = Number(d.receivedQuantity) || 0;
+                        const remaining = Math.max(0, ordered - received);
+
+                        return {
+                            productId: d.productId,
+                            productCode: d.productCode || matchedProd?.productCode || '',
+                            productName: d.productName || matchedProd?.productName || '',
+                            barcode: matchedProd?.barcode || '',
+                            unit: d.unit || matchedProd?.unit || 'pcs',
+                            trackExpiry: Boolean(matchedProd?.trackExpiry),
+                            quantity: remaining,
+                            unitCost: Number(d.unitPrice) || Number(matchedProd?.sellingPrice) || 0,
+                            batchNumber: '',
+                            expirationDate: '',
+                            orderedQuantity: ordered,
+                            previouslyReceived: received,
+                            remainingQuantity: remaining,
+                        };
+                    });
+
+                if (poItems.length > 0) {
+                    setItems(poItems);
+                }
+            }
+        } catch (err) {
+            setPageError('Failed to load purchase order details.');
+        }
+    };
+
+    // ── Add another batch line for perishable product ──
+    const handleAddBatchLine = (idx) => {
+        const sourceItem = items[idx];
+        const newBatchItem = {
+            ...sourceItem,
+            quantity: 1,
+            batchNumber: '',
+            expirationDate: '',
+        };
+        setItems(prev => {
+            const next = [...prev];
+            next.splice(idx + 1, 0, newBatchItem);
+            return next;
+        });
+    };
 
     // ── Barcode scan submission ──
     const handleBarcodeSubmit = (e) => {
@@ -309,6 +486,35 @@ export default function CreateStockReceiptPage() {
                 }
             }
         });
+
+        // Validate against linked Purchase Order
+        if (selectedPo && selectedPo.details) {
+            const allowedProductIds = new Set(selectedPo.details.map(d => d.productId));
+            const qtyByProduct = {};
+
+            items.forEach((item, idx) => {
+                if (!allowedProductIds.has(item.productId)) {
+                    newErrors[`item_${idx}_product`] = `Product is not part of PO ${selectedPo.poNumber}`;
+                }
+                const q = parseFloat(item.quantity) || 0;
+                qtyByProduct[item.productId] = (qtyByProduct[item.productId] || 0) + q;
+            });
+
+            selectedPo.details.forEach(poDetail => {
+                const orderedQty = poDetail.orderedQuantity != null ? Number(poDetail.orderedQuantity) : Number(poDetail.requestedQuantity);
+                const prevRec = Number(poDetail.receivedQuantity) || 0;
+                const remaining = Math.max(0, orderedQty - prevRec);
+                const enteredTotal = qtyByProduct[poDetail.productId] || 0;
+
+                if (enteredTotal > remaining + 0.0001) {
+                    items.forEach((item, idx) => {
+                        if (item.productId === poDetail.productId) {
+                            newErrors[`item_${idx}_quantity`] = `Total entered (${enteredTotal}) exceeds remaining ordered quantity (${remaining})`;
+                        }
+                    });
+                }
+            });
+        }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -534,14 +740,7 @@ export default function CreateStockReceiptPage() {
                                 id="csr-supplier"
                                 className={`csr-select ${errors.supplierId ? 'csr-input--error' : ''}`}
                                 value={supplierId}
-                                onChange={e => {
-                                    setSupplierId(e.target.value);
-                                    setErrors(prev => {
-                                        const next = { ...prev };
-                                        delete next.supplierId;
-                                        return next;
-                                    });
-                                }}
+                                onChange={e => handleSupplierChange(e.target.value)}
                             >
                                 <option value="">-- Select an active supplier --</option>
                                 {suppliers.map(s => (
@@ -570,20 +769,80 @@ export default function CreateStockReceiptPage() {
                             <span className="csr-help-text">Current system timestamp</span>
                         </div>
 
-                        {/* Purchase Order Reference (Optional) */}
+                        {/* Purchase Order Selector (Optional) */}
                         <div className="csr-field-group">
-                            <label className="csr-label" htmlFor="csr-po-ref">PO Reference (Optional)</label>
-                            <input
-                                id="csr-po-ref"
-                                className="csr-input"
-                                type="text"
-                                placeholder="e.g. PO-2026-001 (Optional)"
+                            <label className="csr-label" htmlFor="csr-po-select">
+                                Purchase Order (Optional)
+                            </label>
+                            <select
+                                id="csr-po-select"
+                                className="csr-select"
                                 value={purchaseOrderId}
-                                onChange={e => setPurchaseOrderId(e.target.value)}
-                            />
-                            <span className="csr-help-text">Associated purchase order reference if any</span>
+                                onChange={handlePurchaseOrderChange}
+                                disabled={!supplierId || loadingOrders}
+                            >
+                                {!supplierId ? (
+                                    <option value="">-- Select a supplier first --</option>
+                                ) : loadingOrders ? (
+                                    <option value="">Loading purchase orders...</option>
+                                ) : (
+                                    <>
+                                        <option value="">-- Direct Stock Receipt (No PO) --</option>
+                                        {eligibleOrders.map(po => {
+                                            const statusLabel = po.status === 'PARTIALLY_FULFILLED'
+                                                ? 'Partially Fulfilled'
+                                                : po.status === 'ACCEPTED'
+                                                ? 'Accepted by Supplier'
+                                                : po.status;
+                                            return (
+                                                <option key={po.orderId} value={po.orderId}>
+                                                    {po.poNumber} — {statusLabel} ({po.details?.length || 0} items)
+                                                </option>
+                                            );
+                                        })}
+                                    </>
+                                )}
+                            </select>
+                            <span className="csr-help-text">
+                                {!supplierId
+                                    ? 'Select a supplier to view eligible purchase orders'
+                                    : eligibleOrders.length === 0 && !loadingOrders
+                                    ? 'No eligible (Accepted/Partial) orders found. Direct receipt will be created.'
+                                    : 'Select an accepted or partially fulfilled order to fulfill and track received quantities'}
+                            </span>
                         </div>
                     </div>
+
+                    {/* Linked Purchase Order Info Banner */}
+                    {selectedPo && (
+                        <div style={{
+                            marginTop: '16px',
+                            padding: '12px 16px',
+                            background: '#eff6ff',
+                            border: '1px solid #bfdbfe',
+                            borderRadius: '8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '12px'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                <span style={{ fontWeight: 700, color: '#1e3a8a', fontSize: '14px' }}>
+                                    Linked PO: {selectedPo.poNumber}
+                                </span>
+                                <span className={`csr-badge ${selectedPo.status === 'PARTIALLY_FULFILLED' ? 'csr-badge--warning' : 'csr-badge--active'}`}>
+                                    {selectedPo.status === 'PARTIALLY_FULFILLED' ? 'Partially Fulfilled' : 'Accepted by Supplier'}
+                                </span>
+                                <span style={{ fontSize: '13px', color: '#475569' }}>
+                                    Expected Delivery: <strong>{selectedPo.expectedDeliveryDate || '—'}</strong>
+                                </span>
+                            </div>
+                            <span style={{ fontSize: '12px', color: '#1e40af', fontWeight: 500 }}>
+                                Fulfilling approved items. Only products from this PO can be received.
+                            </span>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -735,10 +994,11 @@ export default function CreateStockReceiptPage() {
                                     const costErr = errors[`item_${idx}_unitCost`];
                                     const batchErr = errors[`item_${idx}_batchNumber`];
                                     const expErr = errors[`item_${idx}_expirationDate`];
+                                    const prodErr = errors[`item_${idx}_product`];
                                     const subtotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.unitCost) || 0);
 
                                     return (
-                                        <tr key={item.productId} className="csr-tr">
+                                        <tr key={`${item.productId}_${idx}`} className="csr-tr">
                                             <td className="csr-td csr-td--seq">{idx + 1}</td>
 
                                             {/* Product Info */}
@@ -750,6 +1010,20 @@ export default function CreateStockReceiptPage() {
                                                         {item.barcode && <span className="csr-barcode-chip">{item.barcode}</span>}
                                                         <span className="csr-unit-badge">{item.unit}</span>
                                                     </div>
+                                                    {selectedPo && (
+                                                        <div style={{ display: 'flex', gap: '6px', marginTop: '5px', flexWrap: 'wrap' }}>
+                                                            <span className="csr-po-chip csr-po-chip--ordered">
+                                                                Ordered: <strong>{item.orderedQuantity ?? '—'}</strong>
+                                                            </span>
+                                                            <span className="csr-po-chip csr-po-chip--received">
+                                                                Prev: <strong>{item.previouslyReceived ?? 0}</strong>
+                                                            </span>
+                                                            <span className="csr-po-chip csr-po-chip--remaining">
+                                                                Remaining: <strong>{item.remainingQuantity ?? '—'}</strong>
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {prodErr && <span className="csr-cell-error">{prodErr}</span>}
                                                 </div>
                                             </td>
 
@@ -772,6 +1046,11 @@ export default function CreateStockReceiptPage() {
                                                     value={item.quantity}
                                                     onChange={e => handleItemChange(idx, 'quantity', e.target.value)}
                                                 />
+                                                {selectedPo && item.remainingQuantity != null && (
+                                                    <span style={{ fontSize: '11px', color: '#64748b', display: 'block', marginTop: '2px' }}>
+                                                        Max: {item.remainingQuantity}
+                                                    </span>
+                                                )}
                                                 {qtyErr && <span className="csr-cell-error">{qtyErr}</span>}
                                             </td>
 
@@ -793,7 +1072,7 @@ export default function CreateStockReceiptPage() {
                                                 {item.trackExpiry ? (
                                                     <>
                                                         <input
-                                                            type="text"
+                                                             type="text"
                                                             placeholder="e.g. BATCH-01"
                                                             maxLength={50}
                                                             className={`csr-input csr-input--mono ${batchErr ? 'csr-input--error' : ''}`}
@@ -830,19 +1109,31 @@ export default function CreateStockReceiptPage() {
                                                 {formatCurrency(subtotal)}
                                             </td>
 
-                                            {/* Remove Action */}
+                                            {/* Action */}
                                             <td className="csr-td csr-td--action">
-                                                <button
-                                                    type="button"
-                                                    className="csr-btn-del"
-                                                    onClick={() => handleRemoveItem(idx)}
-                                                    title={`Remove ${item.productName}`}
-                                                    aria-label={`Remove ${item.productName}`}
-                                                >
-                                                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                                        <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                                                    </svg>
-                                                </button>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    {item.trackExpiry && (
+                                                        <button
+                                                            type="button"
+                                                            className="csr-btn-add-batch"
+                                                            onClick={() => handleAddBatchLine(idx)}
+                                                            title="Add another batch line for this product"
+                                                        >
+                                                            + Batch
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        className="csr-btn-del"
+                                                        onClick={() => handleRemoveItem(idx)}
+                                                        title={`Remove ${item.productName}`}
+                                                        aria-label={`Remove ${item.productName}`}
+                                                    >
+                                                        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     );

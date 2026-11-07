@@ -248,6 +248,7 @@ export default function PurchaseOrderDetailPage() {
 
     // Stage 5: Goods Received
     let stage5 = {};
+    const confirmedReceipts = receipts.filter(r => r.status === 'CONFIRMED');
     if (order.status === 'PENDING_APPROVAL' || order.status === 'REJECTED_BY_MANAGER' || order.status === 'REJECTED_BY_SUPPLIER') {
         stage5 = {
             title: 'Stage 5: Goods Received',
@@ -270,7 +271,9 @@ export default function PurchaseOrderDetailPage() {
             status: 'warning',
             time: formatDateTime(order.updatedAt),
             actor: 'Warehouse Operations',
-            description: `Partial delivery received. Inspect the items table below for received versus ordered quantities across linked stock receipts.`
+            description: confirmedReceipts.length > 0
+                ? `Partial delivery received across ${confirmedReceipts.length} confirmed stock receipt${confirmedReceipts.length > 1 ? 's' : ''}. Check line items below for remaining quantities.`
+                : 'Partial delivery received. Inspect the items table below for received versus ordered quantities.'
         };
     } else if (order.status === 'FULFILLED') {
         stage5 = {
@@ -278,7 +281,9 @@ export default function PurchaseOrderDetailPage() {
             status: 'completed',
             time: formatDateTime(order.updatedAt),
             actor: 'Warehouse Operations',
-            description: 'All ordered items have been fully received, inspected, and added into inventory stock.'
+            description: confirmedReceipts.length > 0
+                ? `Order fulfilled. All items received across ${confirmedReceipts.length} confirmed stock receipt${confirmedReceipts.length > 1 ? 's' : ''} and added to inventory.`
+                : 'All ordered items have been fully received, inspected, and added into inventory stock.'
         };
     }
 
@@ -517,6 +522,7 @@ export default function PurchaseOrderDetailPage() {
                                 <th style={{ textAlign: 'right' }}>Requested Qty</th>
                                 <th style={{ textAlign: 'right' }}>Ordered Qty</th>
                                 <th style={{ textAlign: 'right' }}>Received Qty</th>
+                                <th style={{ textAlign: 'right' }}>Remaining Qty</th>
                                 <th style={{ textAlign: 'right' }}>Unit Cost (₫)</th>
                                 <th style={{ textAlign: 'right' }}>Subtotal (₫)</th>
                             </tr>
@@ -525,6 +531,7 @@ export default function PurchaseOrderDetailPage() {
                             {details.map((item, index) => {
                                 const orderedQty = item.orderedQuantity != null ? item.orderedQuantity : item.requestedQuantity;
                                 const receivedQty = item.receivedQuantity != null ? item.receivedQuantity : 0;
+                                const remainingQty = Math.max(0, (Number(orderedQty) || 0) - (Number(receivedQty) || 0));
                                 const isReceivedFull = receivedQty >= orderedQty && orderedQty > 0;
                                 const isReceivedPartial = receivedQty > 0 && receivedQty < orderedQty;
 
@@ -555,6 +562,13 @@ export default function PurchaseOrderDetailPage() {
                                         }}>
                                             {Number(receivedQty).toLocaleString('en-US')}
                                         </td>
+                                        <td style={{
+                                            textAlign: 'right',
+                                            fontWeight: 600,
+                                            color: remainingQty === 0 ? '#166534' : '#d97706'
+                                        }}>
+                                            {Number(remainingQty).toLocaleString('en-US')}
+                                        </td>
                                         <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>
                                             {formatCurrency(item.unitPrice)}
                                         </td>
@@ -567,7 +581,7 @@ export default function PurchaseOrderDetailPage() {
                         </tbody>
                         <tfoot>
                             <tr>
-                                <td colSpan="8" style={{ textAlign: 'right' }}>
+                                <td colSpan="9" style={{ textAlign: 'right' }}>
                                     {order.status === 'PENDING_APPROVAL' ? 'Estimated Total:' : 'Order Total:'}
                                 </td>
                                 <td style={{ textAlign: 'right', fontSize: '1.05rem', color: '#1e3a8a', fontFamily: 'monospace' }}>
@@ -609,7 +623,13 @@ export default function PurchaseOrderDetailPage() {
                                             {sr.receiptNumber}
                                         </td>
                                         <td>
-                                            <span className="po-badge po-badge-fulfilled">
+                                            <span className={`po-badge ${
+                                                sr.status === 'CONFIRMED'
+                                                    ? 'po-badge-fulfilled'
+                                                    : sr.status === 'CANCELLED'
+                                                    ? 'po-badge-rejected-mgr'
+                                                    : 'po-badge-pending'
+                                            }`}>
                                                 {sr.status}
                                             </span>
                                         </td>

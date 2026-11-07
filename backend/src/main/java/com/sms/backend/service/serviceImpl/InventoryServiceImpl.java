@@ -25,6 +25,7 @@ import com.sms.backend.dto.inventory.StockReceiptPageResponse;
 import com.sms.backend.dto.inventory.StockReceiptResponse;
 import com.sms.backend.entity.Product;
 import com.sms.backend.entity.PurchaseOrder;
+import com.sms.backend.entity.PurchaseOrderDetail;
 import com.sms.backend.entity.StockCheck;
 import com.sms.backend.entity.StockMovement;
 import com.sms.backend.entity.StockReceipt;
@@ -32,6 +33,7 @@ import com.sms.backend.entity.StockReceiptDetail;
 import com.sms.backend.entity.Supplier;
 import com.sms.backend.entity.User;
 import com.sms.backend.enums.GeneralStatus;
+import com.sms.backend.enums.PurchaseOrderStatus;
 import com.sms.backend.enums.StockMovementType;
 import com.sms.backend.enums.StockReceiptStatus;
 import com.sms.backend.enums.StockReferenceType;
@@ -40,6 +42,7 @@ import com.sms.backend.exception.BadRequestException;
 import com.sms.backend.exception.BusinessException;
 import com.sms.backend.exception.ResourceNotFoundException;
 import com.sms.backend.repository.ProductRepository;
+import com.sms.backend.repository.PurchaseOrderDetailRepository;
 import com.sms.backend.repository.PurchaseOrderRepository;
 import com.sms.backend.repository.StockCheckRepository;
 import com.sms.backend.repository.StockMovementRepository;
@@ -96,6 +99,7 @@ public class InventoryServiceImpl implements InventoryService {
     private final SupplierRepository supplierRepository;
     private final UserRepository userRepository;
     private final PurchaseOrderRepository purchaseOrderRepository;
+    private final PurchaseOrderDetailRepository purchaseOrderDetailRepository;
     private final SystemSettingRepository systemSettingRepository;
 
     // =========================================================================
@@ -840,6 +844,7 @@ public class InventoryServiceImpl implements InventoryService {
         if (request.purchaseOrderId() != null) {
             purchaseOrder = purchaseOrderRepository.findById(request.purchaseOrderId())
                     .orElseThrow(() -> new ResourceNotFoundException("Purchase order not found: " + request.purchaseOrderId()));
+            validatePurchaseOrderEligibility(purchaseOrder, supplier);
         }
 
         // 3. Resolve Creator User
@@ -910,6 +915,15 @@ public class InventoryServiceImpl implements InventoryService {
         // 5b. Validate batch identity consistency for expiry-tracked products (UC36)
         validateBatchIdentityConsistency(validatedItems, null);
 
+        // 5c. If a PO is linked, validate product membership and remaining quantities
+        List<PurchaseOrderDetail> lockedPoDetails = null;
+        if (purchaseOrder != null) {
+            if (targetStatus == StockReceiptStatus.CONFIRMED) {
+                lockedPoDetails = purchaseOrderDetailRepository.findByPurchaseOrderWithLock(purchaseOrder);
+            }
+            validatePoProductsAndQuantities(purchaseOrder, supplier, validatedItems, lockedPoDetails);
+        }
+
         // 6. Build and save StockReceipt header
         StockReceipt receipt = new StockReceipt();
         receipt.setReceiptNumber(receiptNumber);
@@ -924,6 +938,7 @@ public class InventoryServiceImpl implements InventoryService {
         receipt = stockReceiptRepository.save(receipt);
 
         // 7. Save Details, update product stock & record StockMovement (if CONFIRMED)
+        List<StockReceiptDetail> savedDetails = new ArrayList<>();
         for (ItemValidationContext item : validatedItems) {
             StockReceiptDetail detail = new StockReceiptDetail();
             detail.setStockReceipt(receipt);
@@ -936,6 +951,7 @@ public class InventoryServiceImpl implements InventoryService {
             detail.setSubtotal(item.subtotal);
 
             detail = stockReceiptDetailRepository.save(detail);
+            savedDetails.add(detail);
 
             if (targetStatus == StockReceiptStatus.CONFIRMED) {
                 // Update product stock
@@ -957,6 +973,11 @@ public class InventoryServiceImpl implements InventoryService {
                 movement.setCreatedAt(now);
                 stockMovementRepository.save(movement);
             }
+        }
+
+        // 8. Update PO received quantities and transition PO status atomically if CONFIRMED
+        if (purchaseOrder != null && targetStatus == StockReceiptStatus.CONFIRMED && lockedPoDetails != null) {
+            updatePurchaseOrderFulfillment(purchaseOrder, lockedPoDetails, savedDetails);
         }
 
         return getStockReceiptById(receipt.getStockReceiptId());
@@ -1009,6 +1030,18 @@ public class InventoryServiceImpl implements InventoryService {
                 .toList();
         validateBatchIdentityConsistency(validationItems, receipt.getStockReceiptId());
 
+        // If linked to a PO, re-validate eligibility and quantities with locking
+        PurchaseOrder linkedPo = receipt.getPurchaseOrder();
+        List<PurchaseOrderDetail> lockedPoDetails = null;
+        if (linkedPo != null) {
+            final Long poId = linkedPo.getOrderId();
+            linkedPo = purchaseOrderRepository.findById(poId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Purchase order not found: " + poId));
+            validatePurchaseOrderEligibility(linkedPo, receipt.getSupplier());
+            lockedPoDetails = purchaseOrderDetailRepository.findByPurchaseOrderWithLock(linkedPo);
+            validatePoProductsAndQuantities(linkedPo, receipt.getSupplier(), validationItems, lockedPoDetails);
+        }
+
         LocalDateTime now = LocalDateTime.now();
         receipt.setStatus(StockReceiptStatus.CONFIRMED);
         receipt.setReceivedAt(now);
@@ -1037,6 +1070,11 @@ public class InventoryServiceImpl implements InventoryService {
             movement.setCreatedBy(operator);
             movement.setCreatedAt(now);
             stockMovementRepository.save(movement);
+        }
+
+        // Update PO received quantities and transition PO status atomically
+        if (linkedPo != null && lockedPoDetails != null) {
+            updatePurchaseOrderFulfillment(linkedPo, lockedPoDetails, details);
         }
 
         return getStockReceiptById(receipt.getStockReceiptId());
@@ -1076,6 +1114,7 @@ public class InventoryServiceImpl implements InventoryService {
         if (request.purchaseOrderId() != null) {
             purchaseOrder = purchaseOrderRepository.findById(request.purchaseOrderId())
                     .orElseThrow(() -> new ResourceNotFoundException("Purchase order not found: " + request.purchaseOrderId()));
+            validatePurchaseOrderEligibility(purchaseOrder, supplier);
         }
 
         // Target status: DRAFT or CONFIRMED
@@ -1130,6 +1169,11 @@ public class InventoryServiceImpl implements InventoryService {
 
         // 3b. Validate batch identity consistency for expiry-tracked products (UC36)
         validateBatchIdentityConsistency(validatedItems, receipt.getStockReceiptId());
+
+        // 3c. If a PO is linked, validate product membership and remaining quantities
+        if (purchaseOrder != null) {
+            validatePoProductsAndQuantities(purchaseOrder, supplier, validatedItems, null);
+        }
 
         // 4. Update header (preserve original receiptNumber, createdAt, createdBy, and DRAFT status initially)
         receipt.setSupplier(supplier);
@@ -1283,6 +1327,181 @@ public class InventoryServiceImpl implements InventoryService {
                 }
             }
         }
+    }
+
+    /**
+     * Validates that the purchase order belongs to the given supplier and is in an eligible status
+     * for receiving goods (ACCEPTED or PARTIALLY_FULFILLED).
+     */
+    private void validatePurchaseOrderEligibility(PurchaseOrder purchaseOrder, Supplier supplier) {
+        if (purchaseOrder == null || supplier == null) {
+            return;
+        }
+
+        if (purchaseOrder.getSupplier() == null
+                || !purchaseOrder.getSupplier().getSupplierId().equals(supplier.getSupplierId())) {
+            throw new BadRequestException("Selected purchase order " + purchaseOrder.getPoNumber()
+                    + " does not belong to supplier " + supplier.getSupplierName());
+        }
+
+        PurchaseOrderStatus status = purchaseOrder.getStatus();
+        if (status != PurchaseOrderStatus.ACCEPTED && status != PurchaseOrderStatus.PARTIALLY_FULFILLED) {
+            throw new BadRequestException("Purchase order " + purchaseOrder.getPoNumber()
+                    + " is not eligible for stock receipt. Current status: " + status
+                    + ". Only ACCEPTED or PARTIALLY_FULFILLED orders can receive goods.");
+        }
+    }
+
+    /**
+     * Validates that received products belong to the selected purchase order and that received
+     * quantities do not exceed remaining ordered quantities.
+     */
+    private void validatePoProductsAndQuantities(
+            PurchaseOrder purchaseOrder,
+            Supplier supplier,
+            List<ItemValidationContext> items,
+            List<PurchaseOrderDetail> lockedPoDetails) {
+
+        if (purchaseOrder == null || items == null || items.isEmpty()) {
+            return;
+        }
+
+        validatePurchaseOrderEligibility(purchaseOrder, supplier);
+
+        List<PurchaseOrderDetail> poDetails = lockedPoDetails != null
+                ? lockedPoDetails
+                : purchaseOrderDetailRepository.findByPurchaseOrder(purchaseOrder);
+
+        if (poDetails.isEmpty()) {
+            throw new BadRequestException("Purchase order " + purchaseOrder.getPoNumber() + " contains no items.");
+        }
+
+        Map<Long, PurchaseOrderDetail> poDetailByProduct = new HashMap<>();
+        for (PurchaseOrderDetail pod : poDetails) {
+            if (pod.getProduct() != null) {
+                poDetailByProduct.put(pod.getProduct().getProductId(), pod);
+            }
+        }
+
+        Map<Long, BigDecimal> receiptQtyByProduct = new HashMap<>();
+        for (ItemValidationContext item : items) {
+            Long prodId = item.product().getProductId();
+            receiptQtyByProduct.merge(prodId, item.quantity(), BigDecimal::add);
+        }
+
+        for (Map.Entry<Long, BigDecimal> entry : receiptQtyByProduct.entrySet()) {
+            Long prodId = entry.getKey();
+            BigDecimal totalReceivedQty = entry.getValue();
+
+            PurchaseOrderDetail poDetail = poDetailByProduct.get(prodId);
+            if (poDetail == null) {
+                String prodName = items.stream()
+                        .filter(it -> it.product().getProductId().equals(prodId))
+                        .map(it -> it.product().getProductName())
+                        .findFirst()
+                        .orElse("ID " + prodId);
+                throw new BadRequestException("Product '" + prodName + "' is not included in purchase order " + purchaseOrder.getPoNumber());
+            }
+
+            BigDecimal orderedQty = poDetail.getOrderedQuantity() != null
+                    ? poDetail.getOrderedQuantity()
+                    : poDetail.getRequestedQuantity();
+            if (orderedQty == null) {
+                orderedQty = BigDecimal.ZERO;
+            }
+
+            BigDecimal previouslyReceived = poDetail.getReceivedQuantity() != null
+                    ? poDetail.getReceivedQuantity()
+                    : BigDecimal.ZERO;
+
+            BigDecimal remainingQty = orderedQty.subtract(previouslyReceived);
+            if (remainingQty.compareTo(BigDecimal.ZERO) < 0) {
+                remainingQty = BigDecimal.ZERO;
+            }
+
+            if (totalReceivedQty.compareTo(remainingQty) > 0) {
+                throw new BadRequestException("Received quantity (" + totalReceivedQty + ") for product '"
+                        + poDetail.getProduct().getProductName() + "' exceeds remaining ordered quantity ("
+                        + remainingQty + ") in purchase order " + purchaseOrder.getPoNumber()
+                        + " (Ordered: " + orderedQty + ", Previously received: " + previouslyReceived + ")");
+            }
+        }
+    }
+
+    /**
+     * Atomically increases PurchaseOrderDetail.receivedQuantity by the confirmed receipt quantities
+     * and recalculates the overall PurchaseOrder status (PARTIALLY_FULFILLED or FULFILLED).
+     */
+    private void updatePurchaseOrderFulfillment(
+            PurchaseOrder purchaseOrder,
+            List<PurchaseOrderDetail> lockedPoDetails,
+            List<StockReceiptDetail> receiptDetails) {
+
+        if (purchaseOrder == null || lockedPoDetails == null || receiptDetails == null) {
+            return;
+        }
+
+        Map<Long, PurchaseOrderDetail> poDetailByProduct = new HashMap<>();
+        for (PurchaseOrderDetail pod : lockedPoDetails) {
+            if (pod.getProduct() != null) {
+                poDetailByProduct.put(pod.getProduct().getProductId(), pod);
+            }
+        }
+
+        Map<Long, BigDecimal> receiptQtyByProduct = new HashMap<>();
+        for (StockReceiptDetail rd : receiptDetails) {
+            if (rd.getProduct() != null && rd.getQuantity() != null) {
+                receiptQtyByProduct.merge(rd.getProduct().getProductId(), rd.getQuantity(), BigDecimal::add);
+            }
+        }
+
+        for (Map.Entry<Long, BigDecimal> entry : receiptQtyByProduct.entrySet()) {
+            PurchaseOrderDetail pod = poDetailByProduct.get(entry.getKey());
+            if (pod != null) {
+                BigDecimal currentReceived = pod.getReceivedQuantity() != null
+                        ? pod.getReceivedQuantity()
+                        : BigDecimal.ZERO;
+                pod.setReceivedQuantity(currentReceived.add(entry.getValue()));
+                purchaseOrderDetailRepository.save(pod);
+            }
+        }
+
+        boolean allFulfilled = true;
+        boolean anyReceived = false;
+
+        for (PurchaseOrderDetail pod : lockedPoDetails) {
+            BigDecimal orderedQty = pod.getOrderedQuantity() != null
+                    ? pod.getOrderedQuantity()
+                    : pod.getRequestedQuantity();
+            if (orderedQty == null) {
+                orderedQty = BigDecimal.ZERO;
+            }
+
+            BigDecimal receivedQty = pod.getReceivedQuantity() != null
+                    ? pod.getReceivedQuantity()
+                    : BigDecimal.ZERO;
+
+            if (receivedQty.compareTo(BigDecimal.ZERO) > 0) {
+                anyReceived = true;
+            }
+
+            if (receivedQty.compareTo(orderedQty) < 0) {
+                allFulfilled = false;
+            }
+        }
+
+        PurchaseOrderStatus nextStatus;
+        if (allFulfilled) {
+            nextStatus = PurchaseOrderStatus.FULFILLED;
+        } else if (anyReceived) {
+            nextStatus = PurchaseOrderStatus.PARTIALLY_FULFILLED;
+        } else {
+            nextStatus = purchaseOrder.getStatus();
+        }
+
+        purchaseOrder.setStatus(nextStatus);
+        purchaseOrder.setUpdatedAt(LocalDateTime.now());
+        purchaseOrderRepository.save(purchaseOrder);
     }
 
     // =========================================================================
