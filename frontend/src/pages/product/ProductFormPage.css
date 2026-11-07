@@ -247,13 +247,13 @@
 
 .prd-card-title {
     margin: 0;
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 700;
     color: var(--sms-text, #19233b);
 }
 
 .prd-card-tag {
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 700;
     color: #64748b;
     background: #f1f5f9;
@@ -265,7 +265,7 @@
 
 .prd-card-subtitle {
     margin: 0;
-    font-size: 12.5px;
+    font-size: 13px;
     color: var(--sms-text-secondary, #69748c);
 }
 
@@ -654,7 +654,7 @@
 .prd-live-badge {
     padding: 2px 7px;
     border-radius: 10px;
-    font-size: 10.5px;
+    font-size: 12px;
     font-weight: 700;
     background: #ecfdf5;
     color: #059669;
@@ -684,7 +684,7 @@
 }
 
 .prd-pos-category {
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 800;
     padding: 2px 7px;
     background: #eff4fc;
@@ -710,7 +710,7 @@
 }
 
 .prd-pos-metric-label {
-    font-size: 11px;
+    font-size: 12.5px;
     color: #64748b;
     display: block;
     font-weight: 500;
@@ -772,7 +772,7 @@
     justify-content: space-between;
     width: 85%;
     font-family: 'JetBrains Mono', Consolas, monospace;
-    font-size: 10.5px;
+    font-size: 12px;
     font-weight: 600;
     color: #475569;
 }

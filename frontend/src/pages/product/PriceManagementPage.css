@@ -9,8 +9,8 @@
     padding: 24px 32px 48px;
     background-color: var(--sms-bg, #f4f6fb);
     min-height: 100vh;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    color: var(--sms-text, #19233b);
+    font-family: var(--sms-font-sans);
+    color: var(--sms-text, #0f172a);
 }
 
 .prc-loading-screen,
@@ -99,12 +99,12 @@
     align-items: center;
     flex-wrap: wrap;
     gap: 6px;
-    font-size: 12.5px;
-    color: var(--sms-text-secondary, #69748c);
+    font-size: 13px;
+    color: var(--sms-text-secondary, #475569);
 }
 
 .prc-breadcrumb-link {
-    color: var(--sms-text-secondary, #69748c);
+    color: var(--sms-text-secondary, #475569);
     text-decoration: none;
     transition: color 0.15s ease;
 }
@@ -116,7 +116,7 @@
 
 .prc-breadcrumb-sep {
     color: #94a3b8;
-    font-size: 11px;
+    font-size: 12px;
 }
 
 .prc-breadcrumb-sku {
@@ -138,14 +138,14 @@
     color: #2458dc;
     border: 1px solid #dbeafe;
     border-radius: 20px;
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 600;
 }
 
 .prc-alert {
     padding: 12px 16px;
     border-radius: 8px;
-    font-size: 13px;
+    font-size: 14px;
     margin-bottom: 20px;
     display: flex;
     align-items: center;
@@ -213,9 +213,9 @@
     right: -4px;
     background: #1e293b;
     color: #ffffff;
-    font-size: 10px;
+    font-size: 11.5px;
     font-weight: 700;
-    padding: 2px 5px;
+    padding: 2px 6px;
     border-radius: 4px;
 }
 
@@ -233,7 +233,7 @@
 }
 
 .prc-badge {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     padding: 2px 8px;
     border-radius: 4px;
@@ -276,8 +276,8 @@
     align-items: center;
     flex-wrap: wrap;
     gap: 12px;
-    font-size: 12px;
-    color: #64748b;
+    font-size: 13px;
+    color: var(--sms-text-secondary, #475569);
 }
 
 .prc-meta-item {
@@ -330,23 +330,23 @@
 
 .prc-card-title {
     margin: 0;
-    font-size: 16.5px;
+    font-size: 18px;
     font-weight: 700;
     color: #0f172a;
 }
 
 .prc-card-subtitle {
     margin: 3px 0 0;
-    font-size: 12px;
-    color: #64748b;
+    font-size: 13px;
+    color: var(--sms-text-secondary, #475569);
 }
 
 .prc-rules-badge {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     padding: 3px 8px;
     background: #f8fafc;
-    color: #64748b;
+    color: var(--sms-text-secondary, #475569);
     border: 1px solid #e2e8f0;
     border-radius: 4px;
     white-space: nowrap;
@@ -392,9 +392,9 @@
 }
 
 .prc-price-box-label {
-    font-size: 11px;
+    font-size: 12.5px;
     font-weight: 700;
-    color: #64748b;
+    color: var(--sms-text-secondary, #475569);
     letter-spacing: 0.04em;
 }
 
@@ -462,13 +462,13 @@
 }
 
 .prc-price-box-sub {
-    font-size: 11.5px;
-    color: #64748b;
+    font-size: 12.5px;
+    color: var(--sms-text-secondary, #475569);
     margin-top: 8px;
 }
 
 .prc-field-error {
-    font-size: 11.5px;
+    font-size: 12.5px;
     color: #dc2626;
     font-weight: 600;
     margin-top: 6px;
@@ -482,10 +482,10 @@
 }
 
 .prc-presets-title {
-    font-size: 11px;
+    font-size: 12.5px;
     font-weight: 700;
     letter-spacing: 0.04em;
-    color: #64748b;
+    color: var(--sms-text-secondary, #475569);
 }
 
 .prc-presets-list {
@@ -497,7 +497,7 @@
 .prc-preset-chip {
     padding: 6px 12px;
     border-radius: 6px;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     background: #f1f5f9;
@@ -535,17 +535,17 @@
 }
 
 .prc-label {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 700;
     letter-spacing: 0.04em;
-    color: #64748b;
+    color: var(--sms-text-secondary, #475569);
 }
 
 .prc-input-text {
     width: 100%;
     height: 40px;
     padding: 0 14px;
-    font-size: 13px;
+    font-size: 14px;
     background: #f8fafc;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
@@ -576,8 +576,8 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 11.5px;
-    color: #64748b;
+    font-size: 12.5px;
+    color: var(--sms-text-secondary, #475569);
 }
 
 .prc-session-info strong {
@@ -600,7 +600,7 @@
     padding: 0 18px;
     height: 40px;
     border-radius: 8px;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     border: 1px solid transparent;
@@ -663,13 +663,13 @@
 }
 
 .prc-margin-title {
-    font-size: 14.5px;
+    font-size: 15px;
     font-weight: 700;
     color: #0f172a;
 }
 
 .prc-margin-cost-pill {
-    font-size: 12px;
+    font-size: 12.5px;
     font-weight: 600;
     color: #475569;
     background: #f1f5f9;
@@ -692,8 +692,8 @@
 }
 
 .prc-margin-stat-label {
-    font-size: 11px;
-    color: #64748b;
+    font-size: 12px;
+    color: var(--sms-text-secondary, #475569);
     display: block;
     margin-bottom: 4px;
 }
@@ -710,8 +710,8 @@
 }
 
 .prc-margin-stat-sub {
-    font-size: 11px;
-    color: #64748b;
+    font-size: 12px;
+    color: var(--sms-text-secondary, #475569);
     display: block;
     margin-top: 3px;
 }
@@ -738,13 +738,13 @@
 
 .prc-delta-header-title h3 {
     margin: 0;
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 700;
     color: #0f172a;
 }
 
 .prc-live-eval-badge {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     padding: 2px 8px;
     background: #ecfdf5;
@@ -762,7 +762,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 13px;
+    font-size: 13.5px;
     color: #475569;
 }
 
@@ -782,7 +782,7 @@
 }
 
 .prc-target-label {
-    font-size: 12.5px;
+    font-size: 13px;
     font-weight: 700;
     color: #1e40af;
 }
@@ -807,9 +807,9 @@
 
 .prc-stat-lbl {
     display: block;
-    font-size: 10.5px;
+    font-size: 12px;
     font-weight: 700;
-    color: #64748b;
+    color: var(--sms-text-secondary, #475569);
     margin-bottom: 2px;
 }
 
@@ -831,11 +831,11 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 12px;
+    font-size: 13px;
 }
 
 .prc-check-name {
-    color: #64748b;
+    color: var(--sms-text-secondary, #475569);
     flex: 1;
 }
 
@@ -858,13 +858,13 @@
 
 .prc-term-header-title h3 {
     margin: 0;
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 700;
     color: #0f172a;
 }
 
 .prc-term-register-badge {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     padding: 2px 8px;
     background: #eff4fc;
@@ -873,8 +873,8 @@
 }
 
 .prc-term-sub {
-    font-size: 12px;
-    color: #64748b;
+    font-size: 13px;
+    color: var(--sms-text-secondary, #475569);
     margin: 0 0 14px;
     line-height: 1.4;
 }
@@ -896,7 +896,7 @@
 .prc-pos-top-status {
     display: flex;
     justify-content: space-between;
-    font-size: 10px;
+    font-size: 11.5px;
     color: #94a3b8;
     border-bottom: 1px dashed #334155;
     padding-bottom: 6px;
@@ -905,13 +905,13 @@
 .prc-pos-barcode-row {
     display: flex;
     justify-content: space-between;
-    font-size: 11px;
+    font-size: 12px;
     color: #cbd5e1;
     margin-bottom: 3px;
 }
 
 .prc-pos-item-name {
-    font-size: 13px;
+    font-size: 13.5px;
     font-weight: 700;
     color: #ffffff;
     line-height: 1.35;
@@ -927,7 +927,7 @@
 }
 
 .prc-pos-price-lbl {
-    font-size: 11px;
+    font-size: 12px;
     color: #94a3b8;
 }
 
@@ -941,7 +941,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 10.5px;
+    font-size: 11.5px;
 }
 
 .prc-pos-vat {
@@ -951,7 +951,7 @@
 .prc-pos-verified-badge {
     background: #064e3b;
     color: #34d399;
-    font-size: 9.5px;
+    font-size: 11px;
     font-weight: 700;
     padding: 2px 6px;
     border-radius: 4px;
@@ -975,14 +975,14 @@
 }
 
 .prc-esl-title {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
     color: #1e293b;
 }
 
 .prc-esl-aisle {
-    font-size: 11px;
-    color: #64748b;
+    font-size: 12px;
+    color: var(--sms-text-secondary, #475569);
 }
 
 .prc-esl-price-box {
@@ -991,8 +991,8 @@
 
 .prc-esl-lbl {
     display: block;
-    font-size: 10px;
-    color: #64748b;
+    font-size: 11.5px;
+    color: var(--sms-text-secondary, #475569);
 }
 
 .prc-esl-amt {
@@ -1009,13 +1009,13 @@
 
 .prc-history-title {
     margin: 0;
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 700;
     color: #0f172a;
 }
 
 .prc-history-badge {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     padding: 2px 8px;
     background: #f1f5f9;
@@ -1055,12 +1055,12 @@
 }
 
 .prc-hist-meta {
-    font-size: 11px;
-    color: #64748b;
+    font-size: 12px;
+    color: var(--sms-text-secondary, #475569);
 }
 
 .prc-hist-reason {
-    font-size: 11px;
+    font-size: 12px;
     color: #475569;
     font-style: italic;
     margin-top: 2px;

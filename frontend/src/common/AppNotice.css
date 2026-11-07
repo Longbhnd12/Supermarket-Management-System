@@ -43,8 +43,9 @@
 }
 
 .sms-notice-text span {
-    color: #526071;
-    line-height: 1.4;
+    color: var(--sms-text-secondary, #475569);
+    font-size: 13.5px;
+    line-height: 1.45;
 }
 
 .sms-notice button {

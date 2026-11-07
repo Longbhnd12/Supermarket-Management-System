@@ -71,7 +71,7 @@
 
 .srd-title {
     margin: 0;
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 700;
     color: var(--sms-text, #19233b);
     letter-spacing: -0.02em;
@@ -80,8 +80,8 @@
 
 .srd-subtitle {
     margin: 0;
-    font-size: 13px;
-    color: var(--sms-text-secondary, #69748c);
+    font-size: 14px;
+    color: var(--sms-text-secondary, #475569);
 }
 
 .srd-header-actions {
@@ -101,7 +101,7 @@
     height: 38px;
     padding: 0 16px;
     border-radius: 8px;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     line-height: 1;
     cursor: pointer;
@@ -317,7 +317,7 @@
 
 .srd-card__title {
     margin: 0;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
     color: var(--sms-text, #19233b);
     display: flex;
@@ -326,9 +326,9 @@
 }
 
 .srd-card__count {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
-    color: var(--sms-text-secondary, #69748c);
+    color: var(--sms-text-secondary, #475569);
     background: var(--sms-border, #e5e9f3);
     padding: 2px 8px;
     border-radius: 10px;
@@ -366,22 +366,22 @@
 }
 
 .srd-meta-label {
-    font-size: 11px;
+    font-size: 12.5px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--sms-text-secondary, #69748c);
+    letter-spacing: 0.05em;
+    color: var(--sms-text-secondary, #475569);
 }
 
 .srd-meta-value {
-    font-size: 14px;
+    font-size: 14.5px;
     font-weight: 600;
     color: var(--sms-text, #19233b);
 }
 
 .srd-meta-value--mono {
     font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
-    font-size: 13px;
+    font-size: 13.5px;
     color: var(--sms-primary, #2458dc);
     background: rgba(36, 88, 220, 0.07);
     padding: 2px 8px;
@@ -402,7 +402,7 @@
     align-items: center;
     padding: 3px 12px;
     border-radius: 20px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
@@ -437,17 +437,17 @@
 .srd-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 14px;
 }
 
 .srd-table th {
-    padding: 10px 14px;
+    padding: 11px 14px;
     text-align: left;
-    font-size: 11px;
+    font-size: 12.5px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--sms-text-secondary, #69748c);
+    letter-spacing: 0.05em;
+    color: var(--sms-text-secondary, #475569);
     background: var(--sms-bg-subtle, #fafbfd);
     border-bottom: 1px solid var(--sms-border, #e5e9f3);
     white-space: nowrap;
@@ -473,11 +473,12 @@
     padding: 12px 14px;
     vertical-align: middle;
     color: var(--sms-text, #19233b);
+    font-size: 14px;
 }
 
 .srd-td--seq {
-    font-size: 12px;
-    color: var(--sms-text-secondary, #69748c);
+    font-size: 13px;
+    color: var(--sms-text-secondary, #475569);
     width: 36px;
     text-align: center;
 }
@@ -488,7 +489,7 @@
     display: inline-flex;
     align-items: center;
     font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
-    font-size: 11px;
+    font-size: 12px;
     color: var(--sms-primary, #2458dc);
     background: rgba(36, 88, 220, 0.07);
     border-radius: 4px;
@@ -507,8 +508,8 @@
 }
 
 .srd-td--date {
-    font-size: 12px;
-    color: var(--sms-text-secondary, #69748c);
+    font-size: 13px;
+    color: var(--sms-text-secondary, #475569);
     white-space: nowrap;
 }
 
@@ -517,11 +518,11 @@
 }
 
 .srd-batch {
-    font-size: 12px;
+    font-size: 12.5px;
     font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
     background: #f0f4ff;
     color: #3b5bdb;
-    padding: 1px 6px;
+    padding: 2px 7px;
     border-radius: 4px;
 }
 

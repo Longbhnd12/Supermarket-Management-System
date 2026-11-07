@@ -23,8 +23,8 @@
 }
 
 .sms-pagination-info {
-    font-size: 13px;
-    color: var(--sms-text-secondary, #69748c);
+    font-size: 13.5px;
+    color: var(--sms-text-secondary, #475569);
     font-feature-settings: 'tnum';
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
@@ -34,24 +34,24 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-size: 13px;
-    color: var(--sms-text-secondary, #69748c);
+    font-size: 13.5px;
+    color: var(--sms-text-secondary, #475569);
 }
 
 .sms-page-size-label {
     white-space: nowrap;
-    font-size: 12.5px;
+    font-size: 13px;
 }
 
 .sms-page-size-select {
-    height: 32px;
+    height: 34px;
     padding: 0 28px 0 10px;
-    font-size: 12.5px;
+    font-size: 13.5px;
     font-weight: 500;
-    color: var(--sms-text, #19233b);
-    background: #ffffff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2369748c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 8px center;
+    color: var(--sms-text, #0f172a);
+    background: #ffffff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 8px center;
     appearance: none;
-    border: 1px solid var(--sms-border, #e5e9f3);
+    border: 1px solid var(--sms-border, #e2e8f0);
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -81,8 +81,8 @@
 }
 
 .sms-page-count {
-    font-size: 13px;
-    color: var(--sms-text-secondary, #69748c);
+    font-size: 13.5px;
+    color: var(--sms-text-secondary, #475569);
     font-feature-settings: 'tnum';
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
@@ -95,15 +95,15 @@
 }
 
 .sms-page-btn {
-    min-width: 32px;
-    height: 32px;
+    min-width: 34px;
+    height: 34px;
     padding: 0 10px;
     border-radius: 6px;
-    font-size: 12.5px;
+    font-size: 13.5px;
     font-weight: 500;
-    border: 1px solid var(--sms-border, #e5e9f3);
+    border: 1px solid var(--sms-border, #e2e8f0);
     background: #ffffff;
-    color: var(--sms-text, #19233b);
+    color: var(--sms-text, #0f172a);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -135,7 +135,7 @@
 
 .sms-page-ellipsis {
     padding: 0 6px;
-    color: #94a3b8;
-    font-size: 13px;
+    color: var(--sms-text-muted, #64748b);
+    font-size: 13.5px;
     user-select: none;
 }
