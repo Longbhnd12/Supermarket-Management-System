@@ -542,6 +542,17 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         throw new UnsupportedOperationException("Not yet implemented - pending SDD review");
     }
 
+    @Override
+    public List<PurchaseOrderResponse> getEligiblePurchaseOrdersBySupplier(Long supplierId) {
+        if (supplierId == null) {
+            throw new BadRequestException("Supplier ID is required");
+        }
+        return purchaseOrderRepository.findEligibleBySupplier(supplierId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
     // --- helpers ---
 
     private PurchaseOrder findById(Long id) {

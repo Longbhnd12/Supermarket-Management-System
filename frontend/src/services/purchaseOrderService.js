@@ -21,6 +21,7 @@ const PurchaseOrderService = {
         return API.post(`/purchase-orders/${id}/reject`, data);
     },
     cancel: (id) => API.post(`/purchase-orders/${id}/cancel`),
+    getEligibleForSupplier: (supplierId) => API.get('/purchase-orders/eligible-for-supplier', { params: { supplierId } }),
 };
 
 export default PurchaseOrderService;

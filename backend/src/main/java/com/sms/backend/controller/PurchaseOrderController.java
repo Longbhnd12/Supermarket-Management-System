@@ -123,6 +123,13 @@ public class PurchaseOrderController {
                 purchaseOrderService.rejectPurchaseOrder(id, finalRequest)));
     }
 
+    @GetMapping("/eligible-for-supplier")
+    public ResponseEntity<ApiResponse<List<PurchaseOrderResponse>>> getEligiblePurchaseOrdersBySupplier(
+            @RequestParam Long supplierId) {
+        return ResponseEntity.ok(ApiResponse.success("Eligible purchase orders retrieved",
+                purchaseOrderService.getEligiblePurchaseOrdersBySupplier(supplierId)));
+    }
+
     @PostMapping("/{id}/cancel")
     public ResponseEntity<ApiResponse<PurchaseOrderResponse>> cancelPurchaseOrder(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success("Purchase order cancelled",
