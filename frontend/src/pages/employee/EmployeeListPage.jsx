@@ -365,9 +365,7 @@ export default function EmployeeListPage() {
                         <button
                             type="button"
                             className="action-btn primary create-emp-btn"
-                            onClick={() => {
-                                showToast('Chuyển hướng đến quy trình Khởi tạo nhân viên mới (UC18 Onboarding Wizard)...');
-                            }}
+                            onClick={() => navigate('/employees/create')}
                         >
                             <UserPlus size={16} />
                             Create Employee
@@ -713,9 +711,7 @@ export default function EmployeeListPage() {
                                                                 type="button"
                                                                 className="dropdown-item"
                                                                 onClick={() => {
-                                                                    showToast(
-                                                                        `Chuyển đến chỉnh sửa thông tin của ${emp.fullName} (UC18)...`
-                                                                    );
+                                                                    navigate(`/employees/${emp.employeeId}/edit`);
                                                                     setOpenDropdownId(null);
                                                                 }}
                                                             >
