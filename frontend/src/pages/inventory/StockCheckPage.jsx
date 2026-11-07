@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import ProductService from '../../services/productService';
 import InventoryService from '../../services/inventoryService';
+import Pagination from '../../components/ui/Pagination';
 import './StockCheckPage.css';
 
 function formatQty(n) {
@@ -68,13 +69,53 @@ export default function StockCheckPage() {
     const [pastSessions, setPastSessions] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
     const [historySearch, setHistorySearch] = useState('');
+    const [debouncedHistorySearch, setDebouncedHistorySearch] = useState('');
+    const [historyPage, setHistoryPage] = useState(0);
+    const [historySize, setHistorySize] = useState(10);
+    const [historyTotalElements, setHistoryTotalElements] = useState(0);
+    const [historyTotalPages, setHistoryTotalPages] = useState(0);
+
+    // Debounce search input by 400ms and reset page to 0 when query changes
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedHistorySearch(prev => {
+                if (prev !== historySearch) {
+                    setHistoryPage(0);
+                }
+                return historySearch;
+            });
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [historySearch]);
 
     // ── 1. Fetch History Sessions ──
     const fetchHistory = useCallback(() => {
+        if (activeTab !== 'history') return;
         setLoadingHistory(true);
-        InventoryService.getAllStockCheckSessions()
+        const params = {
+            page: historyPage,
+            size: historySize,
+        };
+        if (debouncedHistorySearch && debouncedHistorySearch.trim()) {
+            params.keyword = debouncedHistorySearch.trim();
+        }
+
+        InventoryService.getAllStockCheckSessions(params)
             .then(res => {
-                setPastSessions(res.data?.data || []);
+                const pageData = res.data?.data;
+                if (pageData && Array.isArray(pageData.content)) {
+                    setPastSessions(pageData.content);
+                    setHistoryTotalElements(pageData.totalElements ?? 0);
+                    setHistoryTotalPages(pageData.totalPages ?? 0);
+                } else if (Array.isArray(pageData)) {
+                    setPastSessions(pageData);
+                    setHistoryTotalElements(pageData.length);
+                    setHistoryTotalPages(1);
+                } else {
+                    setPastSessions([]);
+                    setHistoryTotalElements(0);
+                    setHistoryTotalPages(0);
+                }
             })
             .catch(() => {
                 setPageError('Failed to load stock check sessions history.');
@@ -82,7 +123,7 @@ export default function StockCheckPage() {
             .finally(() => {
                 setLoadingHistory(false);
             });
-    }, []);
+    }, [activeTab, historyPage, historySize, debouncedHistorySearch]);
 
     useEffect(() => {
         if (activeTab === 'history') {
@@ -328,15 +369,8 @@ export default function StockCheckPage() {
         }
     };
 
-    // ── Filtered Past Sessions for History Tab ──
-    const filteredPastSessions = useMemo(() => {
-        if (!historySearch.trim()) return pastSessions;
-        const q = historySearch.toLowerCase().trim();
-        return pastSessions.filter(s =>
-            (s.checkNumber && s.checkNumber.toLowerCase().includes(q)) ||
-            (s.checkedByUsername && s.checkedByUsername.toLowerCase().includes(q))
-        );
-    }, [pastSessions, historySearch]);
+    // ── Server-side Paginated Past Sessions for History Tab ──
+    const filteredPastSessions = pastSessions;
 
     return (
         <div className="sc-page">
@@ -382,7 +416,7 @@ export default function StockCheckPage() {
                     onClick={() => setSearchParams({ tab: 'history' })}
                 >
                     📋 Audit Sessions History
-                    {pastSessions.length > 0 && <span className="sc-tab-count">{pastSessions.length}</span>}
+                    {historyTotalElements > 0 && <span className="sc-tab-count">{historyTotalElements}</span>}
                 </button>
             </div>
 
@@ -672,14 +706,14 @@ export default function StockCheckPage() {
                                 <button
                                     type="button"
                                     className="sc-btn sc-btn--secondary sc-btn--sm"
-                                    onClick={fetchHistory}
+                                    onClick={() => fetchHistory()}
                                     disabled={loadingHistory}
                                 >
                                     ↻ Refresh History
                                 </button>
                             </div>
                             <span className="sc-history-total">
-                                Total Sessions: <strong>{filteredPastSessions.length}</strong>
+                                Total Sessions: <strong>{historyTotalElements}</strong>
                             </span>
                         </div>
 
@@ -692,18 +726,25 @@ export default function StockCheckPage() {
                             <div className="sc-empty">
                                 <div className="sc-empty__icon">📋</div>
                                 <h3>No previous audit sessions found</h3>
-                                <p>Perform and submit your first physical count to see audit session history here.</p>
-                                <button
-                                    type="button"
-                                    className="sc-btn sc-btn--primary"
-                                    style={{ marginTop: '12px' }}
-                                    onClick={() => setSearchParams({ tab: 'new' })}
-                                >
-                                    Start New Stock Check
-                                </button>
+                                <p>
+                                    {debouncedHistorySearch.trim()
+                                        ? `No audit sessions found matching "${debouncedHistorySearch}".`
+                                        : 'Perform and submit your first physical count to see audit session history here.'}
+                                </p>
+                                {!debouncedHistorySearch.trim() && (
+                                    <button
+                                        type="button"
+                                        className="sc-btn sc-btn--primary"
+                                        style={{ marginTop: '12px' }}
+                                        onClick={() => setSearchParams({ tab: 'new' })}
+                                    >
+                                        Start New Stock Check
+                                    </button>
+                                )}
                             </div>
                         ) : (
-                            <div className="sc-table-responsive">
+                            <>
+                                <div className="sc-table-responsive">
                                 <table className="sc-table">
                                     <thead>
                                         <tr>
@@ -783,7 +824,24 @@ export default function StockCheckPage() {
                                     </tbody>
                                 </table>
                             </div>
-                        )}
+
+                            <Pagination
+                                idPrefix="audit-sessions"
+                                page={historyPage}
+                                size={historySize}
+                                totalElements={historyTotalElements}
+                                totalPages={historyTotalPages}
+                                pageSizeOptions={[5, 10, 20]}
+                                onPageChange={setHistoryPage}
+                                onSizeChange={(newSize) => {
+                                    setHistorySize(newSize);
+                                    setHistoryPage(0);
+                                }}
+                                itemLabel="sessions"
+                                disabled={loadingHistory}
+                            />
+                        </>
+                    )}
                     </div>
                 </div>
             )}

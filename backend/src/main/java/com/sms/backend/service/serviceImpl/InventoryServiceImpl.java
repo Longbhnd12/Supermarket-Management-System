@@ -14,6 +14,7 @@ import com.sms.backend.dto.inventory.StockCheckItemRequest;
 import com.sms.backend.dto.inventory.StockCheckResponse;
 import com.sms.backend.dto.inventory.StockCheckSessionRequest;
 import com.sms.backend.dto.inventory.StockCheckSessionResponse;
+import com.sms.backend.dto.inventory.StockCheckSessionPageResponse;
 import com.sms.backend.dto.inventory.UpdateStockCheckCountRequest;
 import com.sms.backend.dto.inventory.StockHistoryFilter;
 import com.sms.backend.dto.inventory.StockMovementPageResponse;
@@ -67,6 +68,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.Objects;
 import java.util.Locale;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -1852,6 +1854,55 @@ public class InventoryServiceImpl implements InventoryService {
             result.add(buildSessionResponse(checkNumber, username, checkedAt, checks));
         }
         return result;
+    }
+
+    @Override
+    public StockCheckSessionPageResponse getStockCheckSessions(int page, int size, String keyword) {
+        int pageIndex = Math.max(0, page);
+        int pageSize = (size > 0 && size <= 100) ? size : 10;
+        String pattern = (keyword != null && !keyword.isBlank())
+                ? "%" + keyword.trim().toLowerCase(Locale.ROOT) + "%"
+                : null;
+
+        PageRequest pageRequest = PageRequest.of(pageIndex, pageSize);
+        Page<String> pageResult = stockCheckRepository.findDistinctCheckNumbers(pattern, pageRequest);
+
+        List<String> checkNumbers = pageResult.getContent();
+        if (checkNumbers.isEmpty()) {
+            return new StockCheckSessionPageResponse(
+                    List.of(),
+                    pageIndex,
+                    pageSize,
+                    pageResult.getTotalElements(),
+                    pageResult.getTotalPages()
+            );
+        }
+
+        List<StockCheck> checks = stockCheckRepository.findByCheckNumberIn(checkNumbers);
+        java.util.Map<String, List<StockCheck>> itemsBySession = checks.stream()
+                .collect(Collectors.groupingBy(StockCheck::getCheckNumber));
+
+        List<StockCheckSessionResponse> content = checkNumbers.stream()
+                .map(cn -> {
+                    List<StockCheck> sessionChecks = itemsBySession.get(cn);
+                    if (sessionChecks == null || sessionChecks.isEmpty()) {
+                        return null;
+                    }
+                    StockCheck first = sessionChecks.get(0);
+                    String username = first.getCheckedBy() != null ? first.getCheckedBy().getUsername() : "System";
+                    LocalDateTime checkedAt = first.getCheckedAt() != null ? first.getCheckedAt() : LocalDateTime.now();
+                    return buildSessionResponse(cn, username, checkedAt, sessionChecks);
+                })
+                .filter(Objects::nonNull)
+                .toList();
+
+        return new StockCheckSessionPageResponse(
+                content,
+                pageIndex,
+                pageSize,
+                pageResult.getTotalElements(),
+                pageResult.getTotalPages()
+        );
     }
 
     @Override
