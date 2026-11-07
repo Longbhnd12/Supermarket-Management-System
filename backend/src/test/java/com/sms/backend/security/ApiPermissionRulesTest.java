@@ -62,6 +62,7 @@ class ApiPermissionRulesTest {
             "ANONYMOUS, POST, /api/v1/auth/login, true",
             "ANONYMOUS, POST, /api/v1/auth/forgot-password, true",
             "ANONYMOUS, POST, /api/v1/auth/logout, true",
+            "ANONYMOUS, POST, /api/v1/auth/register, false", // removed: no self-registration
             "ANONYMOUS, GET, /api/v1/payments/vnpay/ipn, true",
             "ANONYMOUS, GET, /api/v1/auth/me, false",
             "ANONYMOUS, GET, /api/v1/products, false",
@@ -109,6 +110,9 @@ class ApiPermissionRulesTest {
             "MANAGER, GET, /api/v1/roles, false",
             // Inventory staff: stock, receipts, purchase requests
             "WAREHOUSE_STAFF, POST, /api/v1/inventory/adjust, true",
+            "WAREHOUSE_STAFF, GET, /api/v1/inventory/products/7/batches, true",
+            "WAREHOUSE_STAFF, GET, /api/v1/inventory/products/7/batches/grouped, true",
+            "CASHIER, GET, /api/v1/inventory/products/7/batches, false",
             "WAREHOUSE_STAFF, PUT, /api/v1/inventory/checks/3, true",
             "WAREHOUSE_STAFF, POST, /api/v1/stock-receipts, true",
             "WAREHOUSE_STAFF, POST, /api/v1/stock-receipts/3/confirm, true",
