@@ -15,7 +15,6 @@ import RevenueReportPage from './pages/reports/RevenueReportPage';
 import ProductSalesReportPage from './pages/reports/ProductSalesReportPage';
 import NotificationsPage from './pages/notifications/NotificationsPage';
 import LoginPage from './pages/auth/LoginPage';
-import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ProtectedRoute from './common/ProtectedRoute';
 import AppNotice from './common/AppNotice';
@@ -86,7 +85,6 @@ export default function App() {
             <AppNotice />
             <Routes>
                 <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route element={<ProtectedRoute />}>
                 <Route element={<MainLayout />}>

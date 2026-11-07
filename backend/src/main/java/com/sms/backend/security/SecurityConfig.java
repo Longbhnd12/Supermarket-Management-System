@@ -39,7 +39,6 @@ public class SecurityConfig {
     /** Public POST endpoints that need no CSRF token (they do not use the auth cookie). Access rules: ApiPermissionRules. */
     static final String[] PUBLIC_AUTH_ENDPOINTS = {
             "/api/v1/auth/login",
-            "/api/v1/auth/register",
             "/api/v1/auth/forgot-password",
             "/api/v1/auth/reset-password"
     };

@@ -15,9 +15,9 @@ const API = axios.create({
 });
 
 // A 401 from these endpoints does not go through the 'unauthorized' event:
-// - login, register, forgot/reset password, logout: 401 is a normal answer (wrong password...)
+// - login, forgot/reset password, logout: 401 is a normal answer (wrong password...)
 // - /auth/me: AuthProvider reads its answer itself (an event here would cancel that check)
-const NO_SESSION_EVENT_PATHS = ['/auth/me', '/auth/login', '/auth/register', '/auth/logout', '/auth/forgot-password', '/auth/reset-password'];
+const NO_SESSION_EVENT_PATHS = ['/auth/me', '/auth/login', '/auth/logout', '/auth/forgot-password', '/auth/reset-password'];
 
 function isNoSessionEventRequest(config) {
     const url = (config?.url || '').split('?')[0];
