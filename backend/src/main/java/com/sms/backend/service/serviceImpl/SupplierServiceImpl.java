@@ -51,23 +51,30 @@ public class SupplierServiceImpl implements SupplierService {
     @Override
     @Transactional
     public SupplierResponse createSupplier(SupplierRequest request) {
-        if (supplierRepository.existsBySupplierCode(request.supplierCode())) {
-            throw new BadRequestException("Mã nhà cung cấp đã tồn tại: " + request.supplierCode());
+        String code = request.supplierCode().trim();
+        if (supplierRepository.existsBySupplierCode(code)) {
+            throw new BadRequestException("Mã nhà cung cấp đã tồn tại: " + code);
         }
+
+        String taxCode = request.taxCode() != null ? request.taxCode().trim() : null;
+        if (taxCode != null && !taxCode.isEmpty() && supplierRepository.existsByTaxCode(taxCode)) {
+            throw new BadRequestException("Mã số thuế (MST) đã được đăng ký bởi nhà cung cấp khác: " + taxCode);
+        }
+
         Supplier supplier = new Supplier();
-        supplier.setSupplierCode(request.supplierCode().trim());
+        supplier.setSupplierCode(code);
         supplier.setSupplierName(request.supplierName().trim());
         supplier.setContactPerson(request.contactPerson() != null ? request.contactPerson().trim() : null);
         supplier.setPhone(request.phone() != null ? request.phone().trim() : null);
         supplier.setEmail(request.email() != null ? request.email().trim() : null);
         supplier.setAddress(request.address() != null ? request.address().trim() : null);
-        supplier.setTaxCode(request.taxCode() != null ? request.taxCode().trim() : null);
-        supplier.setStatus(SupplierStatus.ACTIVE);
+        supplier.setTaxCode(taxCode != null && !taxCode.isEmpty() ? taxCode : null);
+        supplier.setStatus(request.status() != null ? request.status() : SupplierStatus.ACTIVE);
         supplier.setCreatedAt(LocalDateTime.now());
         supplier.setUpdatedAt(LocalDateTime.now());
 
         Supplier saved = supplierRepository.save(supplier);
-        logAction("CREATE_SUPPLIER", saved.getSupplierId(), "Đăng ký nhà cung cấp mới: " + saved.getSupplierName());
+        logAction("SUPPLIER_SAVED", saved.getSupplierId(), "Đăng ký nhà cung cấp mới: " + saved.getSupplierName());
         return toResponse(saved);
     }
 
@@ -75,21 +82,35 @@ public class SupplierServiceImpl implements SupplierService {
     @Transactional
     public SupplierResponse updateSupplier(Long id, SupplierRequest request) {
         Supplier supplier = findById(id);
-        if (!supplier.getSupplierCode().equalsIgnoreCase(request.supplierCode().trim())
-                && supplierRepository.existsBySupplierCode(request.supplierCode().trim())) {
-            throw new BadRequestException("Mã nhà cung cấp đã tồn tại: " + request.supplierCode());
+        String code = request.supplierCode().trim();
+        if (!supplier.getSupplierCode().equalsIgnoreCase(code)
+                && supplierRepository.existsBySupplierCode(code)) {
+            throw new BadRequestException("Mã nhà cung cấp đã tồn tại: " + code);
         }
-        supplier.setSupplierCode(request.supplierCode().trim());
+
+        String taxCode = request.taxCode() != null ? request.taxCode().trim() : null;
+        if (taxCode != null && !taxCode.isEmpty()) {
+            supplierRepository.findByTaxCode(taxCode).ifPresent(other -> {
+                if (!other.getSupplierId().equals(supplier.getSupplierId())) {
+                    throw new BadRequestException("Mã số thuế (MST) đã được đăng ký bởi nhà cung cấp khác: " + taxCode);
+                }
+            });
+        }
+
+        supplier.setSupplierCode(code);
         supplier.setSupplierName(request.supplierName().trim());
         supplier.setContactPerson(request.contactPerson() != null ? request.contactPerson().trim() : null);
         supplier.setPhone(request.phone() != null ? request.phone().trim() : null);
         supplier.setEmail(request.email() != null ? request.email().trim() : null);
         supplier.setAddress(request.address() != null ? request.address().trim() : null);
-        supplier.setTaxCode(request.taxCode() != null ? request.taxCode().trim() : null);
+        supplier.setTaxCode(taxCode != null && !taxCode.isEmpty() ? taxCode : null);
+        if (request.status() != null) {
+            supplier.setStatus(request.status());
+        }
         supplier.setUpdatedAt(LocalDateTime.now());
 
         Supplier saved = supplierRepository.save(supplier);
-        logAction("UPDATE_SUPPLIER", saved.getSupplierId(), "Cập nhật thông tin nhà cung cấp: " + saved.getSupplierName());
+        logAction("SUPPLIER_SAVED", saved.getSupplierId(), "Cập nhật thông tin nhà cung cấp: " + saved.getSupplierName());
         return toResponse(saved);
     }
 
@@ -102,9 +123,7 @@ public class SupplierServiceImpl implements SupplierService {
         supplier.setUpdatedAt(LocalDateTime.now());
         Supplier saved = supplierRepository.save(supplier);
 
-        String action = (status == SupplierStatus.DISABLED || status == SupplierStatus.INACTIVE)
-                ? "DISABLE_SUPPLIER" : "ENABLE_SUPPLIER";
-        logAction(action, saved.getSupplierId(),
+        logAction("STATUS_CHANGED", saved.getSupplierId(),
                 "Thay đổi trạng thái nhà cung cấp từ " + oldStatus + " sang " + status + " (" + saved.getSupplierName() + ")");
         return toResponse(saved);
     }

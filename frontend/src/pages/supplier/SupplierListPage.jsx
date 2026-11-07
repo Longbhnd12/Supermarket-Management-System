@@ -303,26 +303,13 @@ export default function SupplierListPage() {
                             Refresh
                         </button>
                         {isAdminOrManager && (
-                            <button
-                                type="button"
+                            <Link
+                                to="/suppliers/create"
                                 className="action-btn primary"
-                                onClick={() => {
-                                    setCreateError(null);
-                                    setCreateForm({
-                                        supplierCode: `SUP-00${rawSuppliers.length + 1}`,
-                                        supplierName: '',
-                                        contactPerson: '',
-                                        phone: '',
-                                        email: '',
-                                        address: '',
-                                        taxCode: ''
-                                    });
-                                    setIsCreateModalOpen(true);
-                                }}
                             >
                                 <Plus size={16} />
                                 + Create Supplier
-                            </button>
+                            </Link>
                         )}
                     </div>
                 </div>
@@ -713,29 +700,16 @@ export default function SupplierListPage() {
 
                     <div className="shortcuts-list">
                         {isAdminOrManager && (
-                            <button
-                                type="button"
+                            <Link
+                                to="/suppliers/create"
                                 className="shortcut-item-btn"
-                                onClick={() => {
-                                    setCreateError(null);
-                                    setCreateForm({
-                                        supplierCode: `SUP-00${rawSuppliers.length + 1}`,
-                                        supplierName: '',
-                                        contactPerson: '',
-                                        phone: '',
-                                        email: '',
-                                        address: '',
-                                        taxCode: ''
-                                    });
-                                    setIsCreateModalOpen(true);
-                                }}
                             >
                                 <div className="shortcut-icon-box blue">📋</div>
                                 <div className="shortcut-text">
                                     <span className="shortcut-label">Register New Vendor (UC20)</span>
                                 </div>
                                 <ArrowRight size={16} className="shortcut-arrow" />
-                            </button>
+                            </Link>
                         )}
 
                         <Link to="/purchase-orders/create" className="shortcut-item-btn">

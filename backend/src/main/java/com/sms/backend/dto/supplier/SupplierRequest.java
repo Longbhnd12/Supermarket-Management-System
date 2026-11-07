@@ -1,12 +1,11 @@
 package com.sms.backend.dto.supplier;
 
+import com.sms.backend.enums.SupplierStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 /**
- * Request DTO for creating or updating a Supplier.
- * TODO (SDD): Confirm whether supplierCode is auto-generated or user-supplied.
- * TODO (SDD): Confirm email/phone format validation requirements.
+ * Request DTO for creating or updating a Supplier (UC20).
  */
 public record SupplierRequest(
 
@@ -32,6 +31,12 @@ public record SupplierRequest(
         String address,
 
         @Size(max = 20, message = "Tax code must not exceed 20 characters")
-        String taxCode
+        String taxCode,
+
+        SupplierStatus status
 ) {
+    public SupplierRequest(String supplierCode, String supplierName, String contactPerson,
+                           String phone, String email, String address, String taxCode) {
+        this(supplierCode, supplierName, contactPerson, phone, email, address, taxCode, null);
+    }
 }

@@ -283,14 +283,13 @@ export default function SupplierDetailPage() {
 
                     <div className="header-right-btns">
                         {isAdminOrManager && (
-                            <button
-                                type="button"
+                            <Link
+                                to={`/suppliers/${supplier.supplierId}/edit`}
                                 className="action-btn secondary edit-btn"
-                                onClick={handleOpenEdit}
                             >
                                 <Edit3 size={15} />
                                 Edit Supplier (UC20)
-                            </button>
+                            </Link>
                         )}
 
                         {isAdminOrManager && (
