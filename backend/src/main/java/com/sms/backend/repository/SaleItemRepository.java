@@ -12,4 +12,6 @@ import java.util.List;
 public interface SaleItemRepository extends JpaRepository<SaleItem, Long> {
     List<SaleItem> findBySale(Sale sale);
     List<SaleItem> findBySaleSaleIdIn(Collection<Long> saleIds);
+    boolean existsByPromotion_PromotionId(Long promotionId);
+    long countByPromotion_PromotionId(Long promotionId);
 }
