@@ -719,3 +719,367 @@
     cursor: not-allowed;
 }
 
+/* ── Batch Allocation Section (UC33) ── */
+.adj-batch-section {
+    margin-top: 16px;
+    padding: 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.adj-batch-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.adj-batch-subtitle {
+    display: block;
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+.adj-alloc-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    white-space: nowrap;
+}
+
+.adj-alloc-badge--matched {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+}
+
+.adj-alloc-badge--pending {
+    background: #fef3c7;
+    color: #b45309;
+    border: 1px solid #fde68a;
+}
+
+.adj-batch-loading,
+.adj-batch-empty {
+    font-size: 13px;
+    color: #64748b;
+    padding: 14px 12px;
+    background: #ffffff;
+    border: 1px dashed #cbd5e1;
+    border-radius: 6px;
+    text-align: center;
+}
+
+.adj-batch-table-wrap {
+    overflow-x: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #ffffff;
+}
+
+.adj-batch-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    text-align: left;
+}
+
+.adj-batch-table th {
+    background: #f1f5f9;
+    color: #475569;
+    font-weight: 600;
+    padding: 8px 10px;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+}
+
+.adj-batch-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    vertical-align: middle;
+}
+
+.adj-batch-row--selected {
+    background: #eff6ff;
+}
+
+.adj-batch-row--error {
+    background: #fef2f2;
+}
+
+.adj-batch-num {
+    font-family: monospace;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.adj-batch-expired-tag {
+    font-size: 10px;
+    font-weight: 600;
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+
+.adj-batch-receipt-ref {
+    font-family: monospace;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.adj-batch-input {
+    width: 100%;
+    padding: 6px 8px;
+    font-size: 13px;
+    text-align: right;
+    box-sizing: border-box;
+}
+
+.adj-alloc-summary-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 12.5px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.adj-alloc-summary-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.adj-alloc-summary-lbl {
+    color: #64748b;
+}
+
+.adj-alloc-summary-val {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.adj-alloc-summary-divider {
+    color: #cbd5e1;
+}
+
+.adj-modal-batch-list {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.adj-modal-batch-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.adj-modal-batch-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    color: #1e293b;
+    border-top: 1px dashed #e2e8f0;
+    padding-top: 6px;
+}
+
+/* ── Grouped Batch Allocation UI Enhancements ── */
+.adj-batch-expand-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    color: #64748b;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.adj-batch-expand-btn:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+
+.adj-batch-expand-btn--active {
+    color: #2563eb;
+    background: #eff6ff;
+}
+
+.adj-batch-source-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    cursor: pointer;
+}
+
+.adj-batch-source-pill:hover {
+    background: #e2e8f0;
+}
+
+.adj-batch-conflict-tag {
+    font-size: 10.5px;
+    font-weight: 600;
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+    padding: 1px 6px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.adj-batch-subrow {
+    background: #f8fafc;
+}
+
+.adj-batch-subrow td {
+    padding: 8px 12px 12px !important;
+    border-bottom: 2px solid #e2e8f0 !important;
+}
+
+.adj-batch-subtable-wrap {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 8px 10px;
+}
+
+.adj-batch-subtable-title {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.adj-batch-subtable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.adj-batch-subtable th {
+    background: #f8fafc;
+    color: #64748b;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    padding: 6px 8px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.adj-batch-subtable td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+}
+
+.adj-batch-subtable tr:last-child td {
+    border-bottom: none;
+}
+
+.adj-batch-subtable-empty {
+    text-align: center;
+    color: #94a3b8;
+    padding: 12px 8px;
+    font-style: italic;
+}
+
+.adj-toggle-empty-btn {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.adj-toggle-empty-btn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.adj-inline-link-btn {
+    background: none;
+    border: none;
+    color: #2563eb;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: inherit;
+    font-style: normal;
+    padding: 0 4px;
+}
+
+.adj-inline-link-btn:hover {
+    color: #1d4ed8;
+}
+
+.adj-batch-depleted-tag {
+    font-size: 10px;
+    font-weight: 600;
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+    padding: 1px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.adj-batch-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #e2e8f0;
+    font-size: 11.5px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.adj-batch-pagination-info {
+    color: #64748b;
+}
+
+
+

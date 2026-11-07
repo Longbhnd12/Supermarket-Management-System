@@ -17,10 +17,12 @@ import com.sms.backend.dto.inventory.StockHistoryFilter;
 import com.sms.backend.dto.inventory.StockMovementPageResponse;
 import com.sms.backend.dto.inventory.StockMovementResponse;
 import com.sms.backend.entity.Product;
+import com.sms.backend.entity.StockReceiptDetail;
 import com.sms.backend.enums.StockMovementType;
 import com.sms.backend.exception.BadRequestException;
 import com.sms.backend.exception.BusinessException;
 import com.sms.backend.repository.ProductRepository;
+import com.sms.backend.repository.StockReceiptDetailRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +45,9 @@ class InventoryServiceIntegrationTest {
 
     @Autowired
     private ProductRepository productRepository;
+
+    @Autowired
+    private StockReceiptDetailRepository stockReceiptDetailRepository;
 
     @Test
     @DisplayName("UC31 - Retrieve all inventory with pagination")
@@ -81,6 +86,11 @@ class InventoryServiceIntegrationTest {
     @Test
     @DisplayName("UC31 - Filter by stock status")
     void testFilterByStockStatus() {
+        // Ensure at least one product has stock 0 within this transactional test
+        Product testProduct = productRepository.findAll().getFirst();
+        testProduct.setStockQuantity(BigDecimal.ZERO);
+        productRepository.save(testProduct);
+
         InventoryFilter outOfStockFilter = new InventoryFilter(null, null, "OUT_OF_STOCK", 0, 20);
         InventoryPageResponse outOfStockRes = inventoryService.getInventoryList(outOfStockFilter);
         assertFalse(outOfStockRes.content().isEmpty());
@@ -277,6 +287,41 @@ class InventoryServiceIntegrationTest {
         }
     }
 
+    @Test
+    @DisplayName("UC35 - Batch-level alerts have distinct batch quantities and earliest expiration sorting")
+    void testBatchLevelAlertsDistinctAndSorted() {
+        StockAlertFilter nearExpiryFilter = new StockAlertFilter(null, null, "NEAR_EXPIRY", 0, 50);
+        StockAlertSummaryResponse res = inventoryService.getStockAlerts(nearExpiryFilter);
+
+        assertNotNull(res);
+        LocalDate previousDate = null;
+        for (StockAlertItemResponse item : res.alerts()) {
+            assertEquals("NEAR_EXPIRY", item.alertType());
+            assertNotNull(item.batchNumber());
+            assertNotNull(item.batchRemainingQuantity());
+            assertTrue(item.batchRemainingQuantity().compareTo(BigDecimal.ZERO) > 0);
+            assertNotNull(item.expiryDate());
+
+            // Expiry alerts must be sorted ascending (earliest expiration first)
+            if (previousDate != null) {
+                assertFalse(item.expiryDate().isBefore(previousDate),
+                        "Alerts must be ordered with earliest expiration first");
+            }
+            previousDate = item.expiryDate();
+        }
+
+        // Check product-level alerts (LOW_STOCK) do not have batch-specific details
+        StockAlertFilter lowStockFilter = new StockAlertFilter(null, null, "LOW_STOCK", 0, 50);
+        StockAlertSummaryResponse lowRes = inventoryService.getStockAlerts(lowStockFilter);
+        for (StockAlertItemResponse item : lowRes.alerts()) {
+            assertEquals("LOW_STOCK", item.alertType());
+            assertNull(item.batchNumber(), "Product-level alert must not have batch number");
+            assertNull(item.batchRemainingQuantity(), "Product-level alert must not have batch remaining quantity");
+            assertNotNull(item.currentStock(), "Product-level alert must have total stock");
+            assertNotNull(item.safetyMin(), "Product-level alert must have safety minimum");
+        }
+    }
+
     // =========================================================================
     // UC32 - Stock Check & Stock Difference Integration Tests
     // =========================================================================
@@ -370,12 +415,20 @@ class InventoryServiceIntegrationTest {
         assertEquals("PENDING_ADJUSTMENT", checkItem.status());
 
         // 2. Adjust stock via UC33 linked to this stock check
+        var batches = inventoryService.getProductBatches(1L);
+        assertFalse(batches.isEmpty());
+        StockReceiptDetail targetBatch = stockReceiptDetailRepository.findById(batches.getFirst().stockReceiptItemId()).orElseThrow();
+        targetBatch.setRemainingQuantity(new BigDecimal("50"));
+        stockReceiptDetailRepository.save(targetBatch);
+        Long batchId = targetBatch.getStockReceiptItemId();
+
         StockAdjustmentRequest adjReq = new StockAdjustmentRequest(
                 1L,
                 "DECREASE",
                 new BigDecimal("10"),
                 "Reconcile shelf audit SC-ADJ-TEST",
-                checkItem.stockCheckId()
+                checkItem.stockCheckId(),
+                List.of(new StockAdjustmentRequest.BatchAllocationRequest(batchId, new BigDecimal("10")))
         );
         StockAdjustmentResponse adjResp = inventoryService.adjustStock(adjReq);
         assertNotNull(adjResp);
@@ -503,12 +556,18 @@ class InventoryServiceIntegrationTest {
         assertEquals(0, originalSysStock.compareTo(productAfter.getStockQuantity()), "Master product stock must NOT change");
 
         // 4. Verify UC33 adjustment receives and locks to the corrected variance (-5 -> DECREASE 5)
+        var batches = inventoryService.getProductBatches(1L);
+        StockReceiptDetail targetBatch = stockReceiptDetailRepository.findById(batches.getFirst().stockReceiptItemId()).orElseThrow();
+        targetBatch.setRemainingQuantity(new BigDecimal("50"));
+        stockReceiptDetailRepository.save(targetBatch);
+        Long batchId = targetBatch.getStockReceiptItemId();
         StockAdjustmentRequest adjReq = new StockAdjustmentRequest(
                 1L,
                 "DECREASE",
                 new BigDecimal("5"),
                 "Reconcile corrected audit",
-                updatedRecord.stockCheckId()
+                updatedRecord.stockCheckId(),
+                List.of(new StockAdjustmentRequest.BatchAllocationRequest(batchId, new BigDecimal("5")))
         );
         StockAdjustmentResponse adjResp = inventoryService.adjustStock(adjReq);
         assertNotNull(adjResp);
@@ -548,8 +607,14 @@ class InventoryServiceIntegrationTest {
         Long checkId = session.items().getFirst().stockCheckId();
 
         // Reconcile through UC33
+        var batches = inventoryService.getProductBatches(1L);
+        StockReceiptDetail targetBatch = stockReceiptDetailRepository.findById(batches.getFirst().stockReceiptItemId()).orElseThrow();
+        targetBatch.setRemainingQuantity(new BigDecimal("50"));
+        stockReceiptDetailRepository.save(targetBatch);
+        Long batchId = targetBatch.getStockReceiptItemId();
         inventoryService.adjustStock(new StockAdjustmentRequest(
-                1L, "DECREASE", new BigDecimal("2"), "Reconciled", checkId
+                1L, "DECREASE", new BigDecimal("2"), "Reconciled", checkId,
+                List.of(new StockAdjustmentRequest.BatchAllocationRequest(batchId, new BigDecimal("2")))
         ));
 
         // Now attempt to edit physical count should be rejected
@@ -597,8 +662,11 @@ class InventoryServiceIntegrationTest {
         assertFalse(checkItem.isStale(), "Immediately after audit, stock has not moved so not stale");
 
         // 2. Perform independent manual adjustment (without stockCheckId)
+        var batches = inventoryService.getProductBatches(1L);
+        Long batchId = batches.getFirst().stockReceiptItemId();
         inventoryService.adjustStock(new StockAdjustmentRequest(
-                1L, "INCREASE", new BigDecimal("10"), "Manual independent adjustment", null
+                1L, "INCREASE", new BigDecimal("10"), "Manual independent adjustment", null,
+                List.of(new StockAdjustmentRequest.BatchAllocationRequest(batchId, new BigDecimal("10")))
         ));
 
         // 3. Fetch session again: discrepancy must now be detected as STALE
@@ -613,7 +681,8 @@ class InventoryServiceIntegrationTest {
         // 4. Attempting to adjust with old variance must be blocked by conflict detection
         BusinessException conflictEx = assertThrows(BusinessException.class, () -> {
             inventoryService.adjustStock(new StockAdjustmentRequest(
-                    1L, "DECREASE", new BigDecimal("5"), "Attempt to apply stale variance", checkItem.stockCheckId()
+                    1L, "DECREASE", new BigDecimal("5"), "Attempt to apply stale variance", checkItem.stockCheckId(),
+                    List.of(new StockAdjustmentRequest.BatchAllocationRequest(batchId, new BigDecimal("5")))
             ));
         });
         assertTrue(conflictEx.getMessage().toLowerCase().contains("conflict") || conflictEx.getMessage().toLowerCase().contains("moved"));

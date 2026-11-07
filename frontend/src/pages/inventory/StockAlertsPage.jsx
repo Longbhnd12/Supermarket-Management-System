@@ -247,7 +247,7 @@ export default function StockAlertsPage() {
                 </div>
             )}
 
-            {/* ─── Summary Cards (SRS #1) ─── */}
+            {/* ─── Summary Cards (SRS #1, UC35) ─── */}
             <div className="sms-summary-grid">
                 {/* Low Stock Card */}
                 <div
@@ -261,10 +261,13 @@ export default function StockAlertsPage() {
                         <div className="sms-summary-icon-wrap sms-summary-icon-wrap--low">
                             <AlertTriangle size={20} />
                         </div>
-                        <span className="sms-summary-count">{summary.lowStockCount}</span>
+                        <div className="sms-summary-count-group">
+                            <span className="sms-summary-count">{summary.lowStockCount}</span>
+                            <span className="sms-summary-unit">{summary.lowStockCount === 1 ? 'Product' : 'Products'}</span>
+                        </div>
                     </div>
                     <div className="sms-summary-info">
-                        <span className="sms-summary-label">Low Stock</span>
+                        <span className="sms-summary-label">Low Stock — {summary.lowStockCount} {summary.lowStockCount === 1 ? 'Product' : 'Products'}</span>
                         <span className="sms-summary-sub">Stock ≤ Safety Minimum</span>
                     </div>
                 </div>
@@ -281,10 +284,13 @@ export default function StockAlertsPage() {
                         <div className="sms-summary-icon-wrap sms-summary-icon-wrap--out">
                             <PackageX size={20} />
                         </div>
-                        <span className="sms-summary-count">{summary.outOfStockCount}</span>
+                        <div className="sms-summary-count-group">
+                            <span className="sms-summary-count">{summary.outOfStockCount}</span>
+                            <span className="sms-summary-unit">{summary.outOfStockCount === 1 ? 'Product' : 'Products'}</span>
+                        </div>
                     </div>
                     <div className="sms-summary-info">
-                        <span className="sms-summary-label">Out of Stock</span>
+                        <span className="sms-summary-label">Out of Stock — {summary.outOfStockCount} {summary.outOfStockCount === 1 ? 'Product' : 'Products'}</span>
                         <span className="sms-summary-sub">Quantity on hand = 0</span>
                     </div>
                 </div>
@@ -301,10 +307,13 @@ export default function StockAlertsPage() {
                         <div className="sms-summary-icon-wrap sms-summary-icon-wrap--near">
                             <Clock size={20} />
                         </div>
-                        <span className="sms-summary-count">{summary.nearExpiryCount}</span>
+                        <div className="sms-summary-count-group">
+                            <span className="sms-summary-count">{summary.nearExpiryCount}</span>
+                            <span className="sms-summary-unit">{summary.nearExpiryCount === 1 ? 'Batch' : 'Batches'}</span>
+                        </div>
                     </div>
                     <div className="sms-summary-info">
-                        <span className="sms-summary-label">Near Expiry</span>
+                        <span className="sms-summary-label">Near Expiry — {summary.nearExpiryCount} {summary.nearExpiryCount === 1 ? 'Batch' : 'Batches'}</span>
                         <span className="sms-summary-sub">Expiring within warning period</span>
                     </div>
                 </div>
@@ -321,10 +330,13 @@ export default function StockAlertsPage() {
                         <div className="sms-summary-icon-wrap sms-summary-icon-wrap--expired">
                             <AlertCircle size={20} />
                         </div>
-                        <span className="sms-summary-count">{summary.expiredCount}</span>
+                        <div className="sms-summary-count-group">
+                            <span className="sms-summary-count">{summary.expiredCount}</span>
+                            <span className="sms-summary-unit">{summary.expiredCount === 1 ? 'Batch' : 'Batches'}</span>
+                        </div>
                     </div>
                     <div className="sms-summary-info">
-                        <span className="sms-summary-label">Expired</span>
+                        <span className="sms-summary-label">Expired — {summary.expiredCount} {summary.expiredCount === 1 ? 'Batch' : 'Batches'}</span>
                         <span className="sms-summary-sub">Past batch expiration date</span>
                     </div>
                 </div>
@@ -437,7 +449,9 @@ export default function StockAlertsPage() {
                                     <th>SKU</th>
                                     <th>Product Name</th>
                                     <th style={{ textAlign: 'center' }}>Alert Type</th>
-                                    <th style={{ textAlign: 'right' }}>Current Stock</th>
+                                    <th>Batch Number</th>
+                                    <th style={{ textAlign: 'right' }}>Batch Remaining Qty</th>
+                                    <th style={{ textAlign: 'right' }}>Total Stock</th>
                                     <th style={{ textAlign: 'right' }}>Safety Min</th>
                                     <th>Expiry Date</th>
                                     <th style={{ textAlign: 'center' }}>Action</th>
@@ -448,6 +462,7 @@ export default function StockAlertsPage() {
                                     const stockNum = Number(item.currentStock) || 0;
                                     const isOutOfStock = stockNum <= 0;
                                     const isLowStock = item.alertType === 'LOW_STOCK';
+                                    const isBatchAlert = item.alertType === 'NEAR_EXPIRY' || item.alertType === 'EXPIRED';
 
                                     return (
                                         <tr key={item.alertId}>
@@ -470,6 +485,29 @@ export default function StockAlertsPage() {
                                                 {renderAlertBadge(item.alertType)}
                                             </td>
 
+                                            {/* Batch Number */}
+                                            <td>
+                                                {isBatchAlert && item.batchNumber ? (
+                                                    <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#334155' }}>
+                                                        {item.batchNumber}
+                                                    </span>
+                                                ) : (
+                                                    <span style={{ color: '#94a3b8' }}>—</span>
+                                                )}
+                                            </td>
+
+                                            {/* Batch Remaining Qty */}
+                                            <td style={{ textAlign: 'right' }}>
+                                                {isBatchAlert && item.batchRemainingQuantity != null ? (
+                                                    <span style={{ fontWeight: 600, color: '#0f172a' }}>
+                                                        {formatQty(item.batchRemainingQuantity)} {item.unit || ''}
+                                                    </span>
+                                                ) : (
+                                                    <span style={{ color: '#94a3b8' }}>—</span>
+                                                )}
+                                            </td>
+
+                                            {/* Total Stock */}
                                             <td style={{ textAlign: 'right' }}>
                                                 <span
                                                     className={`sms-stock-qty ${
@@ -484,10 +522,12 @@ export default function StockAlertsPage() {
                                                 </span>
                                             </td>
 
+                                            {/* Safety Min */}
                                             <td style={{ textAlign: 'right', color: '#64748b', fontWeight: 500 }}>
                                                 {formatQty(item.safetyMin)} {item.unit || ''}
                                             </td>
 
+                                            {/* Expiry Date */}
                                             <td>
                                                 {item.expiryDate ? (
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
@@ -502,7 +542,6 @@ export default function StockAlertsPage() {
                                                                     ? 'Expires today'
                                                                     : `Expires in ${item.daysToExpiry} days`
                                                             )}
-                                                            {item.batchNumber ? ` • Batch ${item.batchNumber}` : ''}
                                                         </span>
                                                     </div>
                                                 ) : (
@@ -613,7 +652,7 @@ export default function StockAlertsPage() {
                                         <span className="sms-modal-prop-val">{detailAlert.unit || 'unit'}</span>
                                     </div>
                                     <div className="sms-modal-prop">
-                                        <span className="sms-modal-prop-label">Current Total Stock</span>
+                                        <span className="sms-modal-prop-label">Total Stock</span>
                                         <span className="sms-modal-prop-val" style={{ color: Number(detailAlert.currentStock) <= 0 ? '#dc2626' : '#d97706', fontWeight: 700 }}>
                                             {formatQty(detailAlert.currentStock)} {detailAlert.unit || ''}
                                         </span>

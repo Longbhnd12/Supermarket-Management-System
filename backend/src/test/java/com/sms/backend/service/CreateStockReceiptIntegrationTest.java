@@ -371,4 +371,219 @@ class CreateStockReceiptIntegrationTest {
         // Editing cancelled receipt throws BusinessException
         assertThrows(BusinessException.class, () -> inventoryService.updateStockReceipt(draft.stockReceiptId(), updateReq));
     }
+
+    @Test
+    @DisplayName("UC36 - Receiving same Product + Batch Number with different expiration date is rejected")
+    void testCreateStockReceiptWithConflictingBatchExpiryDateAgainstConfirmedBatchRejected() {
+        LocalDate date1 = LocalDate.now().plusMonths(6);
+        LocalDate date2 = LocalDate.now().plusMonths(9);
+
+        // 1. Create and confirm initial receipt with BATCH-CONF-01 and date1
+        CreateStockReceiptItemRequest item1 = new CreateStockReceiptItemRequest(
+                1L, new BigDecimal("5.00"), new BigDecimal("15000.00"), "BATCH-CONF-01", date1
+        );
+        CreateStockReceiptRequest req1 = new CreateStockReceiptRequest(
+                null, 1L, null, StockReceiptStatus.CONFIRMED, List.of(item1)
+        );
+        inventoryService.createStockReceipt(req1);
+
+        // 2. Attempt to create another receipt for Product 1 with same batch number but date2
+        CreateStockReceiptItemRequest item2 = new CreateStockReceiptItemRequest(
+                1L, new BigDecimal("10.00"), new BigDecimal("15000.00"), "BATCH-CONF-01", date2
+        );
+        CreateStockReceiptRequest req2 = new CreateStockReceiptRequest(
+                null, 1L, null, StockReceiptStatus.CONFIRMED, List.of(item2)
+        );
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                inventoryService.createStockReceipt(req2)
+        );
+        assertTrue(ex.getMessage().contains("already exists in confirmed stock receipt"));
+        assertTrue(ex.getMessage().contains("BATCH-CONF-01"));
+    }
+
+    @Test
+    @DisplayName("UC36 - Receiving same Product + Batch Number with identical expiration date is allowed as separate record")
+    void testCreateStockReceiptWithSameBatchNumberAndSameExpiryDateAllowedAsSeparateRecord() {
+        LocalDate date = LocalDate.now().plusMonths(6);
+
+        // 1. Create and confirm initial receipt
+        CreateStockReceiptItemRequest item1 = new CreateStockReceiptItemRequest(
+                1L, new BigDecimal("5.00"), new BigDecimal("15000.00"), "BATCH-SAME-01", date
+        );
+        CreateStockReceiptRequest req1 = new CreateStockReceiptRequest(
+                null, 1L, null, StockReceiptStatus.CONFIRMED, List.of(item1)
+        );
+        StockReceiptResponse resp1 = inventoryService.createStockReceipt(req1);
+        Long detailId1 = resp1.details().getFirst().receiptDetailId();
+
+        // 2. Create second receipt with same product, same batch number, same expiration date
+        CreateStockReceiptItemRequest item2 = new CreateStockReceiptItemRequest(
+                1L, new BigDecimal("8.00"), new BigDecimal("16000.00"), "BATCH-SAME-01", date
+        );
+        CreateStockReceiptRequest req2 = new CreateStockReceiptRequest(
+                null, 1L, null, StockReceiptStatus.CONFIRMED, List.of(item2)
+        );
+        StockReceiptResponse resp2 = inventoryService.createStockReceipt(req2);
+        Long detailId2 = resp2.details().getFirst().receiptDetailId();
+
+        // Verify both receipt details exist as separate records
+        assertNotEquals(detailId1, detailId2);
+        assertNotEquals(resp1.stockReceiptId(), resp2.stockReceiptId());
+
+        var d1 = stockReceiptDetailRepository.findById(detailId1).orElseThrow();
+        var d2 = stockReceiptDetailRepository.findById(detailId2).orElseThrow();
+        assertEquals(0, new BigDecimal("5.00").compareTo(d1.getQuantity()));
+        assertEquals(0, new BigDecimal("8.00").compareTo(d2.getQuantity()));
+        assertEquals(date, d1.getExpirationDate());
+        assertEquals(date, d2.getExpirationDate());
+    }
+
+    @Test
+    @DisplayName("UC36 - Same Batch Number is allowed for different products")
+    void testSameBatchNumberAllowedForDifferentProducts() {
+        // Product 1 tracks expiry
+        Product p1 = productRepository.findById(1L).orElseThrow();
+        assertTrue(Boolean.TRUE.equals(p1.getTrackExpiry()));
+
+        // Ensure Product 2 also tracks expiry in test
+        Product p2 = productRepository.findById(2L).orElseThrow();
+        p2.setTrackExpiry(true);
+        productRepository.save(p2);
+
+        LocalDate date1 = LocalDate.now().plusMonths(6);
+        LocalDate date2 = LocalDate.now().plusMonths(12);
+
+        // Receive Product 1 with BATCH-MULTI-PROD
+        CreateStockReceiptItemRequest item1 = new CreateStockReceiptItemRequest(
+                1L, new BigDecimal("10.00"), new BigDecimal("15000.00"), "BATCH-MULTI-PROD", date1
+        );
+        CreateStockReceiptRequest req1 = new CreateStockReceiptRequest(
+                null, 1L, null, StockReceiptStatus.CONFIRMED, List.of(item1)
+        );
+        StockReceiptResponse resp1 = inventoryService.createStockReceipt(req1);
+        assertNotNull(resp1);
+
+        // Receive Product 2 with same batch number BATCH-MULTI-PROD and different date2
+        CreateStockReceiptItemRequest item2 = new CreateStockReceiptItemRequest(
+                2L, new BigDecimal("20.00"), new BigDecimal("25000.00"), "BATCH-MULTI-PROD", date2
+        );
+        CreateStockReceiptRequest req2 = new CreateStockReceiptRequest(
+                null, 1L, null, StockReceiptStatus.CONFIRMED, List.of(item2)
+        );
+        StockReceiptResponse resp2 = inventoryService.createStockReceipt(req2);
+        assertNotNull(resp2);
+    }
+
+    @Test
+    @DisplayName("UC36 - Duplicate Product + Batch Number within the same receipt with different dates is rejected")
+    void testIntraReceiptConflictingBatchExpiryDatesRejected() {
+        LocalDate date1 = LocalDate.now().plusMonths(6);
+        LocalDate date2 = LocalDate.now().plusMonths(8);
+
+        CreateStockReceiptItemRequest item1 = new CreateStockReceiptItemRequest(
+                1L, new BigDecimal("5.00"), new BigDecimal("15000.00"), "BATCH-INTRA-01", date1
+        );
+        CreateStockReceiptItemRequest item2 = new CreateStockReceiptItemRequest(
+                1L, new BigDecimal("10.00"), new BigDecimal("15000.00"), "BATCH-INTRA-01", date2
+        );
+        CreateStockReceiptRequest req = new CreateStockReceiptRequest(
+                null, 1L, null, StockReceiptStatus.CONFIRMED, List.of(item1, item2)
+        );
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                inventoryService.createStockReceipt(req)
+        );
+        assertTrue(ex.getMessage().contains("within the same receipt"));
+    }
+
+    @Test
+    @DisplayName("UC36 - Duplicate Product + Batch Number within the same receipt with identical dates is allowed")
+    void testIntraReceiptSameBatchNumberAndSameExpiryDateAllowed() {
+        LocalDate date = LocalDate.now().plusMonths(6);
+
+        CreateStockReceiptItemRequest item1 = new CreateStockReceiptItemRequest(
+                1L, new BigDecimal("5.00"), new BigDecimal("15000.00"), "BATCH-INTRA-02", date
+        );
+        CreateStockReceiptItemRequest item2 = new CreateStockReceiptItemRequest(
+                1L, new BigDecimal("10.00"), new BigDecimal("14500.00"), "BATCH-INTRA-02", date
+        );
+        CreateStockReceiptRequest req = new CreateStockReceiptRequest(
+                null, 1L, null, StockReceiptStatus.CONFIRMED, List.of(item1, item2)
+        );
+
+        StockReceiptResponse resp = inventoryService.createStockReceipt(req);
+        assertNotNull(resp);
+        assertEquals(2, resp.details().size());
+        assertNotEquals(resp.details().get(0).receiptDetailId(), resp.details().get(1).receiptDetailId());
+    }
+
+    @Test
+    @DisplayName("UC36 - Editing DRAFT receipt to a batch with conflicting expiration date is rejected")
+    void testEditDraftStockReceiptRejectsConflictingBatchExpiryDate() {
+        LocalDate date1 = LocalDate.now().plusMonths(6);
+        LocalDate date2 = LocalDate.now().plusMonths(10);
+
+        // 1. Create and confirm an initial receipt with BATCH-EDIT-01
+        CreateStockReceiptItemRequest confItem = new CreateStockReceiptItemRequest(
+                1L, new BigDecimal("5.00"), new BigDecimal("15000.00"), "BATCH-EDIT-01", date1
+        );
+        inventoryService.createStockReceipt(new CreateStockReceiptRequest(
+                null, 1L, null, StockReceiptStatus.CONFIRMED, List.of(confItem)
+        ));
+
+        // 2. Create a DRAFT receipt with a different batch initially
+        CreateStockReceiptItemRequest draftItem = new CreateStockReceiptItemRequest(
+                1L, new BigDecimal("8.00"), new BigDecimal("15000.00"), "BATCH-TEMPORARY", date1
+        );
+        StockReceiptResponse draft = inventoryService.createStockReceipt(new CreateStockReceiptRequest(
+                null, 1L, null, StockReceiptStatus.DRAFT, List.of(draftItem)
+        ));
+
+        // 3. Edit the draft receipt, changing batch to BATCH-EDIT-01 with conflicting date2
+        CreateStockReceiptItemRequest updatedItem = new CreateStockReceiptItemRequest(
+                1L, new BigDecimal("8.00"), new BigDecimal("15000.00"), "BATCH-EDIT-01", date2
+        );
+        CreateStockReceiptRequest updateReq = new CreateStockReceiptRequest(
+                draft.receiptNumber(), 1L, null, StockReceiptStatus.DRAFT, List.of(updatedItem)
+        );
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                inventoryService.updateStockReceipt(draft.stockReceiptId(), updateReq)
+        );
+        assertTrue(ex.getMessage().contains("already exists in confirmed stock receipt"));
+    }
+
+    @Test
+    @DisplayName("UC36 - Confirming DRAFT receipt with conflicting expiration date is rejected")
+    void testConfirmDraftStockReceiptRejectsConflictingBatchExpiryDate() {
+        LocalDate date1 = LocalDate.now().plusMonths(6);
+        LocalDate date2 = LocalDate.now().plusMonths(10);
+
+        // 1. Create a DRAFT receipt with BATCH-RACE-01 and date2
+        CreateStockReceiptItemRequest draftItem = new CreateStockReceiptItemRequest(
+                1L, new BigDecimal("5.00"), new BigDecimal("15000.00"), "BATCH-RACE-01", date2
+        );
+        StockReceiptResponse draft = inventoryService.createStockReceipt(new CreateStockReceiptRequest(
+                null, 1L, null, StockReceiptStatus.DRAFT, List.of(draftItem)
+        ));
+
+        // 2. Meanwhile, another receipt with BATCH-RACE-01 and date1 is created and confirmed
+        CreateStockReceiptItemRequest otherItem = new CreateStockReceiptItemRequest(
+                1L, new BigDecimal("10.00"), new BigDecimal("15000.00"), "BATCH-RACE-01", date1
+        );
+        inventoryService.createStockReceipt(new CreateStockReceiptRequest(
+                null, 1L, null, StockReceiptStatus.CONFIRMED, List.of(otherItem)
+        ));
+
+        // 3. Now attempt to confirm the initial DRAFT receipt (which has conflicting date2)
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                inventoryService.confirmStockReceipt(draft.stockReceiptId())
+        );
+        assertTrue(ex.getMessage().contains("already exists in confirmed stock receipt"));
+
+        // Verify draft remains in DRAFT status
+        StockReceiptResponse draftAfter = inventoryService.getStockReceiptById(draft.stockReceiptId());
+        assertEquals(StockReceiptStatus.DRAFT, draftAfter.status());
+    }
 }

@@ -335,4 +335,15 @@ class InventoryControllerTest {
                 .andExpect(jsonPath("$.data.actualQuantity").value(125))
                 .andExpect(jsonPath("$.data.reason").value("Corrected physical count"));
     }
+
+    @Test
+    @DisplayName("GET /api/v1/inventory/products/{productId}/batches - Returns 200 with list of confirmed batches")
+    void testGetProductBatchesEndpoint() throws Exception {
+        mockMvc.perform(get("/api/v1/inventory/products/1/batches")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Product batches retrieved"))
+                .andExpect(jsonPath("$.data").isArray());
+    }
 }

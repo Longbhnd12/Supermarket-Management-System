@@ -32,4 +32,13 @@ public interface StockReceiptDetailRepository
             @Param("from") LocalDate from,
             @Param("to") LocalDate to,
             @Param("minQty") BigDecimal minQty);
+
+    @Query("select d from StockReceiptDetail d where d.product.productId = :productId " +
+           "and d.batchNumber is not null " +
+           "and lower(trim(d.batchNumber)) = lower(trim(:batchNumber)) " +
+           "and d.stockReceipt.status = com.sms.backend.enums.StockReceiptStatus.CONFIRMED " +
+           "order by d.stockReceiptItemId asc")
+    List<StockReceiptDetail> findConfirmedBatchesByProductAndBatchNumber(
+            @Param("productId") Long productId,
+            @Param("batchNumber") String batchNumber);
 }
