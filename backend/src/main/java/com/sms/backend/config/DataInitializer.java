@@ -3,17 +3,20 @@ package com.sms.backend.config;
 import com.sms.backend.entity.Category;
 import com.sms.backend.entity.Employee;
 import com.sms.backend.entity.Product;
+import com.sms.backend.entity.Promotion;
 import com.sms.backend.entity.Role;
 import com.sms.backend.entity.Supplier;
 import com.sms.backend.entity.User;
 import com.sms.backend.enums.AccountStatus;
 import com.sms.backend.enums.Gender;
 import com.sms.backend.enums.GeneralStatus;
+import com.sms.backend.enums.PromotionType;
 import com.sms.backend.enums.RoleName;
 import com.sms.backend.enums.SupplierStatus;
 import com.sms.backend.repository.CategoryRepository;
 import com.sms.backend.repository.EmployeeRepository;
 import com.sms.backend.repository.ProductRepository;
+import com.sms.backend.repository.PromotionRepository;
 import com.sms.backend.repository.RoleRepository;
 import com.sms.backend.repository.SupplierRepository;
 import com.sms.backend.repository.UserRepository;
@@ -42,6 +45,7 @@ public class DataInitializer {
     private final ProductRepository productRepository;
     private final SupplierRepository supplierRepository;
     private final EmployeeRepository employeeRepository;
+    private final PromotionRepository promotionRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Bean
@@ -103,6 +107,9 @@ public class DataInitializer {
 
                 // Ensure default employees exist for UC17 & related tests
                 initEmployees();
+
+                // Ensure default promotions exist for UC14 & POS testing
+                initPromotions();
 
             } catch (Exception e) {
                 log.warn("Data initialization skipped or failed: {}", e.getMessage(), e);
@@ -423,5 +430,63 @@ public class DataInitializer {
             }
         }
         log.info("Initialized default employees successfully with {} employees.", employeeRepository.count());
+    }
+
+    private void initPromotions() {
+        if (promotionRepository.count() > 0) {
+            log.info("Promotions already initialized. Skipping promotion seeding.");
+            return;
+        }
+
+        log.info("Seeding default promotions for UC14 & POS...");
+        User admin = userRepository.findByUsername("admin").orElse(null);
+        if (admin == null) return;
+
+        Product vinamilk = productRepository.findByProductCode("SKU-8930124").orElse(null);
+        if (vinamilk != null) {
+            Promotion p1 = new Promotion();
+            p1.setPromotionName("Khuyến mãi Giờ Vàng: Cuối tuần Mua sắm Rộn ràng");
+            p1.setPromotionType(PromotionType.PERCENTAGE);
+            p1.setDiscountValue(new BigDecimal("15.00"));
+            p1.setProduct(vinamilk);
+            p1.setCategory(null);
+            p1.setStartAt(LocalDateTime.now().minusDays(1));
+            p1.setEndAt(LocalDateTime.now().plusDays(7));
+            p1.setStatus(GeneralStatus.ACTIVE);
+            p1.setCreatedBy(admin);
+            promotionRepository.save(p1);
+        }
+
+        Product haohao = productRepository.findByProductCode("SKU-8930512").orElse(null);
+        if (haohao != null) {
+            Promotion p2 = new Promotion();
+            p2.setPromotionName("Giảm giá Đặc biệt Mì Hảo Hảo Tôm Chua Cay");
+            p2.setPromotionType(PromotionType.FIXED_AMOUNT);
+            p2.setDiscountValue(new BigDecimal("500.00"));
+            p2.setProduct(haohao);
+            p2.setCategory(null);
+            p2.setStartAt(LocalDateTime.now().minusDays(2));
+            p2.setEndAt(LocalDateTime.now().plusDays(5));
+            p2.setStatus(GeneralStatus.ACTIVE);
+            p2.setCreatedBy(admin);
+            promotionRepository.save(p2);
+        }
+
+        Category suaTrung = categoryRepository.findByCategoryName("Sữa & Trứng").orElse(null);
+        if (suaTrung != null) {
+            Promotion p3 = new Promotion();
+            p3.setPromotionName("Ưu đãi Danh mục Sữa & Trứng");
+            p3.setPromotionType(PromotionType.PERCENTAGE);
+            p3.setDiscountValue(new BigDecimal("10.00"));
+            p3.setProduct(null);
+            p3.setCategory(suaTrung);
+            p3.setStartAt(LocalDateTime.now().minusDays(3));
+            p3.setEndAt(LocalDateTime.now().plusDays(10));
+            p3.setStatus(GeneralStatus.ACTIVE);
+            p3.setCreatedBy(admin);
+            promotionRepository.save(p3);
+        }
+
+        log.info("Initialized default promotions successfully with {} promotions.", promotionRepository.count());
     }
 }

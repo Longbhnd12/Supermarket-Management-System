@@ -14,6 +14,8 @@ public interface PromotionService {
 
     List<PromotionResponse> getAllPromotions();
 
+    List<PromotionResponse> getActivePromotions();
+
     List<PromotionResponse> getPromotionsByStatus(GeneralStatus status);
 
     PromotionResponse getPromotionById(Long id);
@@ -21,6 +23,8 @@ public interface PromotionService {
     PromotionResponse createPromotion(PromotionRequest request);
 
     PromotionResponse updatePromotion(Long id, PromotionRequest request);
+
+    PromotionResponse updateStatus(Long id, GeneralStatus status);
 
     void deletePromotion(Long id);
 }

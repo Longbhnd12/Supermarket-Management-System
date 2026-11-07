@@ -62,6 +62,8 @@ import SupplierFormPage from './pages/supplier/SupplierFormPage';
 
 // Promotion
 import PromotionListPage from './pages/promotion/PromotionListPage';
+import CreatePromotionPage from './pages/promotion/CreatePromotionPage';
+import ActivePromotionPage from './pages/promotion/ActivePromotionPage';
 
 // Employee
 import EmployeeListPage from './pages/employee/EmployeeListPage';
@@ -179,8 +181,13 @@ export default function App() {
                         <Route path="/suppliers/create" element={<SupplierFormPage />} />
                         <Route path="/suppliers/:id/edit" element={<SupplierFormPage />} />
                     </Route>
+                    <Route element={<RequirePermission access={PAGE_ACCESS.promotionForm} />}>
+                        <Route path="/promotions/create" element={<CreatePromotionPage />} />
+                        <Route path="/promotions/:id/edit" element={<CreatePromotionPage />} />
+                    </Route>
                     <Route element={<RequirePermission access={PAGE_ACCESS.promotions} />}>
                         <Route path="/promotions" element={<PromotionListPage />} />
+                        <Route path="/promotions/active" element={<ActivePromotionPage />} />
                     </Route>
 
                     {/* Administration */}

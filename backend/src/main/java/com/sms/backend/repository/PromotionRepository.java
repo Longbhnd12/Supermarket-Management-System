@@ -19,6 +19,10 @@ public interface PromotionRepository extends JpaRepository<Promotion, Long> {
             + "where p.status = :status and p.startAt <= :now and p.endAt >= :now order by p.promotionId")
     List<Promotion> findEffective(@Param("status") GeneralStatus status, @Param("now") LocalDateTime now);
 
+    @Query("select p from Promotion p left join fetch p.product left join fetch p.category "
+            + "where p.status = com.sms.backend.enums.GeneralStatus.ACTIVE and p.startAt <= :now and p.endAt >= :now order by p.promotionId")
+    List<Promotion> findActivePromotions(@Param("now") LocalDateTime now);
+
     List<Promotion> findByStatus(GeneralStatus status);
 
     List<Promotion> findByProduct(Product product);

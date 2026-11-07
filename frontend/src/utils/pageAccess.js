@@ -23,6 +23,8 @@ export const PAGE_ACCESS = {
     priceManage: staff('PRICE_MANAGE', 'PRODUCT_MANAGE'),
     categories: staff('CATEGORY_MANAGE'),
     promotions: staff('PROMOTION_MANAGE', 'PROMOTION_VIEW_ACTIVE'),
+    promotionForm: staff('PROMOTION_MANAGE'),
+    promotionCreate: staff('PROMOTION_MANAGE'),
 
     // Employees, suppliers, administration
     employees: staff('EMPLOYEE_VIEW'),

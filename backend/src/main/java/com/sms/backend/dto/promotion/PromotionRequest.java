@@ -8,11 +8,10 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Request DTO for creating or updating a Promotion.
- * TODO (SDD): Confirm mutual exclusivity rules between categoryId and productId.
- * TODO (SDD): Confirm whether PERCENTAGE type has an upper bound of 100.
  */
 public record PromotionRequest(
 
@@ -30,6 +29,8 @@ public record PromotionRequest(
         Long categoryId,
 
         Long productId,
+
+        List<Long> productIds,
 
         @NotNull(message = "Start time is required")
         LocalDateTime startAt,
