@@ -11,23 +11,20 @@ import './MainLayout.css';
 export default function MainLayout() {
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
+    // { currentUser, refreshUser } from ProtectedRoute, passed on to pages that still use useOutletContext()
     const outletContext = useOutletContext() ?? {};
-    const { currentUser } = outletContext;
 
     return (
         <div className="sms-app-layout">
             <Sidebar
-                currentUser={currentUser}
                 collapsed={collapsed}
                 setCollapsed={setCollapsed}
                 mobileOpen={mobileOpen}
                 setMobileOpen={setMobileOpen}
-                currentUser={currentUser}
             />
 
             <div className="sms-main-wrapper">
                 <Header
-                    currentUser={currentUser}
                     onMenuClick={() => {
                         setMobileOpen(true);
                     }}

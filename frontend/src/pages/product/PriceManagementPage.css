@@ -1,0 +1,1109 @@
+/* ==========================================================================
+   PriceManagementPage.css — UC12: Manage Prices
+   Retail Selling Price Configuration & Audit Log Screen
+   ========================================================================== */
+
+/* ─── 1. Page Layout ────────────────────────────────────────────────────────── */
+
+.prc-page {
+    padding: 24px 32px 48px;
+    background-color: var(--sms-bg, #f4f6fb);
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: var(--sms-text, #19233b);
+}
+
+.prc-loading-screen,
+.prc-error-screen {
+    padding: 80px 24px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+
+.prc-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #cbd5e1;
+    border-top-color: var(--sms-primary, #2458dc);
+    border-radius: 50%;
+    animation: prc-spin 0.75s linear infinite;
+}
+
+@keyframes prc-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ─── 2. Toast Notifications ────────────────────────────────────────────────── */
+
+.prc-toast {
+    position: fixed;
+    top: 24px;
+    right: 32px;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-size: 13.5px;
+    font-weight: 500;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    animation: prc-slide-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.prc-toast--success {
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.prc-toast--error {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.prc-toast-close {
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: inherit;
+    opacity: 0.7;
+    margin-left: 8px;
+}
+
+.prc-toast-close:hover { opacity: 1; }
+
+@keyframes prc-slide-in {
+    from { transform: translateY(-20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* ─── 3. Top Navigation Bar ─────────────────────────────────────────────────── */
+
+.prc-top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.prc-breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--sms-text-secondary, #69748c);
+}
+
+.prc-breadcrumb-link {
+    color: var(--sms-text-secondary, #69748c);
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+
+.prc-breadcrumb-link:hover {
+    color: var(--sms-primary, #2458dc);
+    text-decoration: underline;
+}
+
+.prc-breadcrumb-sep {
+    color: #94a3b8;
+    font-size: 11px;
+}
+
+.prc-breadcrumb-sku {
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-weight: 600;
+    color: #334155;
+}
+
+.prc-breadcrumb-current {
+    color: #0f172a;
+    font-weight: 700;
+}
+
+.prc-role-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    background: #eff4fc;
+    color: #2458dc;
+    border: 1px solid #dbeafe;
+    border-radius: 20px;
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+.prc-alert {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.prc-alert--error {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+/* ─── 4. Main 2-Column Grid ─────────────────────────────────────────────────── */
+
+.prc-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.75fr) minmax(320px, 1.15fr);
+    gap: 24px;
+    align-items: start;
+}
+
+.prc-col-left,
+.prc-col-right {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.prc-card {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid var(--sms-border, #e5e9f3);
+    box-shadow: 0 1px 4px rgba(25, 35, 59, 0.03);
+    overflow: hidden;
+}
+
+/* ─── 5. Card 1: Product Header Summary ─────────────────────────────────────── */
+
+.prc-prod-summary-card {
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.prc-prod-avatar-wrap {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.prc-prod-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
+    background: #eff4fc;
+    border: 1px solid #dbeafe;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.prc-prod-unit-tag {
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    background: #1e293b;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 5px;
+    border-radius: 4px;
+}
+
+.prc-prod-header-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.prc-badges-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.prc-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.prc-badge--sku {
+    background: #eff4fc;
+    color: #2458dc;
+    font-family: 'JetBrains Mono', Consolas, monospace;
+}
+
+.prc-badge--barcode {
+    background: #f8fafc;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    font-family: 'JetBrains Mono', Consolas, monospace;
+}
+
+.prc-badge--cat {
+    background: #f1f5f9;
+    color: #334155;
+}
+
+.prc-badge--unit {
+    background: #f8fafc;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+}
+
+.prc-prod-name {
+    font-size: 19px;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 10px;
+    line-height: 1.35;
+}
+
+.prc-prod-meta-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.prc-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.prc-meta-item strong {
+    color: #1e293b;
+}
+
+.prc-meta-dot {
+    color: #cbd5e1;
+}
+
+/* ─── 6. Card 2: Selling Price Configuration ────────────────────────────────── */
+
+.prc-config-card {
+    padding: 24px;
+}
+
+.prc-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.prc-card-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.prc-header-icon-box {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    background: #eff4fc;
+    color: #2458dc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.prc-card-title {
+    margin: 0;
+    font-size: 16.5px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.prc-card-subtitle {
+    margin: 3px 0 0;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.prc-rules-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    background: #f8fafc;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.prc-config-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Side by Side Price Boxes */
+.prc-price-inputs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.prc-price-box {
+    border-radius: 10px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 120px;
+}
+
+.prc-price-box--readonly {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+.prc-price-box--editable {
+    background: #eff6ff;
+    border: 1.5px solid #bfdbfe;
+}
+
+.prc-price-box-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.prc-price-box-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    letter-spacing: 0.04em;
+}
+
+.prc-price-box-label--highlight {
+    color: #1d4ed8;
+}
+
+.prc-req {
+    color: #dc2626;
+    margin-left: 4px;
+}
+
+.prc-lock-icon {
+    font-size: 13px;
+    opacity: 0.6;
+}
+
+.prc-current-price-val {
+    font-size: 26px;
+    font-weight: 800;
+    color: #0f172a;
+    font-feature-settings: 'tnum';
+    letter-spacing: -0.02em;
+}
+
+.prc-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.prc-main-input {
+    width: 100%;
+    height: 48px;
+    font-size: 26px;
+    font-weight: 800;
+    color: #1e3a8a;
+    background: #ffffff;
+    border: 1.5px solid #93c5fd;
+    border-radius: 8px;
+    padding: 0 36px 0 12px;
+    outline: none;
+    transition: all 0.15s ease;
+    font-feature-settings: 'tnum';
+    box-sizing: border-box;
+}
+
+.prc-main-input:focus {
+    border-color: #2458dc;
+    box-shadow: 0 0 0 3px rgba(36, 88, 220, 0.15);
+}
+
+.prc-main-input--error {
+    border-color: #ef4444 !important;
+    background: #fef2f2 !important;
+}
+
+.prc-input-unit-symbol {
+    position: absolute;
+    right: 12px;
+    font-size: 20px;
+    font-weight: 700;
+    color: #64748b;
+    pointer-events: none;
+}
+
+.prc-price-box-sub {
+    font-size: 11.5px;
+    color: #64748b;
+    margin-top: 8px;
+}
+
+.prc-field-error {
+    font-size: 11.5px;
+    color: #dc2626;
+    font-weight: 600;
+    margin-top: 6px;
+}
+
+/* Quick Presets Section */
+.prc-presets-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.prc-presets-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #64748b;
+}
+
+.prc-presets-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.prc-preset-chip {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    transition: all 0.15s ease;
+}
+
+.prc-preset-chip:hover:not(:disabled) {
+    background: #e2e8f0;
+    border-color: #94a3b8;
+}
+
+.prc-preset-chip--active {
+    background: #eff6ff !important;
+    color: #1d4ed8 !important;
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.prc-preset-chip--neg {
+    color: #b91c1c;
+}
+
+.prc-preset-chip--reset {
+    background: #ffffff;
+    color: #64748b;
+}
+
+/* Rationale Input */
+.prc-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.prc-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #64748b;
+}
+
+.prc-input-text {
+    width: 100%;
+    height: 40px;
+    padding: 0 14px;
+    font-size: 13px;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    color: #0f172a;
+    outline: none;
+    box-sizing: border-box;
+    transition: all 0.15s ease;
+}
+
+.prc-input-text:focus {
+    background: #ffffff;
+    border-color: #2458dc;
+    box-shadow: 0 0 0 3px rgba(36, 88, 220, 0.12);
+}
+
+/* Actions Row */
+.prc-actions-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding-top: 14px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.prc-session-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    color: #64748b;
+}
+
+.prc-session-info strong {
+    color: #1e293b;
+    font-family: 'JetBrains Mono', Consolas, monospace;
+}
+
+.prc-buttons-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Buttons */
+.prc-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 18px;
+    height: 40px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.prc-btn--primary {
+    background: var(--sms-primary, #2458dc);
+    color: #ffffff;
+}
+
+.prc-btn--primary:hover:not(:disabled) {
+    background: var(--sms-primary-dark, #1746bb);
+    box-shadow: 0 2px 6px rgba(36, 88, 220, 0.25);
+}
+
+.prc-btn--secondary {
+    background: #ffffff;
+    color: #334155;
+    border-color: #cbd5e1;
+}
+
+.prc-btn--secondary:hover:not(:disabled) {
+    background: #f8fafc;
+    border-color: #94a3b8;
+}
+
+.prc-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.prc-btn-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: prc-spin 0.75s linear infinite;
+}
+
+/* ─── 7. Card 3: Financial Margin Safeguard ──────────────────────────────────── */
+
+.prc-margin-card {
+    padding: 20px 24px;
+}
+
+.prc-margin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.prc-margin-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.prc-margin-title {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.prc-margin-cost-pill {
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    background: #f1f5f9;
+    padding: 3px 9px;
+    border-radius: 6px;
+}
+
+.prc-margin-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.prc-margin-stat-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 14px;
+    text-align: center;
+}
+
+.prc-margin-stat-label {
+    font-size: 11px;
+    color: #64748b;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.prc-margin-stat-val {
+    font-size: 20px;
+    font-weight: 800;
+    color: #0f172a;
+    font-feature-settings: 'tnum';
+}
+
+.prc-margin-stat-val--highlight {
+    color: #2458dc;
+}
+
+.prc-margin-stat-sub {
+    font-size: 11px;
+    color: #64748b;
+    display: block;
+    margin-top: 3px;
+}
+
+.prc-val--pos {
+    color: #059669 !important;
+}
+
+.prc-val--neg {
+    color: #dc2626 !important;
+}
+
+/* ─── 8. Right Column: Price Delta Calculation ──────────────────────────────── */
+
+.prc-delta-card {
+    padding: 20px 24px;
+}
+
+.prc-delta-header-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.prc-delta-header-title h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.prc-live-eval-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    background: #ecfdf5;
+    color: #059669;
+    border-radius: 12px;
+}
+
+.prc-delta-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.prc-delta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    color: #475569;
+}
+
+.prc-delta-val-plain {
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.prc-delta-target-box {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.prc-target-label {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #1e40af;
+}
+
+.prc-target-val {
+    font-size: 22px;
+    font-weight: 800;
+    color: #1d4ed8;
+    font-feature-settings: 'tnum';
+}
+
+.prc-delta-split-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+}
+
+.prc-stat-lbl {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #64748b;
+    margin-bottom: 2px;
+}
+
+.prc-stat-num {
+    font-size: 17px;
+    font-weight: 800;
+    font-feature-settings: 'tnum';
+}
+
+.prc-delta-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.prc-check-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.prc-check-name {
+    color: #64748b;
+    flex: 1;
+}
+
+.prc-check-val {
+    color: #0f172a;
+    font-weight: 600;
+}
+
+/* ─── 9. POS Cashier Terminal Preview ───────────────────────────────────────── */
+
+.prc-terminal-card {
+    padding: 20px 24px;
+}
+
+.prc-term-header-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.prc-term-header-title h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.prc-term-register-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    background: #eff4fc;
+    color: #2458dc;
+    border-radius: 4px;
+}
+
+.prc-term-sub {
+    font-size: 12px;
+    color: #64748b;
+    margin: 0 0 14px;
+    line-height: 1.4;
+}
+
+/* Dark POS Screen Simulation */
+.prc-pos-terminal-screen {
+    background: #0f172a;
+    color: #f8fafc;
+    border-radius: 10px;
+    padding: 16px;
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+    margin-bottom: 14px;
+}
+
+.prc-pos-top-status {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #94a3b8;
+    border-bottom: 1px dashed #334155;
+    padding-bottom: 6px;
+}
+
+.prc-pos-barcode-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #cbd5e1;
+    margin-bottom: 3px;
+}
+
+.prc-pos-item-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.35;
+}
+
+.prc-pos-price-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 8px 0;
+    border-top: 1px dashed #334155;
+    border-bottom: 1px dashed #334155;
+}
+
+.prc-pos-price-lbl {
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.prc-pos-price-amt {
+    font-size: 22px;
+    font-weight: 800;
+    color: #38bdf8;
+}
+
+.prc-pos-footer-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10.5px;
+}
+
+.prc-pos-vat {
+    color: #94a3b8;
+}
+
+.prc-pos-verified-badge {
+    background: #064e3b;
+    color: #34d399;
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+/* ESL Shelf Tag */
+.prc-esl-tag-preview {
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.prc-esl-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.prc-esl-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.prc-esl-aisle {
+    font-size: 11px;
+    color: #64748b;
+}
+
+.prc-esl-price-box {
+    text-align: right;
+}
+
+.prc-esl-lbl {
+    display: block;
+    font-size: 10px;
+    color: #64748b;
+}
+
+.prc-esl-amt {
+    font-size: 15px;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+/* ─── 10. Recent Price History Audit Trail ─────────────────────────────────── */
+
+.prc-history-card {
+    padding: 20px 24px;
+}
+
+.prc-history-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.prc-history-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    background: #f1f5f9;
+    color: #475569;
+    border-radius: 4px;
+}
+
+.prc-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.prc-history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.prc-history-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.prc-hist-left {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.prc-hist-price {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.prc-hist-meta {
+    font-size: 11px;
+    color: #64748b;
+}
+
+.prc-hist-reason {
+    font-size: 11px;
+    color: #475569;
+    font-style: italic;
+    margin-top: 2px;
+}
+
+.prc-hist-delta {
+    font-size: 13.5px;
+    font-weight: 700;
+    font-feature-settings: 'tnum';
+    white-space: nowrap;
+}
+
+/* ─── 11. Responsive Design ─────────────────────────────────────────────────── */
+
+@media (max-width: 1024px) {
+    .prc-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .prc-page {
+        padding: 16px;
+    }
+    .prc-prod-summary-card {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .prc-price-inputs-grid {
+        grid-template-columns: 1fr;
+    }
+    .prc-margin-stats-grid {
+        grid-template-columns: 1fr;
+    }
+    .prc-actions-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .prc-buttons-group {
+        justify-content: stretch;
+    }
+    .prc-buttons-group .prc-btn {
+        flex: 1;
+    }
+}
+

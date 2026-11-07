@@ -1,172 +1,17 @@
 import { NavLink } from 'react-router-dom';
-import { canViewInvoices } from '../utils/invoiceAccess';
-
-import {
-    LayoutDashboard,
-    Package,
-    Warehouse,
-    ShoppingCart,
-    Truck,
-    Tags,
-    Users,
-    UserCog,
-    ShieldCheck,
-    BarChart3,
-    Settings,
-    ClipboardList,
-    Store,
-    PanelLeftClose,
-    PanelLeftOpen,
-    FileInput,
-    FileText,
-    FileCheck,
-    History,
-    AlertTriangle,
-    Bell,
-    X
-} from 'lucide-react';
-
-const menuGroups = [
-    {
-        title: 'OVERVIEW',
-        items: [
-            {
-                label: 'Dashboard',
-                icon: LayoutDashboard,
-                path: '/'
-            }
-        ]
-    },
-    {
-        title: 'OPERATIONS',
-        items: [
-            {
-                label: 'Product Management',
-                icon: Package,
-                path: '/products'
-            },
-            {
-                label: 'Purchase & Inventory',
-                icon: Warehouse,
-                path: '/inventory',
-                end: true
-            },
-            {
-                label: 'Purchase Orders',
-                icon: FileText,
-                path: '/purchase-orders',
-                end: true
-            },
-            {
-                label: 'Approve Requests',
-                icon: FileCheck,
-                path: '/purchase-orders/pending',
-                end: true
-            },
-            {
-                label: 'Stock Receipts',
-                icon: FileInput,
-                path: '/inventory/stock-receipts'
-            },
-            {
-                label: 'Stock History',
-                icon: History,
-                path: '/inventory/stock-history',
-                end: true
-            },
-            {
-                label: 'Stock Alerts',
-                icon: AlertTriangle,
-                path: '/inventory/stock-alerts',
-                end: true
-            },
-            {
-                label: 'Sales & POS',
-                icon: ShoppingCart,
-                path: '/sales/pos'
-            },
-            {
-                label: 'Search invoices',
-                icon: FileText,
-                path: '/invoices',
-                invoiceAccess: true
-            },
-            {
-                label: 'Supplier Management',
-                icon: Truck,
-                path: '/suppliers'
-            },
-            {
-                label: 'Promotion Management',
-                icon: Tags,
-                path: '/promotions'
-            }
-        ]
-    },
-    {
-        title: 'ADMINISTRATION',
-        items: [
-            {
-                label: 'Employee Management',
-                icon: Users,
-                path: '/employees'
-            },
-            {
-                label: 'User Management',
-                icon: UserCog,
-                path: '/users'
-            },
-            {
-                label: 'Roles & Permissions',
-                icon: ShieldCheck,
-                path: '/roles'
-            },
-            {
-                label: 'Reports',
-                icon: BarChart3,
-                path: '/reports/sales'
-            },
-            {
-                label: 'System Settings',
-                icon: Settings,
-                path: '/system-settings'
-            },
-            {
-                label: 'System Logs',
-                icon: ClipboardList,
-                path: '/system-logs'
-            }
-        ]
-    }
-];
-
-// UC48/UC49: Supplier accounts only see the Supplier portal (SRS 4.1.1 role-based navigation)
-const supplierMenuGroups = [
-    {
-        title: 'SUPPLIER PORTAL',
-        items: [
-            {
-                label: 'Purchase Orders',
-                icon: FileText,
-                path: '/supplier/purchase-orders'
-            },
-            {
-                label: 'Notifications',
-                icon: Bell,
-                path: '/notifications'
-            }
-        ]
-    }
-];
+import { PanelLeftClose, PanelLeftOpen, Store, X } from 'lucide-react';
+import { useAuth } from '../context/authContext';
+import { menuFor } from './sidebarMenu';
 
 export default function Sidebar({
-    currentUser,
     collapsed,
     setCollapsed,
     mobileOpen,
-    setMobileOpen,
+    setMobileOpen
 }) {
-    const groups = currentUser?.role === 'SUPPLIER' ? supplierMenuGroups : menuGroups;
+    const { currentUser } = useAuth();
+    // Only the pages the role can open (sidebarMenu.js, same rules as the route guards)
+    const groups = menuFor(currentUser);
 
     return (
         <>
@@ -230,7 +75,6 @@ export default function Sidebar({
                             )}
 
                             {group.items.map((item) => {
-                                if (item.invoiceAccess && !canViewInvoices(currentUser)) return null;
                                 const Icon = item.icon;
 
                                 if (!item.path) {

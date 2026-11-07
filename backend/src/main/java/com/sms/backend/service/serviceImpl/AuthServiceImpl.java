@@ -13,21 +13,17 @@ import com.sms.backend.exception.BadRequestException;
 import com.sms.backend.exception.UnauthorizedException;
 import com.sms.backend.repository.SystemSettingRepository;
 import com.sms.backend.repository.UserRepository;
+import com.sms.backend.security.AuthCookieService;
+import com.sms.backend.security.JwtTokenProvider;
 import com.sms.backend.service.AuthService;
 import com.sms.backend.service.EmailService;
 import com.sms.backend.service.SystemLogService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,7 +61,6 @@ public class AuthServiceImpl implements AuthService {
     public static final String MSG_RESET_CODE_INVALID = "Reset code is invalid or has expired";
 
     static final int DEFAULT_MAX_FAILED_ATTEMPTS = 5;
-    static final int DEFAULT_SESSION_TIMEOUT_MINUTES = 30;
     static final int LOCK_DURATION_MINUTES = 15;
     /** SRS 4.2.4: the reset code is valid for 10 minutes and can be used only once. */
     static final int RESET_CODE_VALID_MINUTES = 10;
@@ -79,8 +74,8 @@ public class AuthServiceImpl implements AuthService {
     private final SystemSettingRepository systemSettingRepository;
     private final SystemLogService systemLogService;
     private final PasswordEncoder passwordEncoder;
-    private final UserDetailsService userDetailsService;
-    private final SecurityContextRepository securityContextRepository;
+    private final JwtTokenProvider jwtTokenProvider;
+    private final AuthCookieService authCookieService;
     private final Clock clock;
     private final EmailService emailService;
 
@@ -131,13 +126,13 @@ public class AuthServiceImpl implements AuthService {
             throw new AccountAccessException("ACCOUNT_INACTIVE", MSG_ACCOUNT_INACTIVE);
         }
 
-        // Step 5: success -> reset counters, start the session, return the role
+        // Step 5: success -> reset counters, issue the JWT (HttpOnly cookie), return the role
         user.setFailedLoginAttempts(0);
         user.setLockedUntil(null);
         user.setLastLoginAt(now);
         userRepository.save(user);
 
-        startSession(user, httpRequest, httpResponse);
+        issueToken(user, httpResponse);
         writeLog(user, "LOGIN_SUCCESS", user.getUserId(), "User logged in", ipAddress);
         return toResponse(user);
     }
@@ -151,12 +146,12 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
-     * UC02 - Logout: write the LOGOUT log, then end the session immediately.
-     * Safe to call even when the session has already expired.
+     * UC02 - Logout: write the LOGOUT log, invalidate the token (SDD invalidateToken) and delete the cookie.
+     * Safe to call even when the token has already expired.
      */
     @Override
     @Transactional
-    public void logout(HttpServletRequest httpRequest) {
+    public void logout(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null
                 && authentication.isAuthenticated()
@@ -165,11 +160,9 @@ public class AuthServiceImpl implements AuthService {
                     .ifPresent(user -> writeLog(user, "LOGOUT", user.getUserId(), "User logged out", clientIp(httpRequest)));
         }
 
+        authCookieService.readToken(httpRequest).ifPresent(jwtTokenProvider::invalidateToken);
+        authCookieService.clear(httpResponse);
         SecurityContextHolder.clearContext();
-        HttpSession session = httpRequest.getSession(false);
-        if (session != null) {
-            session.invalidate();
-        }
     }
 
     /**
@@ -179,7 +172,8 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     @Transactional(noRollbackFor = BadRequestException.class)
-    public void changePassword(String username, ChangePasswordRequest request, HttpServletRequest httpRequest) {
+    public void changePassword(String username, ChangePasswordRequest request,
+                               HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UnauthorizedException("Authenticated user was not found"));
         String ipAddress = clientIp(httpRequest);
@@ -209,6 +203,10 @@ public class AuthServiceImpl implements AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
         writeLog(user, "PASSWORD_CHANGED", user.getUserId(), "User changed their password", ipAddress);
+
+        // Other devices / tabs logged in with the old password are signed out; this one gets a new token
+        jwtTokenProvider.invalidateAllTokensOf(user.getUserId());
+        issueToken(user, httpResponse);
     }
 
     // ---------------- UC45 - Forgot Password ----------------
@@ -291,6 +289,8 @@ public class AuthServiceImpl implements AuthService {
         user.setLockedUntil(null);
         userRepository.save(user);
         resetCodeAttempts.remove(user.getUserId());
+        // Anyone still logged in with the old password is signed out
+        jwtTokenProvider.invalidateAllTokensOf(user.getUserId());
         writeLog(user, "PASSWORD_RESET", user.getUserId(), "Password reset with an emailed code", ipAddress);
     }
 
@@ -332,32 +332,13 @@ public class AuthServiceImpl implements AuthService {
         return "Account is locked until " + user.getLockedUntil().format(TIME_FORMAT) + ". Please try again later.";
     }
 
-    private void startSession(User user, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
-        // Prevent session fixation: give the browser a new session id after login
-        if (httpRequest.getSession(false) != null) {
-            httpRequest.changeSessionId();
-        }
-
-        UserDetails principal = userDetailsService.loadUserByUsername(user.getUsername());
-        UsernamePasswordAuthenticationToken authentication =
-                UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities());
-
-        SecurityContext context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(authentication);
-        SecurityContextHolder.setContext(context);
-        securityContextRepository.saveContext(context, httpRequest, httpResponse);
-
-        // Session timeout comes from System Settings (default 30 minutes)
-        HttpSession session = httpRequest.getSession(true);
-        session.setMaxInactiveInterval(sessionTimeoutMinutes() * 60);
+    private void issueToken(User user, HttpServletResponse httpResponse) {
+        JwtTokenProvider.IssuedToken token = jwtTokenProvider.issue(user);
+        authCookieService.writeToken(httpResponse, token.token(), token.lifetime());
     }
 
     private int maxFailedAttempts() {
         return intSetting("MAX_FAILED_LOGIN_ATTEMPTS", DEFAULT_MAX_FAILED_ATTEMPTS);
-    }
-
-    private int sessionTimeoutMinutes() {
-        return intSetting("SESSION_TIMEOUT", DEFAULT_SESSION_TIMEOUT_MINUTES);
     }
 
     private int intSetting(String keyFragment, int defaultValue) {

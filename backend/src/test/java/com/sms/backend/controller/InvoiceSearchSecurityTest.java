@@ -1,6 +1,9 @@
 package com.sms.backend.controller;
 
 import com.sms.backend.repository.UserRepository;
+import com.sms.backend.security.AuthCookieService;
+import com.sms.backend.security.AuthUserLoader;
+import com.sms.backend.security.JwtTokenProvider;
 import com.sms.backend.security.SecurityConfig;
 import com.sms.backend.service.InvoiceSearchService;
 import com.sms.backend.dto.response.PageResponse;
@@ -35,6 +38,10 @@ class InvoiceSearchSecurityTest {
     static class Config {
         @Bean UserRepository users() { return mock(UserRepository.class); }
         @Bean InvoiceSearchService invoices() { return mock(InvoiceSearchService.class); }
+        // Needed by SecurityConfig since the JWT cookie authentication
+        @Bean JwtTokenProvider tokenProvider() { return mock(JwtTokenProvider.class); }
+        @Bean AuthCookieService cookieService() { return mock(AuthCookieService.class); }
+        @Bean AuthUserLoader userLoader() { return mock(AuthUserLoader.class); }
     }
     // These probes verify the real filter chain's rules independently of UC30 rendering/data.
     @RestController
@@ -77,7 +84,9 @@ class InvoiceSearchSecurityTest {
         verifyNoInteractions(service);
     }
     @Test void cashierDraftLookupRemainsAccessible() throws Exception {
-        mvc.perform(get("/api/v1/sales").param("status", "DRAFT").with(user("cashier").roles("CASHIER")))
+        // GET /sales needs SALE_VIEW or POS_SALE (ApiPermissionRules); a Cashier has POS_SALE by default
+        mvc.perform(get("/api/v1/sales").param("status", "DRAFT").with(user("cashier").authorities(
+                        new SimpleGrantedAuthority("ROLE_CASHIER"), new SimpleGrantedAuthority("PERM_POS_SALE"))))
                 .andExpect(status().isOk());
     }
     @Test void searchParsesCriteriaAndRejectsMalformedParameters() throws Exception {

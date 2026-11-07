@@ -36,7 +36,7 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<ProductResponse>> getProductById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<com.sms.backend.dto.product.ProductDetailResponse>> getProductById(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success("Product retrieved", productService.getProductById(id)));
     }
 
@@ -63,6 +63,20 @@ public class ProductController {
             @PathVariable Long id,
             @Valid @RequestBody ProductRequest request) {
         return ResponseEntity.ok(ApiResponse.success("Product updated", productService.updateProduct(id, request)));
+    }
+
+    @PatchMapping("/{id}/price")
+    public ResponseEntity<ApiResponse<ProductResponse>> updateSellingPrice(
+            @PathVariable Long id,
+            @Valid @RequestBody com.sms.backend.dto.product.PriceUpdateRequest request) {
+        ProductResponse response = productService.updateSellingPrice(id, request);
+        return ResponseEntity.ok(ApiResponse.success("Price updated successfully", response));
+    }
+
+    @GetMapping("/{id}/price-history")
+    public ResponseEntity<ApiResponse<List<com.sms.backend.dto.product.PriceHistoryResponse>>> getPriceHistory(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success("Price history retrieved", productService.getPriceHistory(id)));
     }
 
     @DeleteMapping("/{id}")

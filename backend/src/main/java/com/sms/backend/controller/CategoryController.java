@@ -44,6 +44,13 @@ public class CategoryController {
         return ResponseEntity.ok(ApiResponse.success("Category updated", categoryService.updateCategory(id, request)));
     }
 
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<ApiResponse<CategoryResponse>> updateCategoryStatus(
+            @PathVariable Long id,
+            @RequestParam com.sms.backend.enums.GeneralStatus status) {
+        return ResponseEntity.ok(ApiResponse.success("Category status updated", categoryService.updateStatus(id, status)));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
         categoryService.deleteCategory(id);

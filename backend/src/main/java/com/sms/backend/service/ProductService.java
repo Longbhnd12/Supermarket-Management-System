@@ -19,7 +19,9 @@ public interface ProductService {
 
     List<ProductResponse> getProductsByCategory(Long categoryId);
 
-    ProductResponse getProductById(Long id);
+    com.sms.backend.dto.product.ProductDetailResponse getProductById(Long id);
+
+    com.sms.backend.dto.product.ProductDetailResponse getProductDetails(Long id);
 
     ProductResponse getProductByCode(String productCode);
 
@@ -28,6 +30,10 @@ public interface ProductService {
     ProductResponse createProduct(ProductRequest request);
 
     ProductResponse updateProduct(Long id, ProductRequest request);
+
+    ProductResponse updateSellingPrice(Long id, com.sms.backend.dto.product.PriceUpdateRequest request);
+
+    List<com.sms.backend.dto.product.PriceHistoryResponse> getPriceHistory(Long id);
 
     void deleteProduct(Long id);
 }

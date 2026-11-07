@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import authService from '../../services/authService';
-import { getHomePathByRole } from '../../utils/authRedirect';
+import { useState } from 'react';
+import { Link, Navigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../context/authContext';
+import { getReturnPath } from '../../utils/authRedirect';
 import './AuthPage.css';
 
 // UC01 - Login (SRS 3.2.1, SDD 4.2.2)
@@ -16,7 +16,7 @@ function validate(identifier, password) {
 }
 
 export default function LoginPage() {
-    const navigate = useNavigate();
+    const { status, currentUser, login } = useAuth();
     const location = useLocation();
     // Coming back from Forgot Password (UC45): success message + the account to sign in with
     const [identifier, setIdentifier] = useState(location.state?.identifier || '');
@@ -25,21 +25,6 @@ export default function LoginPage() {
     const [fieldErrors, setFieldErrors] = useState(EMPTY_ERRORS);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const [checkingSession, setCheckingSession] = useState(true);
-
-    // Already logged in? Go straight to the role's home screen.
-    useEffect(() => {
-        let active = true;
-        authService.getMe()
-            .then((response) => {
-                if (active && response?.success) {
-                    navigate(getHomePathByRole(response.data?.role), { replace: true });
-                }
-            })
-            .catch(() => { /* not logged in yet: stay on the login screen */ })
-            .finally(() => active && setCheckingSession(false));
-        return () => { active = false; };
-    }, [navigate]);
 
     const submit = async (event) => {
         event.preventDefault();
@@ -52,9 +37,8 @@ export default function LoginPage() {
 
         setLoading(true);
         try {
-            const response = await authService.login({ identifier: identifier.trim(), password });
-            if (!response?.success) throw new Error(response?.message || 'Login failed.');
-            navigate(getHomePathByRole(response.data?.role), { replace: true });
+            // AuthProvider stores the user; the render below then redirects to the role's home screen
+            await login({ identifier: identifier.trim(), password });
         } catch (requestError) {
             // 401 -> MSG03, 403 -> account inactive / locked (message comes from the backend)
             const message = requestError.response?.data?.message
@@ -75,14 +59,23 @@ export default function LoginPage() {
         setNotice('');
     };
 
-    if (checkingSession) return <div className="auth-loading">Checking your session…</div>;
+    if (status === 'loading') return <div className="auth-loading">Checking your session…</div>;
+    // Already logged in (also right after a successful login, or a login in another tab):
+    // go to the page the session expired on, otherwise to the role's home screen.
+    if (status === 'authenticated') {
+        return <Navigate to={getReturnPath(location.state?.from, currentUser?.role)} replace />;
+    }
 
     return (
         <main className="auth-page">
             <section className="auth-card">
                 <h1>RETAIL SMS</h1>
                 <p>Sign in to continue.</p>
-                {notice && <p className="auth-success" role="status">{notice}</p>}
+                {notice && (
+                    <p className={location.state?.noticeTone === 'warning' ? 'auth-warning' : 'auth-success'} role="status">
+                        {notice}
+                    </p>
+                )}
                 <form onSubmit={submit} noValidate>
                     <label>
                         Username/Email
