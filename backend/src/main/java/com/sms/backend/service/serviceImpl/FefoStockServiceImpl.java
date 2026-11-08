@@ -58,4 +58,22 @@ public class FefoStockServiceImpl implements FefoStockService {
         BigDecimal stock = product.getStockQuantity() == null ? BigDecimal.ZERO : product.getStockQuantity();
         return stock.min(batchStock).max(BigDecimal.ZERO);
     }
+
+    @Transactional(readOnly = true)
+    @Override
+    public BigDecimal getAvailableSellableQuantity(Product product) {
+        if (product == null) return BigDecimal.ZERO;
+        LocalDate today = LocalDate.now(clock);
+        List<StockReceiptDetail> eligible = batches.findBatchesReadOnly(product.getProductId()).stream()
+            .filter(b -> b.getStockReceipt() != null && b.getStockReceipt().getStatus() == StockReceiptStatus.CONFIRMED)
+            .filter(b -> b.getRemainingQuantity() != null && b.getRemainingQuantity().signum() > 0)
+            .filter(b -> b.getExpirationDate() == null 
+                ? !Boolean.TRUE.equals(product.getTrackExpiry()) 
+                : !b.getExpirationDate().isBefore(today))
+            .sorted(Comparator.comparing(StockReceiptDetail::getExpirationDate, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(b -> b.getStockReceipt().getReceivedAt(), Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(StockReceiptDetail::getStockReceiptItemId))
+            .toList();
+        return available(product, eligible);
+    }
 }

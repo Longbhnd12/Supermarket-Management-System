@@ -20,6 +20,9 @@ public interface StockReceiptDetailRepository
     @org.springframework.data.jpa.repository.Query("select b from StockReceiptDetail b where b.product.productId = :id order by b.stockReceiptItemId")
     List<StockReceiptDetail> lockBatches(@org.springframework.data.repository.query.Param("id") Long id);
 
+    @Query("select b from StockReceiptDetail b where b.product.productId = :id order by b.stockReceiptItemId")
+    List<StockReceiptDetail> findBatchesReadOnly(@Param("id") Long id);
+
     List<StockReceiptDetail> findByStockReceipt(StockReceipt stockReceipt);
 
     List<StockReceiptDetail> findByProduct(Product product);
