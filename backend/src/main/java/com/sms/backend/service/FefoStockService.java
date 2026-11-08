@@ -13,4 +13,6 @@ public interface FefoStockService {
     List<StockReceiptDetail> lockEligibleBatches(Product product);
 
     BigDecimal available(Product product, List<StockReceiptDetail> eligible);
+
+    BigDecimal getAvailableSellableQuantity(Product product);
 }

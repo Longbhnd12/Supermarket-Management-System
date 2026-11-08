@@ -718,6 +718,100 @@ public class InventoryServiceImpl implements InventoryService {
                     throw new BadRequestException("Cannot increase stock without a valid batch for expiry-tracked product: "
                             + product.getProductName() + ". Newly discovered batches must be imported via Stock Receipt (UC36).");
                 }
+            } else {
+                // Direct Stock (trackExpiry = false): Automatic deterministic FIFO / Reverse-FIFO allocation
+                if ("DECREASE".equals(typeStr)) {
+                    // Decision 1: Deterministic FIFO allocation across confirmed receipt details
+                    List<StockReceiptDetail> fifoBatches = confirmedBatches.stream()
+                            .filter(d -> d.getRemainingQuantity() != null && d.getRemainingQuantity().compareTo(BigDecimal.ZERO) > 0)
+                            .sorted(Comparator
+                                    .comparing((StockReceiptDetail d) -> d.getStockReceipt() != null && d.getStockReceipt().getReceivedAt() != null
+                                            ? d.getStockReceipt().getReceivedAt()
+                                            : LocalDateTime.MAX)
+                                    .thenComparing(StockReceiptDetail::getStockReceiptItemId))
+                            .toList();
+
+                    BigDecimal totalAvailableInBatches = fifoBatches.stream()
+                            .map(StockReceiptDetail::getRemainingQuantity)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                    if (qty.compareTo(totalAvailableInBatches) > 0) {
+                        throw new BadRequestException("Không đủ tồn kho phiếu nhập cho " + product.getProductCode()
+                                + ". Tồn kho phiếu nhập khả dụng: " + totalAvailableInBatches.stripTrailingZeros().toPlainString()
+                                + ", yêu cầu giảm: " + qty.stripTrailingZeros().toPlainString() + ".");
+                    }
+
+                    BigDecimal remainingToDeduct = qty;
+                    for (StockReceiptDetail detail : fifoBatches) {
+                        if (remainingToDeduct.compareTo(BigDecimal.ZERO) <= 0) break;
+                        BigDecimal detailRemaining = detail.getRemainingQuantity();
+                        if (detailRemaining == null || detailRemaining.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+                        BigDecimal deduct = detailRemaining.min(remainingToDeduct);
+                        detail.setRemainingQuantity(detailRemaining.subtract(deduct));
+                        remainingToDeduct = remainingToDeduct.subtract(deduct);
+
+                        stockReceiptDetailRepository.save(detail);
+                        executedBatchAllocations.add(java.util.Map.entry(detail, deduct));
+                    }
+
+                    if (remainingToDeduct.compareTo(BigDecimal.ZERO) > 0) {
+                        throw new BadRequestException("Không thể phân bổ hết số lượng giảm " + qty.stripTrailingZeros().toPlainString()
+                                + " cho sản phẩm " + product.getProductCode());
+                    }
+                } else {
+                    // Decision 2: Bounded Reverse-FIFO restoration into previously depleted receipt details (no unrestricted overflow)
+                    List<StockReceiptDetail> candidateBatches = confirmedBatches.stream()
+                            .filter(d -> {
+                                BigDecimal orig = d.getQuantity() != null ? d.getQuantity() : BigDecimal.ZERO;
+                                BigDecimal rem = d.getRemainingQuantity() != null ? d.getRemainingQuantity() : BigDecimal.ZERO;
+                                return orig.compareTo(rem) > 0;
+                            })
+                            .sorted(Comparator
+                                    .comparing((StockReceiptDetail d) -> d.getStockReceipt() != null && d.getStockReceipt().getReceivedAt() != null
+                                            ? d.getStockReceipt().getReceivedAt()
+                                            : LocalDateTime.MIN, Comparator.reverseOrder())
+                                    .thenComparing(StockReceiptDetail::getStockReceiptItemId, Comparator.reverseOrder()))
+                            .toList();
+
+                    BigDecimal totalRestorationCapacity = candidateBatches.stream()
+                            .map(d -> {
+                                BigDecimal orig = d.getQuantity() != null ? d.getQuantity() : BigDecimal.ZERO;
+                                BigDecimal rem = d.getRemainingQuantity() != null ? d.getRemainingQuantity() : BigDecimal.ZERO;
+                                BigDecimal cap = orig.subtract(rem);
+                                return cap.compareTo(BigDecimal.ZERO) > 0 ? cap : BigDecimal.ZERO;
+                            })
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                    if (qty.compareTo(totalRestorationCapacity) > 0) {
+                        throw new BadRequestException("Không thể tăng tồn kho " + qty.stripTrailingZeros().toPlainString()
+                                + " cho " + product.getProductCode()
+                                + ". Dung lượng khôi phục tối đa từ các phiếu nhập đã xuất là "
+                                + totalRestorationCapacity.stripTrailingZeros().toPlainString()
+                                + ". Hàng tồn kho mới vượt quá lịch sử phiếu nhập phải được nhập qua Phiếu Nhập Kho (UC36).");
+                    }
+
+                    BigDecimal remainingToRestore = qty;
+                    for (StockReceiptDetail detail : candidateBatches) {
+                        if (remainingToRestore.compareTo(BigDecimal.ZERO) <= 0) break;
+                        BigDecimal orig = detail.getQuantity() != null ? detail.getQuantity() : BigDecimal.ZERO;
+                        BigDecimal rem = detail.getRemainingQuantity() != null ? detail.getRemainingQuantity() : BigDecimal.ZERO;
+                        BigDecimal cap = orig.subtract(rem);
+                        if (cap.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+                        BigDecimal restore = cap.min(remainingToRestore);
+                        detail.setRemainingQuantity(rem.add(restore));
+                        remainingToRestore = remainingToRestore.subtract(restore);
+
+                        stockReceiptDetailRepository.save(detail);
+                        executedBatchAllocations.add(java.util.Map.entry(detail, restore));
+                    }
+
+                    if (remainingToRestore.compareTo(BigDecimal.ZERO) > 0) {
+                        throw new BadRequestException("Không thể phân bổ hết số lượng tăng " + qty.stripTrailingZeros().toPlainString()
+                                + " cho sản phẩm " + product.getProductCode());
+                    }
+                }
             }
         }
 

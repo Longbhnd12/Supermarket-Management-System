@@ -2,6 +2,7 @@ package com.sms.backend.repository;
 
 import com.sms.backend.entity.User;
 import com.sms.backend.enums.AccountStatus;
+import com.sms.backend.enums.RoleName;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -18,6 +19,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
     boolean existsByUsername(String username);
     boolean existsByEmail(String email);
+    boolean existsByRole_RoleName(RoleName roleName);
     List<User> findByStatus(AccountStatus status);
 
     // ---- UC04 / UC05 / UC06 ----

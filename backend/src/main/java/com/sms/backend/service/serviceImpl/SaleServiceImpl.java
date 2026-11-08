@@ -58,6 +58,7 @@ public class SaleServiceImpl implements SaleService {
     private final PaymentRepository paymentRepository;
     private final com.sms.backend.service.SaleCompletionService completion;
     private final com.sms.backend.service.SalePromotionCalculator promotions;
+    private final com.sms.backend.service.FefoStockService fefoStockService;
 
     @Override
     public PageResponse<SaleListItemResponse> getSales(String search, String status, LocalDateTime fromDate, LocalDateTime toDate, int page, int size) {
@@ -266,8 +267,8 @@ public class SaleServiceImpl implements SaleService {
                 .orElseThrow(() -> new ResourceNotFoundException("Item not found in this sale: " + id));
     }
 
-    // Validate the aggregate product quantity, including legacy duplicate lines.
-    // Drafts do not reserve stock; payment/completion still revalidate FEFO stock.
+    // Validate actual sellable stock quantity (FEFO/FIFO) without holding pessimistic locks.
+    // Drafts do not reserve stock; payment/completion still revalidate and lock authoritative stock.
     private void validateStock(Product product, List<SaleItem> items, SaleItem replaced, BigDecimal quantity) {
         BigDecimal requested = quantity;
         for (SaleItem line : items) {
@@ -275,11 +276,13 @@ public class SaleServiceImpl implements SaleService {
                 requested = requested.add(line.getQuantity());
             }
         }
-        BigDecimal available = product.getStockQuantity() == null ? BigDecimal.ZERO : product.getStockQuantity();
+        BigDecimal available = fefoStockService != null
+                ? fefoStockService.getAvailableSellableQuantity(product)
+                : (product.getStockQuantity() == null ? BigDecimal.ZERO : product.getStockQuantity());
         if (requested.compareTo(available) > 0) {
-            throw new BadRequestException("Không đủ tồn kho cho " + product.getProductCode()
+            throw new BadRequestException("Không đủ tồn kho khả dụng cho " + product.getProductCode()
                     + ": yêu cầu " + requested.stripTrailingZeros().toPlainString()
-                    + ", tồn kho " + available.stripTrailingZeros().toPlainString()
+                    + ", có thể bán " + available.stripTrailingZeros().toPlainString()
                     + ". Vui lòng giảm số lượng.");
         }
     }

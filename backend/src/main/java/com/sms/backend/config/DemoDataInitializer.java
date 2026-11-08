@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -24,6 +25,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Component
+@ConditionalOnProperty(name = "app.seed.demo-data.enabled", havingValue = "true", matchIfMissing = false)
 @RequiredArgsConstructor
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class DemoDataInitializer implements ApplicationRunner {
@@ -105,7 +107,7 @@ public class DemoDataInitializer implements ApplicationRunner {
             product.setProductName(seed.name());
             product.setUnit(seed.unit());
             product.setSellingPrice(new BigDecimal(seed.price()));
-            product.setStockQuantity(new BigDecimal(seed.stock()));
+            product.setStockQuantity(BigDecimal.ZERO);
             product.setMinimumStockLevel(new BigDecimal(seed.minimumStock()));
             product.setTrackExpiry(seed.trackExpiry());
             product.setStatus(GeneralStatus.ACTIVE);

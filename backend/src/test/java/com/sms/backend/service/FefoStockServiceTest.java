@@ -65,4 +65,25 @@ class FefoStockServiceTest {
         when(batches.lockBatches(1L)).thenReturn(List.of());
         assertThrows(BadRequestException.class, () -> service.validateBeforePayment(List.of(line("1"))));
     }
+
+    @Test void availableSellableQuantityUsesReadOnlyBatchesAndReturnsCorrectAmountForDirectStock() {
+        product.setTrackExpiry(false);
+        product.setStockQuantity(new BigDecimal("2"));
+        // PRD-007 scenario: Product has stockQuantity 2, but eligible receipt batch has only 1
+        when(batches.findBatchesReadOnly(1L)).thenReturn(List.of(batch("1", null, StockReceiptStatus.CONFIRMED)));
+        BigDecimal sellable = service.getAvailableSellableQuantity(product);
+        assertEquals(0, new BigDecimal("1").compareTo(sellable));
+    }
+
+    @Test void availableSellableQuantityFiltersExpiredBatchesForExpiryTrackedProduct() {
+        product.setTrackExpiry(true);
+        product.setStockQuantity(new BigDecimal("10"));
+        LocalDate today = LocalDate.now(clock);
+        when(batches.findBatchesReadOnly(1L)).thenReturn(List.of(
+                batch("3", today.minusDays(1), StockReceiptStatus.CONFIRMED), // Expired!
+                batch("5", today.plusDays(10), StockReceiptStatus.CONFIRMED)  // Valid!
+        ));
+        BigDecimal sellable = service.getAvailableSellableQuantity(product);
+        assertEquals(0, new BigDecimal("5").compareTo(sellable));
+    }
 }

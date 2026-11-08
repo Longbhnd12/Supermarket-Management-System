@@ -1,38 +1,20 @@
 package com.sms.backend.config;
 
-import com.sms.backend.entity.Category;
-import com.sms.backend.entity.Employee;
-import com.sms.backend.entity.Product;
-import com.sms.backend.entity.Promotion;
 import com.sms.backend.entity.Role;
-import com.sms.backend.entity.Supplier;
 import com.sms.backend.entity.User;
 import com.sms.backend.enums.AccountStatus;
-import com.sms.backend.enums.Gender;
 import com.sms.backend.enums.GeneralStatus;
-import com.sms.backend.enums.PromotionType;
 import com.sms.backend.enums.RoleName;
-import com.sms.backend.enums.SupplierStatus;
-import com.sms.backend.repository.CategoryRepository;
-import com.sms.backend.repository.EmployeeRepository;
-import com.sms.backend.repository.ProductRepository;
-import com.sms.backend.repository.PromotionRepository;
 import com.sms.backend.repository.RoleRepository;
-import com.sms.backend.repository.SupplierRepository;
 import com.sms.backend.repository.UserRepository;
 import com.sms.backend.security.RolePermissions;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
 
 @Slf4j
 @Configuration
@@ -41,18 +23,25 @@ public class DataInitializer {
 
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
-    private final CategoryRepository categoryRepository;
-    private final ProductRepository productRepository;
-    private final SupplierRepository supplierRepository;
-    private final EmployeeRepository employeeRepository;
-    private final PromotionRepository promotionRepository;
     private final PasswordEncoder passwordEncoder;
+
+    @Value("${app.bootstrap.admin.enabled:false}")
+    private boolean bootstrapAdminEnabled;
+
+    @Value("${app.bootstrap.admin.username:admin}")
+    private String bootstrapAdminUsername;
+
+    @Value("${app.bootstrap.admin.email:admin@sms.com}")
+    private String bootstrapAdminEmail;
+
+    @Value("${app.bootstrap.admin.password:}")
+    private String bootstrapAdminPassword;
 
     @Bean
     public CommandLineRunner initDefaultData() {
         return args -> {
             try {
-                // Ensure all default roles exist and have up-to-date default permissions
+                // 1. Ensure all default roles exist and have up-to-date default permissions
                 for (RoleName roleName : RoleName.values()) {
                     Role role = roleRepository.findByRoleName(roleName).orElseGet(() -> {
                         Role r = new Role();
@@ -66,50 +55,10 @@ public class DataInitializer {
                     log.info("Synchronized role & permissions: {}", roleName);
                 }
 
-                // Ensure default admin account exists, is ACTIVE, unlocked, and password is reset to admin123456
-                Role adminRole = roleRepository.findByRoleName(RoleName.ADMIN).orElse(null);
-                if (adminRole != null) {
-                    User admin = userRepository.findByUsername("admin").orElseGet(() -> {
-                        User u = new User();
-                        u.setUsername("admin");
-                        return u;
-                    });
-                    admin.setEmail("admin@sms.com");
-                    admin.setPasswordHash(passwordEncoder.encode("admin123456"));
-                    admin.setStatus(AccountStatus.ACTIVE);
-                    admin.setFailedLoginAttempts(0);
-                    admin.setLockedUntil(null);
-                    admin.setRole(adminRole);
-                    userRepository.save(admin);
-                    log.info("Synchronized admin account: admin / admin123456");
-
-                    // Ensure secondary admin account exists: superadmin / admin123456
-                    User superadmin = userRepository.findByUsername("superadmin").orElseGet(() -> {
-                        User u = new User();
-                        u.setUsername("superadmin");
-                        return u;
-                    });
-                    superadmin.setEmail("superadmin@sms.com");
-                    superadmin.setPasswordHash(passwordEncoder.encode("admin123456"));
-                    superadmin.setStatus(AccountStatus.ACTIVE);
-                    superadmin.setFailedLoginAttempts(0);
-                    superadmin.setLockedUntil(null);
-                    superadmin.setRole(adminRole);
-                    userRepository.save(superadmin);
-                    log.info("Synchronized secondary admin account: superadmin / admin123456");
+                // 2. Optionally bootstrap initial Admin account if explicitly enabled and no Admin exists
+                if (bootstrapAdminEnabled) {
+                    bootstrapAdminAccount();
                 }
-
-                // Ensure default product catalog exists for UC09 & related tests
-                initProductCatalog();
-
-                // Ensure default suppliers exist for UC19 & related tests
-                initSuppliers();
-
-                // Ensure default employees exist for UC17 & related tests
-                initEmployees();
-
-                // Ensure default promotions exist for UC14 & POS testing
-                initPromotions();
 
             } catch (Exception e) {
                 log.warn("Data initialization skipped or failed: {}", e.getMessage(), e);
@@ -117,376 +66,44 @@ public class DataInitializer {
         };
     }
 
-    private void initSuppliers() {
-        if (supplierRepository.count() > 0) {
-            log.info("Suppliers table already contains {} records. Skipping supplier seeding.", supplierRepository.count());
+    private void bootstrapAdminAccount() {
+        Role adminRole = roleRepository.findByRoleName(RoleName.ADMIN).orElse(null);
+        if (adminRole == null) {
+            log.warn("Cannot bootstrap admin account: ADMIN role not found.");
             return;
         }
 
-        log.info("Seeding default suppliers for UC19 (Supplier Management)...");
-
-        Object[][] suppliersData = {
-                // Code, Name, Contact, Phone, Email, Address, Tax, Status
-                {
-                        "SUP-001",
-                        "Công ty Cổ phần Sữa Việt Nam (Vinamilk)",
-                        "Nguyễn Thị Thu Thảo",
-                        "028 5415 5555",
-                        "vinamilk@vinamilk.com.vn",
-                        "Số 10 Tân Trào, Phường Tân Phú, Quận 7, TP. Hồ Chí Minh, Việt Nam",
-                        "0300588569",
-                        SupplierStatus.ACTIVE
-                },
-                {
-                        "SUP-002",
-                        "Acecook Việt Nam JSC",
-                        "Trần Văn Bình",
-                        "0903 889 123",
-                        "contact@acecookvietnam.vn",
-                        "Lô II-3, Đường số 11, KCN Tân Bình, P. Tây Thạnh, Q. Tân Phú, TP. HCM",
-                        "0300808687",
-                        SupplierStatus.ACTIVE
-                },
-                {
-                        "SUP-003",
-                        "Công ty TNHH Nestlé Việt Nam",
-                        "Lê Hoàng Phúc",
-                        "028 3823 4567",
-                        "procurement@nestle.com.vn",
-                        "Lầu 5, Empress Tower, 138-142 Hai Bà Trưng, P. Đa Kao, Quận 1, TP. HCM",
-                        "3600235305",
-                        SupplierStatus.ACTIVE
-                },
-                {
-                        "SUP-004",
-                        "Masan Consumer Holdings",
-                        "Đặng Minh Tâm",
-                        "0918 776 543",
-                        "sales@masangroup.com",
-                        "Tầng 12, Tòa nhà MPlaza Saigon, 39 Lê Duẩn, P. Bến Nghé, Quận 1, TP. HCM",
-                        "0302017440",
-                        SupplierStatus.ACTIVE
-                },
-                {
-                        "SUP-005",
-                        "Công ty CP Chế biến Gỗ & Nông sản Long An",
-                        "Vũ Tuyết Mai",
-                        "0272 388 9912",
-                        "supply@longanproduce.com.vn",
-                        "Ấp 3, Xã Nhựt Chánh, Huyện Bến Lức, Tỉnh Long An, Việt Nam",
-                        "1100109823",
-                        SupplierStatus.DISABLED
-                },
-                {
-                        "SUP-006",
-                        "Unilever Việt Nam International",
-                        "Phạm Quốc Dũng",
-                        "028 5413 5686",
-                        "order.vn@unilever.com",
-                        "Lô A2-3, KCN Tây Bắc Củ Chi, Xã Tân An Hội, Huyện Củ Chi, TP. HCM",
-                        "0301464870",
-                        SupplierStatus.ACTIVE
-                },
-                {
-                        "SUP-007",
-                        "Công ty TNHH Suntory PepsiCo VN",
-                        "Hoàng Bích Ngọc",
-                        "028 3821 9437",
-                        "pepsico.orders@suntorypepsico.vn",
-                        "Tầng 5, Sheraton Saigon Hotel, 88 Đồng Khởi, P. Bến Nghé, Quận 1, TP. HCM",
-                        "0300812948",
-                        SupplierStatus.ACTIVE
-                },
-                {
-                        "SUP-008",
-                        "Công ty Cổ phần Bột giặt LIX",
-                        "Đỗ Hữu Thắng",
-                        "028 3896 6803",
-                        "sales@lixco.com",
-                        "Số 3, Đường số 2, Khu phố 4, P. Linh Trung, TP. Thủ Đức, TP. HCM",
-                        "0300588632",
-                        SupplierStatus.DISABLED
-                }
-        };
-
-        for (Object[] item : suppliersData) {
-            String code = (String) item[0];
-            String name = (String) item[1];
-            String contact = (String) item[2];
-            String phone = (String) item[3];
-            String email = (String) item[4];
-            String address = (String) item[5];
-            String taxCode = (String) item[6];
-            SupplierStatus status = (SupplierStatus) item[7];
-
-            if (!supplierRepository.existsBySupplierCode(code)) {
-                Supplier s = new Supplier();
-                s.setSupplierCode(code);
-                s.setSupplierName(name);
-                s.setContactPerson(contact);
-                s.setPhone(phone);
-                s.setEmail(email);
-                s.setAddress(address);
-                s.setTaxCode(taxCode);
-                s.setStatus(status);
-                s.setCreatedAt(LocalDateTime.now().minusMonths(6));
-                s.setUpdatedAt(LocalDateTime.now().minusDays(5));
-                supplierRepository.save(s);
-            }
-        }
-        log.info("Initialized default suppliers successfully with {} suppliers.", supplierRepository.count());
-    }
-
-    private void initProductCatalog() {
-        if (productRepository.count() > 0) {
-            log.info("Product catalog already contains {} products. Skipping product seeding.", productRepository.count());
+        // Check if an appropriate Admin account already exists (by role or by bootstrap username)
+        boolean hasAdmin = userRepository.existsByRole_RoleName(RoleName.ADMIN);
+        if (hasAdmin) {
+            log.info("Admin account already exists in database. Skipping bootstrap admin creation.");
             return;
         }
 
-        log.info("Seeding default categories and products for UC09...");
+        String username = (bootstrapAdminUsername != null && !bootstrapAdminUsername.isBlank())
+                ? bootstrapAdminUsername.trim() : "admin";
+        String email = (bootstrapAdminEmail != null && !bootstrapAdminEmail.isBlank())
+                ? bootstrapAdminEmail.trim() : "admin@sms.com";
 
-        // Seed Categories
-        Map<String, Category> catMap = new HashMap<>();
-        String[][] categoriesData = {
-                {"Sữa & Trứng", "Sữa tươi, sữa chua, bơ, phô mai và các loại trứng gia cầm"},
-                {"Mì ăn liền", "Mì gói, hủ tiếu, phở ăn liền, miến đóng gói"},
-                {"Nước giải khát", "Nước ngọt, nước khoáng, bia, nước trái cây và cà phê đóng lon"},
-                {"Gia vị & Nước sốt", "Dầu ăn, nước mắm, nước tương, đường, muối, hạt nêm và tương ớt"},
-                {"Gạo & Nông sản", "Gạo đặc sản, đậu, nếp, bột và các loại nông sản khô"},
-                {"Bánh kẹo", "Bánh quy, bánh ngọt, snack khoai tây, kẹo dẻo và sô-cô-la"},
-                {"Đồ đông lạnh & Chế biến", "Xúc xích, cá viên, bò viên, thực phẩm chế biến sẵn đóng gói"},
-                {"Chăm sóc cá nhân", "Dầu gội, sữa tắm, kem đánh răng, xà phòng"},
-                {"Vệ sinh nhà cửa", "Nước giặt, nước xả, nước rửa chén, nước lau sàn"}
-        };
-
-        for (String[] catInfo : categoriesData) {
-            String name = catInfo[0];
-            String desc = catInfo[1];
-            Category cat = categoryRepository.findByCategoryName(name).orElseGet(() -> {
-                Category c = new Category();
-                c.setCategoryName(name);
-                c.setDescription(desc);
-                c.setStatus(GeneralStatus.ACTIVE);
-                c.setCreatedAt(LocalDateTime.now());
-                return categoryRepository.save(c);
-            });
-            catMap.put(name, cat);
-        }
-
-        // Seed Products
-        Object[][] productsData = {
-                // Cat, Code, Barcode, Name, Unit, Price, Stock, MinStock, TrackExpiry, Status
-                {"Sữa & Trứng", "SKU-8930124", "8934567890123", "Sữa tươi tiệt trùng Vinamilk 100% Không đường 1L", "Hộp", "38000", "150.000", "20.000", true, GeneralStatus.ACTIVE},
-                {"Mì ăn liền", "SKU-8930512", "8935001234567", "Mì Hảo Hảo Tôm Chua Cay 75g", "Gói", "4500", "320.000", "50.000", true, GeneralStatus.ACTIVE},
-                {"Nước giải khát", "SKU-8931108", "8936012345678", "Cà phê sữa đá Highlands Coffee lon 185ml", "Lon", "16000", "85.000", "24.000", true, GeneralStatus.ACTIVE},
-                {"Gia vị & Nước sốt", "SKU-8932489", "8935023901124", "Nước tương Nam Dương Đậm Đặc 500ml", "Chai", "22000", "12.000", "15.000", false, GeneralStatus.ACTIVE},
-                {"Gia vị & Nước sốt", "SKU-8933091", "8936034567891", "Nước mắm Nam Ngư Đệ Nhị 900ml", "Chai", "42000", "60.000", "15.000", false, GeneralStatus.ACTIVE},
-                {"Nước giải khát", "SKU-8934002", "8935012398451", "Bia Heineken Silver lon cao 330ml (Thùng 24)", "Thùng", "415000", "4.000", "10.000", true, GeneralStatus.ACTIVE},
-                {"Gạo & Nông sản", "SKU-8935198", "8935221004512", "Gạo thơm ST25 Neptune Thượng Hạng túi 5kg", "Túi", "195000", "45.000", "10.000", false, GeneralStatus.ACTIVE},
-                {"Gia vị & Nước sốt", "SKU-8936614", "8934680010052", "Dầu ăn dinh dưỡng Simply Canola 1L", "Chai", "68000", "0.000", "20.000", false, GeneralStatus.ACTIVE},
-                {"Bánh kẹo", "SKU-8937021", "8934752001923", "Bánh quy Cosy Marie Kinh Đô 336g", "Hộp", "46000", "95.000", "15.000", true, GeneralStatus.ACTIVE},
-                {"Nước giải khát", "SKU-8938112", "8935049500018", "Nước ngọt Coca-Cola Không Đường lon 320ml", "Lon", "10000", "180.000", "30.000", true, GeneralStatus.ACTIVE},
-                {"Nước giải khát", "SKU-8938201", "8935049500025", "Nước ngọt Pepsi lon 320ml", "Lon", "10000", "210.000", "30.000", true, GeneralStatus.ACTIVE},
-                {"Nước giải khát", "SKU-8938215", "8935049500094", "Nước khoáng thiên nhiên Lavie 500ml", "Chai", "6000", "140.000", "24.000", true, GeneralStatus.ACTIVE},
-                {"Sữa & Trứng", "SKU-8930135", "8934567890208", "Sữa chua uống Vinamilk Susu hương dâu 110ml", "Lốc", "24000", "8.000", "15.000", true, GeneralStatus.ACTIVE},
-                {"Sữa & Trứng", "SKU-8930146", "8934567890314", "Trứng gà Ba Huân hộp 10 quả (Size L)", "Hộp", "34000", "50.000", "15.000", true, GeneralStatus.ACTIVE},
-                {"Sữa & Trứng", "SKU-8930157", "8934567890421", "Bơ lạt tự nhiên TH true BUTTER 200g", "Khối", "55000", "0.000", "10.000", true, GeneralStatus.ACTIVE},
-                {"Mì ăn liền", "SKU-8930523", "8935001234673", "Mì Omachi Xốt Bò Hầm 80g", "Gói", "8500", "120.000", "30.000", true, GeneralStatus.ACTIVE},
-                {"Mì ăn liền", "SKU-8930534", "8935001234789", "Mì trộn tương đen Samyang Hàn Quốc 140g", "Gói", "28000", "5.000", "12.000", true, GeneralStatus.ACTIVE},
-                {"Mì ăn liền", "SKU-8930545", "8935001234895", "Phở bò Đệ Nhất Acecook 68g", "Gói", "7500", "75.000", "20.000", true, GeneralStatus.ACTIVE},
-                {"Gia vị & Nước sốt", "SKU-8932501", "8935023901230", "Tương ớt Chinsu chai 250g", "Chai", "14500", "110.000", "20.000", false, GeneralStatus.ACTIVE},
-                {"Gia vị & Nước sốt", "SKU-8932512", "8935023901346", "Hạt nêm Knorr thịt thăn xương ống & tủy 900g", "Gói", "82000", "35.000", "10.000", false, GeneralStatus.ACTIVE},
-                {"Bánh kẹo", "SKU-8937032", "8934752002036", "Bánh ChocoPie Orion hộp 12 cái 396g", "Hộp", "58000", "40.000", "10.000", true, GeneralStatus.ACTIVE},
-                {"Bánh kẹo", "SKU-8937043", "8934752002142", "Kẹo dẻo Chupa Chups Hương Trái Cây 90g", "Gói", "13000", "6.000", "15.000", true, GeneralStatus.ACTIVE},
-                {"Gạo & Nông sản", "SKU-8935209", "8935221004628", "Gạo lứt tím than ST25 Hoàng Kim 2kg", "Túi", "90000", "18.000", "5.000", false, GeneralStatus.ACTIVE},
-                {"Chăm sóc cá nhân", "SKU-8939011", "8934868001019", "Dầu gội Clear Men Cool Sport Bạc Hà 630g", "Chai", "185000", "25.000", "5.000", false, GeneralStatus.ACTIVE},
-                {"Chăm sóc cá nhân", "SKU-8939022", "8934868002023", "Kem đánh răng Colgate Total than hoạt tính 180g", "Tuýp", "49000", "45.000", "10.000", false, GeneralStatus.ACTIVE},
-                {"Vệ sinh nhà cửa", "SKU-8939033", "8934868003037", "Nước giặt OMO Matic cửa trên túi 3.6kg", "Túi", "215000", "20.000", "5.000", false, GeneralStatus.ACTIVE},
-                {"Vệ sinh nhà cửa", "SKU-8939044", "8934868004041", "Nước rửa chén Sunlight Chanh túi 3.6kg", "Túi", "110000", "0.000", "8.000", false, GeneralStatus.ACTIVE},
-                {"Đồ đông lạnh & Chế biến", "SKU-8939999", "8939999999999", "Xúc xích Vissan Heo tiệt trùng 4 cây (Mẫu cũ)", "Gói", "18000", "0.000", "0.000", true, GeneralStatus.INACTIVE},
-                {"Nước giải khát", "SKU-8939998", "8939999999982", "Trà sữa Kirin Tea Break chai 345ml (Tạm ngưng nhập)", "Chai", "15000", "15.000", "10.000", true, GeneralStatus.INACTIVE}
-        };
-
-        for (Object[] item : productsData) {
-            String catName = (String) item[0];
-            String code = (String) item[1];
-            String barcode = (String) item[2];
-            String name = (String) item[3];
-            String unit = (String) item[4];
-            BigDecimal price = new BigDecimal((String) item[5]);
-            BigDecimal stock = new BigDecimal((String) item[6]);
-            BigDecimal minStock = new BigDecimal((String) item[7]);
-            Boolean trackExp = (Boolean) item[8];
-            GeneralStatus status = (GeneralStatus) item[9];
-
-            if (!productRepository.existsByProductCode(code)) {
-                Category cat = catMap.get(catName);
-                if (cat != null) {
-                    Product p = new Product();
-                    p.setCategory(cat);
-                    p.setProductCode(code);
-                    p.setBarcode(barcode);
-                    p.setProductName(name);
-                    p.setUnit(unit);
-                    p.setSellingPrice(price);
-                    p.setStockQuantity(stock);
-                    p.setMinimumStockLevel(minStock);
-                    p.setTrackExpiry(trackExp);
-                    p.setStatus(status);
-                    productRepository.save(p);
-                }
-            }
-        }
-        log.info("Initialized default product catalog successfully with {} products.", productRepository.count());
-    }
-
-    private void initEmployees() {
-        if (employeeRepository.count() > 0) {
-            log.info("Employees table already contains {} records. Skipping employee seeding.", employeeRepository.count());
+        if (bootstrapAdminPassword == null || bootstrapAdminPassword.isBlank()) {
+            log.warn("Admin bootstrap is enabled, but no password was provided via environment variable APP_BOOTSTRAP_ADMIN_PASSWORD. Skipping admin creation.");
             return;
         }
 
-        log.info("Seeding default employees for UC17 (Employee Management)...");
-
-        Object[][] employeesData = {
-                // Code, Name, DoB, Gender, Phone, Email, Address, Position, HireDate, Status
-                {
-                        "EMP-0101", "Trần Thị Mai", LocalDate.of(1998, 5, 14), Gender.FEMALE,
-                        "0903123456", "mai.tran@smsretail.vn",
-                        "124/8 Nguyễn Thị Minh Khai, Phường Bến Thành, Quận 1, TP. Hồ Chí Minh",
-                        "Cashier", LocalDate.of(2023, 3, 15), GeneralStatus.ACTIVE
-                },
-                {
-                        "EMP-0102", "Lê Văn Hùng", LocalDate.of(1995, 8, 20), Gender.MALE,
-                        "0918234567", "hung.le@smsretail.vn",
-                        "45/2 Điện Biên Phủ, Phường 15, Quận Bình Thạnh, TP. Hồ Chí Minh",
-                        "Inventory Staff", LocalDate.of(2022, 1, 10), GeneralStatus.ACTIVE
-                },
-                {
-                        "EMP-0103", "Nguyễn Hoàng Long", LocalDate.of(1999, 11, 5), Gender.MALE,
-                        "0938345678", "long.nguyen@smsretail.vn",
-                        "88 Cách Mạng Tháng 8, Phường 7, Quận 3, TP. Hồ Chí Minh",
-                        "Cashier", LocalDate.of(2023, 6, 1), GeneralStatus.ACTIVE
-                },
-                {
-                        "EMP-0104", "Phạm Quốc Tuấn", LocalDate.of(1988, 3, 12), Gender.MALE,
-                        "0909456789", "tuan.pham@smsretail.vn",
-                        "12 Võ Thị Sáu, Phường Đa Kao, Quận 1, TP. Hồ Chí Minh",
-                        "Manager", LocalDate.of(2020, 8, 15), GeneralStatus.ACTIVE
-                },
-                {
-                        "EMP-0105", "Đặng Thị Bích Ngọc", LocalDate.of(2000, 9, 28), Gender.FEMALE,
-                        "0912567890", "ngoc.dang@smsretail.vn",
-                        "210 Hai Bà Trưng, Phường Tân Định, Quận 1, TP. Hồ Chí Minh",
-                        "Cashier", LocalDate.of(2023, 9, 15), GeneralStatus.ACTIVE
-                },
-                {
-                        "EMP-0106", "Vũ Đức Thắng", LocalDate.of(1994, 2, 17), Gender.MALE,
-                        "0988678901", "thang.vu@smsretail.vn",
-                        "67 Hoàng Hoa Thám, Phường 13, Quận Tân Bình, TP. Hồ Chí Minh",
-                        "Inventory Staff", LocalDate.of(2021, 4, 1), GeneralStatus.INACTIVE
-                },
-                {
-                        "EMP-0107", "Hoàng Kim Oanh", LocalDate.of(1997, 12, 9), Gender.FEMALE,
-                        "0908789012", "oanh.hoang@smsretail.vn",
-                        "34 Nguyễn Đình Chiểu, Phường 4, Quận 3, TP. Hồ Chí Minh",
-                        "Cashier", LocalDate.of(2022, 10, 10), GeneralStatus.ACTIVE
-                },
-                {
-                        "EMP-0108", "Đỗ Minh Khởi", LocalDate.of(1991, 4, 25), Gender.MALE,
-                        "0977890123", "khoi.do@smsretail.vn",
-                        "50 Pasteur, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh",
-                        "Administrator", LocalDate.of(2020, 1, 1), GeneralStatus.ACTIVE
-                }
-        };
-
-        for (Object[] item : employeesData) {
-            String code = (String) item[0];
-            String name = (String) item[1];
-            LocalDate dob = (LocalDate) item[2];
-            Gender gender = (Gender) item[3];
-            String phone = (String) item[4];
-            String email = (String) item[5];
-            String address = (String) item[6];
-            String position = (String) item[7];
-            LocalDate hireDate = (LocalDate) item[8];
-            GeneralStatus status = (GeneralStatus) item[9];
-
-            if (!employeeRepository.existsByEmployeeCode(code)) {
-                Employee e = new Employee();
-                e.setEmployeeCode(code);
-                e.setFullName(name);
-                e.setDateOfBirth(dob);
-                e.setGender(gender);
-                e.setPhone(phone);
-                e.setEmail(email);
-                e.setAddress(address);
-                e.setPosition(position);
-                e.setHireDate(hireDate);
-                e.setStatus(status);
-                e.setCreatedAt(LocalDateTime.now().minusMonths(12));
-                e.setUpdatedAt(LocalDateTime.now().minusDays(2));
-                employeeRepository.save(e);
-            }
-        }
-        log.info("Initialized default employees successfully with {} employees.", employeeRepository.count());
-    }
-
-    private void initPromotions() {
-        if (promotionRepository.count() > 0) {
-            log.info("Promotions already initialized. Skipping promotion seeding.");
+        if (userRepository.existsByUsername(username)) {
+            log.info("User with username '{}' already exists. Skipping bootstrap admin creation.", username);
             return;
         }
 
-        log.info("Seeding default promotions for UC14 & POS...");
-        User admin = userRepository.findByUsername("admin").orElse(null);
-        if (admin == null) return;
-
-        Product vinamilk = productRepository.findByProductCode("SKU-8930124").orElse(null);
-        if (vinamilk != null) {
-            Promotion p1 = new Promotion();
-            p1.setPromotionName("Khuyến mãi Giờ Vàng: Cuối tuần Mua sắm Rộn ràng");
-            p1.setPromotionType(PromotionType.PERCENTAGE);
-            p1.setDiscountValue(new BigDecimal("15.00"));
-            p1.setProduct(vinamilk);
-            p1.setCategory(null);
-            p1.setStartAt(LocalDateTime.now().minusDays(1));
-            p1.setEndAt(LocalDateTime.now().plusDays(7));
-            p1.setStatus(GeneralStatus.ACTIVE);
-            p1.setCreatedBy(admin);
-            promotionRepository.save(p1);
-        }
-
-        Product haohao = productRepository.findByProductCode("SKU-8930512").orElse(null);
-        if (haohao != null) {
-            Promotion p2 = new Promotion();
-            p2.setPromotionName("Giảm giá Đặc biệt Mì Hảo Hảo Tôm Chua Cay");
-            p2.setPromotionType(PromotionType.FIXED_AMOUNT);
-            p2.setDiscountValue(new BigDecimal("500.00"));
-            p2.setProduct(haohao);
-            p2.setCategory(null);
-            p2.setStartAt(LocalDateTime.now().minusDays(2));
-            p2.setEndAt(LocalDateTime.now().plusDays(5));
-            p2.setStatus(GeneralStatus.ACTIVE);
-            p2.setCreatedBy(admin);
-            promotionRepository.save(p2);
-        }
-
-        Category suaTrung = categoryRepository.findByCategoryName("Sữa & Trứng").orElse(null);
-        if (suaTrung != null) {
-            Promotion p3 = new Promotion();
-            p3.setPromotionName("Ưu đãi Danh mục Sữa & Trứng");
-            p3.setPromotionType(PromotionType.PERCENTAGE);
-            p3.setDiscountValue(new BigDecimal("10.00"));
-            p3.setProduct(null);
-            p3.setCategory(suaTrung);
-            p3.setStartAt(LocalDateTime.now().minusDays(3));
-            p3.setEndAt(LocalDateTime.now().plusDays(10));
-            p3.setStatus(GeneralStatus.ACTIVE);
-            p3.setCreatedBy(admin);
-            promotionRepository.save(p3);
-        }
-
-        log.info("Initialized default promotions successfully with {} promotions.", promotionRepository.count());
+        User admin = new User();
+        admin.setUsername(username);
+        admin.setEmail(email);
+        admin.setPasswordHash(passwordEncoder.encode(bootstrapAdminPassword));
+        admin.setStatus(AccountStatus.ACTIVE);
+        admin.setFailedLoginAttempts(0);
+        admin.setLockedUntil(null);
+        admin.setRole(adminRole);
+        userRepository.save(admin);
+        log.info("Successfully bootstrapped initial admin account: username='{}', email='{}'", username, email);
     }
 }

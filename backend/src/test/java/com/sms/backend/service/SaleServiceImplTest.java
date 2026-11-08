@@ -25,12 +25,19 @@ class SaleServiceImplTest {
     @Mock UserRepository users;
     @Mock PaymentRepository payments;
     @Mock PromotionRepository promotions;
+    @Mock com.sms.backend.service.FefoStockService fefoStockService;
     SaleServiceImpl service;
 
     @BeforeEach void setup() {
+        org.mockito.Mockito.lenient().when(fefoStockService.getAvailableSellableQuantity(any()))
+                .thenAnswer(inv -> {
+                    Product p = inv.getArgument(0);
+                    return p != null && p.getStockQuantity() != null ? p.getStockQuantity() : BigDecimal.ZERO;
+                });
         service = new SaleServiceImpl(sales, items, products, users, payments,
                 mock(SaleCompletionService.class), new SalePromotionCalculator(promotions,
-                Clock.fixed(Instant.parse("2026-11-03T03:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh"))));
+                Clock.fixed(Instant.parse("2026-11-03T03:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh"))),
+                fefoStockService);
     }
 
     @Test void createsEmptyDraftWithoutInvoice() {
@@ -239,7 +246,7 @@ class SaleServiceImplTest {
         when(products.findById(2L)).thenReturn(Optional.of(p));
         var error = assertThrows(BadRequestException.class, () -> service.addItemToSale(7L,
                 new SaleItemRequest(2L, null, new BigDecimal("3"))));
-        assertTrue(error.getMessage().contains("tồn kho 2"));
+        assertTrue(error.getMessage().contains("có thể bán 2") || error.getMessage().contains("tồn kho 2"));
         verify(items, never()).save(any()); verify(sales, never()).save(any());
     }
 
@@ -262,6 +269,20 @@ class SaleServiceImplTest {
                 new UpdateSaleItemRequest(new BigDecimal("7"))));
         assertEquals(new BigDecimal("2"), a.getQuantity());
         assertEquals(new BigDecimal("96000.00"), a.getSubtotal());
+        verify(items, never()).save(any()); verify(sales, never()).save(any());
+    }
+
+    @Test void rejectsCartAddWhenSellableBatchStockIsInsufficientEvenIfProductStockIsHigher() {
+        draftWithItems(List.of());
+        Product p = new Product(); p.setProductId(7L); p.setProductCode("PRD-007");
+        p.setSellingPrice(BigDecimal.TEN); p.setStockQuantity(new BigDecimal("2"));
+        when(products.findById(7L)).thenReturn(Optional.of(p));
+        // Sellable stock is only 1 even though Product.stockQuantity is 2
+        when(fefoStockService.getAvailableSellableQuantity(p)).thenReturn(BigDecimal.ONE);
+
+        var error = assertThrows(BadRequestException.class, () -> service.addItemToSale(7L,
+                new SaleItemRequest(7L, null, new BigDecimal("2"))));
+        assertTrue(error.getMessage().contains("Không đủ tồn kho khả dụng cho PRD-007: yêu cầu 2, có thể bán 1"));
         verify(items, never()).save(any()); verify(sales, never()).save(any());
     }
     @Test void blockingPaymentRejectsEveryCartMutation() {
