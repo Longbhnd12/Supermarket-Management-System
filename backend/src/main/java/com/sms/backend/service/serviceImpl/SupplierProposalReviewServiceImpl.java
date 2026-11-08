@@ -2,7 +2,6 @@ package com.sms.backend.service.serviceImpl;
 
 import com.sms.backend.dto.supplierportal.ReviewSupplierProposalRequest;
 import com.sms.backend.dto.supplierportal.SupplierProposalReviewResponse;
-import com.sms.backend.entity.Notification;
 import com.sms.backend.entity.PurchaseOrder;
 import com.sms.backend.entity.PurchaseOrderDetail;
 import com.sms.backend.entity.User;
@@ -12,11 +11,11 @@ import com.sms.backend.enums.RoleName;
 import com.sms.backend.exception.AccountAccessException;
 import com.sms.backend.exception.BadRequestException;
 import com.sms.backend.exception.ResourceNotFoundException;
-import com.sms.backend.repository.NotificationRepository;
 import com.sms.backend.repository.PurchaseOrderDetailRepository;
 import com.sms.backend.repository.SupplierPortalOrderRepository;
 import com.sms.backend.repository.UserRepository;
 import com.sms.backend.security.CurrentUserProvider;
+import com.sms.backend.service.NotificationService;
 import com.sms.backend.service.SupplierProposalReviewService;
 import com.sms.backend.service.SystemLogService;
 import lombok.RequiredArgsConstructor;
@@ -39,7 +38,7 @@ public class SupplierProposalReviewServiceImpl implements SupplierProposalReview
     private final SupplierPortalOrderRepository orderRepository;
     private final PurchaseOrderDetailRepository detailRepository;
     private final UserRepository userRepository;
-    private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
     private final CurrentUserProvider currentUserProvider;
     private final SystemLogService systemLogService;
     private final Clock clock;
@@ -137,15 +136,11 @@ public class SupplierProposalReviewServiceImpl implements SupplierProposalReview
         if (order.getSupplier() == null) {
             return;
         }
-        userRepository.findBySupplier_SupplierId(order.getSupplier().getSupplierId()).ifPresent(supplierUser -> {
-            Notification notification = new Notification();
-            notification.setUser(supplierUser);
-            notification.setType(NotificationType.PO_ALERT);
-            notification.setTitle("Purchase Order review: " + order.getPoNumber());
-            notification.setMessage(message);
-            notification.setIsRead(false);
-            notification.setCreatedAt(now);
-            notificationRepository.save(notification);
-        });
+        notificationService.sendToSupplier(
+                order.getSupplier().getSupplierId(),
+                NotificationType.PO_ALERT,
+                "Purchase Order review: " + order.getPoNumber(),
+                message
+        );
     }
 }

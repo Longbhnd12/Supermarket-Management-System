@@ -365,9 +365,28 @@
 }
 
 .sms-header-notification {
+    position: relative;
     display: flex;
     align-items: center;
     color: var(--sms-text-secondary);
+}
+
+.sms-header-notification-badge {
+    position: absolute;
+    top: -6px;
+    right: -8px;
+    background: #ef4444;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    min-width: 18px;
+    height: 18px;
+    line-height: 18px;
+    border-radius: 9px;
+    text-align: center;
+    padding: 0 4px;
+    pointer-events: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .sms-header-divider {
