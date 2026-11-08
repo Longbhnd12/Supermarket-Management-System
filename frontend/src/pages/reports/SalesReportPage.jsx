@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BarChart3, CalendarDays, ReceiptText, RotateCcw } from 'lucide-react';
+import { BarChart3, CalendarDays, ReceiptText, RefreshCw, RotateCcw, TrendingUp } from 'lucide-react';
+import Pagination from '../../components/ui/Pagination';
 import salesReportService from '../../services/salesReportService';
 import './SalesReportPage.css';
 
@@ -9,6 +10,7 @@ const initialPeriod = {
     fromDate: toDateInput(new Date(today.getFullYear(), today.getMonth(), 1)),
     toDate: toDateInput(today)
 };
+const EMPTY_DAILY_SALES = [];
 
 const formatCurrency = (value) => new Intl.NumberFormat('vi-VN', {
     style: 'currency', currency: 'VND', maximumFractionDigits: 0
@@ -20,6 +22,8 @@ export default function SalesReportPage() {
     const [report, setReport] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [page, setPage] = useState(0);
+    const [pageSize, setPageSize] = useState(10);
 
     const loadReport = useCallback(async () => {
         setLoading(true);
@@ -42,6 +46,12 @@ export default function SalesReportPage() {
     }, [loadReport]);
 
     const maxDailySales = useMemo(() => Math.max(...(report?.dailySales || []).map((day) => Number(day.netSales)), 1), [report]);
+    const dailySales = report?.dailySales || EMPTY_DAILY_SALES;
+    const totalPages = Math.ceil(dailySales.length / pageSize);
+    const pagedDailySales = useMemo(
+        () => dailySales.slice(page * pageSize, (page + 1) * pageSize),
+        [dailySales, page, pageSize]
+    );
 
     const submitPeriod = (event) => {
         event.preventDefault();
@@ -49,11 +59,13 @@ export default function SalesReportPage() {
             setError('From date cannot be after To date.');
             return;
         }
+        setPage(0);
         setPeriod(draftPeriod);
     };
 
     const resetPeriod = () => {
         setDraftPeriod(initialPeriod);
+        setPage(0);
         setPeriod(initialPeriod);
     };
 
@@ -67,10 +79,7 @@ export default function SalesReportPage() {
     return (
         <div className="sales-report-page">
             <header className="report-header">
-                <div>
-                    <h1>Sales Report</h1>
-                    <p>Financial metrics include completed transactions only.</p>
-                </div>
+                <div className="sales-report-title"><span><TrendingUp size={22} /></span><div><small>Sales performance</small><h1>Sales Report</h1><p>Financial metrics include completed transactions only.</p></div></div>
                 <div className="report-period-label"><CalendarDays size={18} /> {report ? `${report.fromDate} to ${report.toDate}` : 'Select reporting period'}</div>
             </header>
 
@@ -85,7 +94,7 @@ export default function SalesReportPage() {
 
             {error && <div role="alert" className="report-error">{error}</div>}
 
-            {loading ? <div className="report-loading">Generating report…</div> : report && <>
+            {loading ? <div className="report-loading"><RefreshCw size={24} className="sales-report-spin" /><strong>Generating sales report…</strong><span>Aggregating transactions for the selected period.</span></div> : report && <>
                 <section className="report-kpis">
                     {kpis.map(([label, value, description]) => <article key={label}>
                         <span>{label}</span><strong>{value}</strong><small>{description}</small>
@@ -105,13 +114,24 @@ export default function SalesReportPage() {
                         <h2><BarChart3 size={19} /> Daily net sales</h2>
                         {report.dailySales.length === 0 ? <p className="report-empty">No completed sales in this period.</p> : (
                             <div className="report-bars">
-                                {report.dailySales.map((day) => <div className="report-bar-row" key={day.date}>
+                                {pagedDailySales.map((day) => <div className="report-bar-row" key={day.date}>
                                     <span>{day.date}</span>
                                     <div><i style={{ width: `${Math.max((Number(day.netSales) / maxDailySales) * 100, 2)}%` }} /></div>
                                     <strong>{formatCurrency(day.netSales)}</strong>
                                 </div>)}
                             </div>
                         )}
+                        {dailySales.length > 0 && <Pagination
+                            page={page}
+                            size={pageSize}
+                            totalElements={dailySales.length}
+                            totalPages={totalPages}
+                            pageSizeOptions={[5, 10, 20, 50]}
+                            onPageChange={setPage}
+                            onSizeChange={(size) => { setPageSize(size); setPage(0); }}
+                            itemLabel="days"
+                            idPrefix="sales-report"
+                        />}
                     </article>
                 </section>
             </>}
