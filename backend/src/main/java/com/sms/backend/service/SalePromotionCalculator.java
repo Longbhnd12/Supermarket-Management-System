@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 
-/** Resolves one best promotion per line, never stacking or multiplying a fixed discount by quantity. */
+/** Resolves one best promotion per line, never stacking promotions, and calculating fixed discount per unit multiplied by line quantity. */
 @Component
 @RequiredArgsConstructor
 public class SalePromotionCalculator {
@@ -33,9 +33,10 @@ public class SalePromotionCalculator {
             for (Promotion promotion : candidates) {
                 if (!eligible(promotion, item, now)) continue;
                 BigDecimal value = promotion.getDiscountValue();
+                BigDecimal quantity = item.getQuantity() != null ? item.getQuantity() : BigDecimal.ONE;
                 BigDecimal discount = promotion.getPromotionType() == PromotionType.PERCENTAGE
                         ? item.getSubtotal().multiply(value).divide(HUNDRED, 2, RoundingMode.HALF_UP)
-                        : value.setScale(2, RoundingMode.HALF_UP);
+                        : value.multiply(quantity).setScale(2, RoundingMode.HALF_UP);
                 discount = discount.min(item.getSubtotal());
                 // Equal discounts have no business priority; use ID only for repeatable persistence.
                 if (discount.signum() > 0 && (discount.compareTo(bestDiscount) > 0
