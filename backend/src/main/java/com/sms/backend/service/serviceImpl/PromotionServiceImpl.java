@@ -206,8 +206,18 @@ public class PromotionServiceImpl implements PromotionService {
                 && request.discountValue().compareTo(new BigDecimal("100")) > 0) {
             throw new BadRequestException("Phần trăm giảm giá không được vượt quá 100%");
         }
-        if (request.startAt() == null || request.endAt() == null || !request.endAt().isAfter(request.startAt())) {
+        if (request.startAt() == null || request.endAt() == null) {
+            throw new BadRequestException("Thời gian bắt đầu và kết thúc là bắt buộc");
+        }
+        if (!request.endAt().isAfter(request.startAt())) {
             throw new BadRequestException("Thời gian kết thúc phải sau thời gian bắt đầu");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (request.endAt().isBefore(now)) {
+            throw new BadRequestException("Thời gian kết thúc khuyến mãi không được ở quá khứ");
+        }
+        if (request.startAt().isBefore(now.minusHours(24))) {
+            throw new BadRequestException("Thời gian bắt đầu khuyến mãi không được trước ngày hôm nay");
         }
     }
 

@@ -16,6 +16,17 @@ import {
 } from './mockPromotionsData';
 import './CreatePromotionPage.css';
 
+const formatDateTimeLocal = (date) => {
+    const d = new Date(date);
+    const pad = (n) => String(n).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    const MM = pad(d.getMonth() + 1);
+    const dd = pad(d.getDate());
+    const hh = pad(d.getHours());
+    const mm = pad(d.getMinutes());
+    return `${yyyy}-${MM}-${dd}T${hh}:${mm}`;
+};
+
 export default function CreatePromotionPage() {
     const navigate = useNavigate();
     const { currentUser, hasRole } = useAuth();
@@ -26,16 +37,32 @@ export default function CreatePromotionPage() {
     const [catalogSearch, setCatalogSearch] = useState('');
     const [selectedDeptFilter, setSelectedDeptFilter] = useState('ALL');
 
-    // Form state
-    const [formData, setFormData] = useState({
-        promotionName: 'Khuyến mãi Giờ Vàng: Cuối tuần Mua sắm Rộn ràng',
-        promotionType: 'PERCENTAGE', // 'PERCENTAGE' | 'FIXED_AMOUNT'
-        discountValue: '15',
-        scopeType: 'PRODUCTS', // 'PRODUCTS' | 'CATEGORIES'
-        selectedProductIds: [1, 2, 3], // Default 3 items like mockup
-        selectedCategoryId: 1, // Category id if in category mode
-        startAt: '2025-06-01T08:00',
-        endAt: '2025-06-07T22:00'
+    // Min selectable datetime (start of today)
+    const minDateTimeString = useMemo(() => {
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        return formatDateTimeLocal(todayStart);
+    }, []);
+
+    // Form state initialized with dynamic current schedule
+    const [formData, setFormData] = useState(() => {
+        const now = new Date();
+        const start = new Date(now);
+        start.setMinutes(0, 0, 0);
+        const end = new Date(now);
+        end.setDate(end.getDate() + 7);
+        end.setHours(22, 0, 0, 0);
+
+        return {
+            promotionName: 'Khuyến mãi Giờ Vàng: Cuối tuần Mua sắm Rộn ràng',
+            promotionType: 'PERCENTAGE', // 'PERCENTAGE' | 'FIXED_AMOUNT'
+            discountValue: '15',
+            scopeType: 'PRODUCTS', // 'PRODUCTS' | 'CATEGORIES'
+            selectedProductIds: [1, 2, 3], // Default 3 items like mockup
+            selectedCategoryId: 1, // Category id if in category mode
+            startAt: formatDateTimeLocal(start),
+            endAt: formatDateTimeLocal(end)
+        };
     });
 
     const [formErrors, setFormErrors] = useState({});
@@ -176,7 +203,13 @@ export default function CreatePromotionPage() {
         const scopeValid = formData.scopeType === 'PRODUCTS'
             ? formData.selectedProductIds.length > 0
             : Boolean(formData.selectedCategoryId);
-        const scheduleValid = formData.startAt && formData.endAt && new Date(formData.endAt) > new Date(formData.startAt);
+        const now = new Date();
+        const scheduleValid = Boolean(
+            formData.startAt &&
+            formData.endAt &&
+            new Date(formData.endAt) > new Date(formData.startAt) &&
+            new Date(formData.endAt) > now
+        );
 
         return [
             {
@@ -201,7 +234,7 @@ export default function CreatePromotionPage() {
             },
             {
                 key: 'schedule',
-                label: 'Schedule: End Date > Start Date',
+                label: 'Schedule: End Date > Start Date & Future',
                 passed: scheduleValid,
                 badge: scheduleValid ? 'Passed' : 'Invalid'
             }
@@ -260,12 +293,22 @@ export default function CreatePromotionPage() {
             errors.scope = 'Vui lòng chọn 1 ngành hàng áp dụng';
         }
 
+        const now = new Date();
+        const todayStart = new Date(now);
+        todayStart.setHours(0, 0, 0, 0);
+
         if (!formData.startAt) {
             errors.startAt = 'Thời gian bắt đầu là bắt buộc';
+        } else if (new Date(formData.startAt) < todayStart) {
+            errors.startAt = 'Thời gian bắt đầu không được trước ngày hôm nay';
         }
+
         if (!formData.endAt) {
             errors.endAt = 'Thời gian kết thúc là bắt buộc';
+        } else if (new Date(formData.endAt) <= now) {
+            errors.endAt = 'Thời gian kết thúc phải ở tương lai';
         }
+
         if (formData.startAt && formData.endAt && new Date(formData.endAt) <= new Date(formData.startAt)) {
             errors.endAt = 'Thời gian kết thúc phải sau thời gian bắt đầu';
         }
@@ -714,6 +757,7 @@ export default function CreatePromotionPage() {
                                             type="datetime-local"
                                             className="cpp-input-naked"
                                             value={formData.startAt}
+                                            min={minDateTimeString}
                                             onChange={(e) => {
                                                 setFormData(prev => ({ ...prev, startAt: e.target.value }));
                                                 if (formErrors.startAt) setFormErrors(prev => ({ ...prev, startAt: null }));
@@ -735,6 +779,7 @@ export default function CreatePromotionPage() {
                                             type="datetime-local"
                                             className="cpp-input-naked"
                                             value={formData.endAt}
+                                            min={formData.startAt || minDateTimeString}
                                             onChange={(e) => {
                                                 setFormData(prev => ({ ...prev, endAt: e.target.value }));
                                                 if (formErrors.endAt) setFormErrors(prev => ({ ...prev, endAt: null }));
@@ -751,7 +796,7 @@ export default function CreatePromotionPage() {
                             {/* Validation Callout Box */}
                             <div className="cpp-schedule-callout">
                                 <div className="callout-header">
-                                    <strong>Validation Rule: End Date must be strictly after Start Date.</strong>
+                                    <strong>Validation Rule: End Date must be strictly after Start Date and in the future.</strong>
                                 </div>
                                 <div className="callout-content">
                                     <div className="callout-text">
