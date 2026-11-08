@@ -7,7 +7,6 @@ import com.sms.backend.dto.supplierportal.SupplierOrderItemResponse;
 import com.sms.backend.dto.supplierportal.SupplierOrderPageResponse;
 import com.sms.backend.dto.supplierportal.SupplierOrderStatusCounts;
 import com.sms.backend.dto.supplierportal.SupplierOrderSummaryResponse;
-import com.sms.backend.entity.Notification;
 import com.sms.backend.entity.PurchaseOrder;
 import com.sms.backend.entity.PurchaseOrderDetail;
 import com.sms.backend.entity.Supplier;
@@ -18,10 +17,10 @@ import com.sms.backend.enums.RoleName;
 import com.sms.backend.exception.AccountAccessException;
 import com.sms.backend.exception.BadRequestException;
 import com.sms.backend.exception.ResourceNotFoundException;
-import com.sms.backend.repository.NotificationRepository;
 import com.sms.backend.repository.PurchaseOrderDetailRepository;
 import com.sms.backend.repository.SupplierPortalOrderRepository;
 import com.sms.backend.security.CurrentUserProvider;
+import com.sms.backend.service.NotificationService;
 import com.sms.backend.service.SupplierPortalService;
 import com.sms.backend.service.SystemLogService;
 import lombok.RequiredArgsConstructor;
@@ -75,7 +74,7 @@ public class SupplierPortalServiceImpl implements SupplierPortalService {
 
     private final SupplierPortalOrderRepository orderRepository;
     private final PurchaseOrderDetailRepository detailRepository;
-    private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
     private final SystemLogService systemLogService;
     private final CurrentUserProvider currentUserProvider;
     private final Clock clock;
@@ -263,21 +262,9 @@ public class SupplierPortalServiceImpl implements SupplierPortalService {
     private void notifyStore(PurchaseOrder po, String summary, String text, LocalDateTime now) {
         String title = "Supplier " + summary + " " + po.getPoNumber();
         if (po.getRequestedBy() != null) {
-            notificationRepository.save(notification(po.getRequestedBy(), null, title, text, now));
+            notificationService.sendToUser(po.getRequestedBy(), NotificationType.PO_ALERT, title, text);
         }
-        notificationRepository.save(notification(null, RoleName.MANAGER.name(), title, text, now));
-    }
-
-    private Notification notification(User user, String targetRole, String title, String text, LocalDateTime now) {
-        Notification notification = new Notification();
-        notification.setUser(user);
-        notification.setTargetRole(targetRole);
-        notification.setType(NotificationType.PO_ALERT);
-        notification.setTitle(title.length() > 200 ? title.substring(0, 200) : title);
-        notification.setMessage(text);
-        notification.setIsRead(false);
-        notification.setCreatedAt(now);
-        return notification;
+        notificationService.sendToRole(RoleName.MANAGER, NotificationType.PO_ALERT, title, text);
     }
 
     private Supplier currentSupplier() {

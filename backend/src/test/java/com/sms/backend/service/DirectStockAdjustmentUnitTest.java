@@ -53,6 +53,7 @@ public class DirectStockAdjustmentUnitTest {
         purchaseOrderRepository = mock(PurchaseOrderRepository.class);
         purchaseOrderDetailRepository = mock(PurchaseOrderDetailRepository.class);
         systemSettingRepository = mock(SystemSettingRepository.class);
+        NotificationService notificationService = mock(NotificationService.class);
 
         inventoryService = new InventoryServiceImpl(
                 stockReceiptRepository,
@@ -64,7 +65,8 @@ public class DirectStockAdjustmentUnitTest {
                 userRepository,
                 purchaseOrderRepository,
                 purchaseOrderDetailRepository,
-                systemSettingRepository
+                systemSettingRepository,
+                notificationService
         );
 
         testUser = new User();

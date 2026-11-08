@@ -4,22 +4,22 @@ import com.sms.backend.dto.supplierportal.RespondPurchaseOrderRequest;
 import com.sms.backend.dto.supplierportal.RespondPurchaseOrderRequest.Action;
 import com.sms.backend.dto.supplierportal.RespondPurchaseOrderRequest.ProposedItem;
 import com.sms.backend.dto.supplierportal.SupplierOrderDetailResponse;
-import com.sms.backend.entity.Notification;
 import com.sms.backend.entity.Product;
 import com.sms.backend.entity.PurchaseOrder;
 import com.sms.backend.entity.PurchaseOrderDetail;
 import com.sms.backend.entity.Role;
 import com.sms.backend.entity.Supplier;
 import com.sms.backend.entity.User;
+import com.sms.backend.enums.NotificationType;
 import com.sms.backend.enums.PurchaseOrderStatus;
 import com.sms.backend.enums.RoleName;
 import com.sms.backend.exception.AccountAccessException;
 import com.sms.backend.exception.BadRequestException;
 import com.sms.backend.exception.ResourceNotFoundException;
-import com.sms.backend.repository.NotificationRepository;
 import com.sms.backend.repository.PurchaseOrderDetailRepository;
 import com.sms.backend.repository.SupplierPortalOrderRepository;
 import com.sms.backend.security.CurrentUserProvider;
+import com.sms.backend.service.NotificationService;
 import com.sms.backend.service.serviceImpl.SupplierPortalServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,7 +47,7 @@ class SupplierPortalServiceImplTest {
 
     @Mock SupplierPortalOrderRepository orders;
     @Mock PurchaseOrderDetailRepository details;
-    @Mock NotificationRepository notifications;
+    @Mock NotificationService notifications;
     @Mock SystemLogService logs;
     @Mock CurrentUserProvider currentUser;
 
@@ -113,7 +113,8 @@ class SupplierPortalServiceImplTest {
         assertFalse(result.canRespond());
         assertEquals(LocalDateTime.now(CLOCK), po.getUpdatedAt());
         verify(logs).createLog(eq(supplierUser), eq("SUPPLIER_PO_ACCEPTED"), eq("PURCHASE_ORDER"), eq(100L), anyString(), any());
-        verify(notifications, times(2)).save(any(Notification.class)); // requester + managers
+        verify(notifications).sendToUser(eq(po.getRequestedBy()), eq(NotificationType.PO_ALERT), anyString(), anyString());
+        verify(notifications).sendToRole(eq(RoleName.MANAGER), eq(NotificationType.PO_ALERT), anyString(), anyString());
     }
 
     @Test

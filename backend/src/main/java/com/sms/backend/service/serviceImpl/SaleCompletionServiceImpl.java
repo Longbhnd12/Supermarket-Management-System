@@ -2,6 +2,7 @@ package com.sms.backend.service.serviceImpl;
 
 import com.sms.backend.service.SaleCompletionService;
 import com.sms.backend.service.FefoStockService;
+import com.sms.backend.service.NotificationService;
 
 import com.sms.backend.dto.sale.InvoiceResponse;
 import com.sms.backend.entity.*;
@@ -27,6 +28,7 @@ public class SaleCompletionServiceImpl implements SaleCompletionService {
     private final StockMovementRepository movements;
     private final SystemLogRepository logs;
     private final SystemSettingRepository settings;
+    private final NotificationService notificationService;
     private final ObjectMapper mapper;
     private final Clock clock;
 
@@ -74,7 +76,10 @@ public class SaleCompletionServiceImpl implements SaleCompletionService {
                     if (remaining.signum() == 0) break;
                 }
             }
-            product.setStockQuantity(product.getStockQuantity().subtract(required));
+            BigDecimal prevStock = product.getStockQuantity();
+            BigDecimal newStock = prevStock.subtract(required);
+            product.setStockQuantity(newStock);
+            notificationService.checkStockLevelTransition(product, prevStock, newStock);
         }
         sale.setInvoiceNumber("INV-" + UUID.randomUUID());
         sale.setCompletedAt(now); sale.setStatus(SaleStatus.COMPLETED); sale.setCompletionRequested(false);

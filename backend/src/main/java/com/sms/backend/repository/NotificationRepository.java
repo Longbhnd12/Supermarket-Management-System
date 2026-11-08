@@ -24,4 +24,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     Page<Notification> findForRecipientAndRead(@Param("user") User user, @Param("role") String role, @Param("isRead") boolean isRead, Pageable pageable);
     @Query("SELECT COUNT(n) FROM Notification n WHERE (n.user = :user OR (n.user IS NULL AND n.targetRole = :role)) AND n.isRead = false")
     long countUnreadForRecipient(@Param("user") User user, @Param("role") String role);
+
+    @Query("SELECT COUNT(n) > 0 FROM Notification n WHERE n.type = :type AND n.createdAt >= :since AND n.title LIKE :titlePattern")
+    boolean existsRecentAlert(@Param("type") NotificationType type, @Param("since") java.time.LocalDateTime since, @Param("titlePattern") String titlePattern);
 }

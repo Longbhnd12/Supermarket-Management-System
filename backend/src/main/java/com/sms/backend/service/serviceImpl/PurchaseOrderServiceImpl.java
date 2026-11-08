@@ -12,7 +12,6 @@ import com.sms.backend.dto.purchaseorder.PurchaseOrderRequest;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderResponse;
 import com.sms.backend.dto.purchaseorder.PurchaseOrderStatusCountsResponse;
 import com.sms.backend.dto.purchaseorder.RejectPurchaseOrderRequest;
-import com.sms.backend.entity.Notification;
 import com.sms.backend.entity.Product;
 import com.sms.backend.entity.PurchaseOrder;
 import com.sms.backend.entity.PurchaseOrderDetail;
@@ -22,17 +21,18 @@ import com.sms.backend.entity.User;
 import com.sms.backend.enums.GeneralStatus;
 import com.sms.backend.enums.NotificationType;
 import com.sms.backend.enums.PurchaseOrderStatus;
+import com.sms.backend.enums.RoleName;
 import com.sms.backend.enums.SupplierStatus;
 import com.sms.backend.exception.BadRequestException;
 import com.sms.backend.exception.BusinessException;
 import com.sms.backend.exception.ResourceNotFoundException;
-import com.sms.backend.repository.NotificationRepository;
 import com.sms.backend.repository.ProductRepository;
 import com.sms.backend.repository.PurchaseOrderDetailRepository;
 import com.sms.backend.repository.PurchaseOrderRepository;
 import com.sms.backend.repository.StockReceiptRepository;
 import com.sms.backend.repository.SupplierRepository;
 import com.sms.backend.repository.UserRepository;
+import com.sms.backend.service.NotificationService;
 import com.sms.backend.service.PurchaseOrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -65,7 +65,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     private final SupplierRepository supplierRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
-    private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
     private final StockReceiptRepository stockReceiptRepository;
 
     @Override
@@ -358,6 +358,20 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             ));
         }
 
+        // Notify managers about new purchase request
+        try {
+            notificationService.sendToRole(
+                    RoleName.MANAGER,
+                    NotificationType.PO_ALERT,
+                    "New Purchase Request: " + po.getPoNumber(),
+                    "A new purchase request " + po.getPoNumber() + " for supplier " + supplier.getSupplierName()
+                            + " with total estimated amount " + po.getTotalAmount() + " has been submitted by "
+                            + requester.getUsername() + " and requires manager approval."
+            );
+        } catch (Exception e) {
+            // Notification failure should not roll back transaction
+        }
+
         return new PurchaseOrderResponse(
                 po.getOrderId(),
                 po.getPoNumber(),
@@ -457,26 +471,22 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
         // 7. Persist system notifications
         try {
-            Notification supplierNotif = new Notification();
-            supplierNotif.setType(NotificationType.PO_ALERT);
-            supplierNotif.setTargetRole("SUPPLIER");
-            supplierNotif.setTitle("Purchase Order Issued: " + po.getPoNumber());
-            supplierNotif.setMessage("Purchase Order " + po.getPoNumber() + " has been approved and issued to supplier " +
-                    po.getSupplier().getSupplierName() + " for total amount " + po.getTotalAmount() + ".");
-            supplierNotif.setIsRead(false);
-            supplierNotif.setCreatedAt(now);
-            notificationRepository.save(supplierNotif);
+            notificationService.sendToSupplier(
+                    po.getSupplier().getSupplierId(),
+                    NotificationType.PO_ALERT,
+                    "Purchase Order Issued: " + po.getPoNumber(),
+                    "Purchase Order " + po.getPoNumber() + " has been approved and issued to supplier " +
+                            po.getSupplier().getSupplierName() + " for total amount " + po.getTotalAmount() + "."
+            );
 
             if (po.getRequestedBy() != null) {
-                Notification requesterNotif = new Notification();
-                requesterNotif.setUser(po.getRequestedBy());
-                requesterNotif.setType(NotificationType.PO_ALERT);
-                requesterNotif.setTitle("Purchase Request Approved: " + po.getPoNumber());
-                requesterNotif.setMessage("Your purchase request " + po.getPoNumber() + " was approved by " +
-                        approver.getUsername() + " and sent to supplier.");
-                requesterNotif.setIsRead(false);
-                requesterNotif.setCreatedAt(now);
-                notificationRepository.save(requesterNotif);
+                notificationService.sendToUser(
+                        po.getRequestedBy(),
+                        NotificationType.PO_ALERT,
+                        "Purchase Request Approved: " + po.getPoNumber(),
+                        "Your purchase request " + po.getPoNumber() + " was approved by " +
+                                approver.getUsername() + " and sent to supplier."
+                );
             }
         } catch (Exception e) {
             // Notification persistence failure should not roll back transaction
@@ -519,15 +529,13 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         // 5. Persist system notification for requester
         try {
             if (po.getRequestedBy() != null) {
-                Notification requesterNotif = new Notification();
-                requesterNotif.setUser(po.getRequestedBy());
-                requesterNotif.setType(NotificationType.PO_ALERT);
-                requesterNotif.setTitle("Purchase Request Rejected: " + po.getPoNumber());
-                requesterNotif.setMessage("Your purchase request " + po.getPoNumber() + " was rejected by " +
-                        approver.getUsername() + ". Reason: " + reason);
-                requesterNotif.setIsRead(false);
-                requesterNotif.setCreatedAt(now);
-                notificationRepository.save(requesterNotif);
+                notificationService.sendToUser(
+                        po.getRequestedBy(),
+                        NotificationType.PO_ALERT,
+                        "Purchase Request Rejected: " + po.getPoNumber(),
+                        "Your purchase request " + po.getPoNumber() + " was rejected by " +
+                                approver.getUsername() + ". Reason: " + reason
+                );
             }
         } catch (Exception e) {
             // Notification persistence failure should not roll back transaction

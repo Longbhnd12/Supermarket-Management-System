@@ -53,6 +53,7 @@ import com.sms.backend.repository.SupplierRepository;
 import com.sms.backend.repository.SystemSettingRepository;
 import com.sms.backend.repository.UserRepository;
 import com.sms.backend.service.InventoryService;
+import com.sms.backend.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -103,6 +104,7 @@ public class InventoryServiceImpl implements InventoryService {
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final PurchaseOrderDetailRepository purchaseOrderDetailRepository;
     private final SystemSettingRepository systemSettingRepository;
+    private final NotificationService notificationService;
 
     // =========================================================================
     // UC31 - Inventory List
@@ -834,6 +836,7 @@ public class InventoryServiceImpl implements InventoryService {
         // 6. Update Product stock
         product.setStockQuantity(newStock);
         productRepository.save(product);
+        notificationService.checkStockLevelTransition(product, previousStock, newStock);
 
         // 7. Record StockMovement
         User currentUser = resolveCurrentUser();
@@ -1053,8 +1056,10 @@ public class InventoryServiceImpl implements InventoryService {
                 // Update product stock
                 Product p = item.product;
                 BigDecimal currentStock = p.getStockQuantity() != null ? p.getStockQuantity() : BigDecimal.ZERO;
-                p.setStockQuantity(currentStock.add(item.quantity));
+                BigDecimal newStock = currentStock.add(item.quantity);
+                p.setStockQuantity(newStock);
                 productRepository.save(p);
+                notificationService.checkStockLevelTransition(p, currentStock, newStock);
 
                 // Record stock movement
                 StockMovement movement = new StockMovement();
@@ -1074,6 +1079,7 @@ public class InventoryServiceImpl implements InventoryService {
         // 8. Update PO received quantities and transition PO status atomically if CONFIRMED
         if (purchaseOrder != null && targetStatus == StockReceiptStatus.CONFIRMED && lockedPoDetails != null) {
             updatePurchaseOrderFulfillment(purchaseOrder, lockedPoDetails, savedDetails);
+            notificationService.sendStockReceiptConfirmed(receipt, purchaseOrder);
         }
 
         return getStockReceiptById(receipt.getStockReceiptId());
@@ -1151,8 +1157,10 @@ public class InventoryServiceImpl implements InventoryService {
             // Update product inventory
             Product p = detail.getProduct();
             BigDecimal currentStock = p.getStockQuantity() != null ? p.getStockQuantity() : BigDecimal.ZERO;
-            p.setStockQuantity(currentStock.add(detail.getQuantity()));
+            BigDecimal newStock = currentStock.add(detail.getQuantity());
+            p.setStockQuantity(newStock);
             productRepository.save(p);
+            notificationService.checkStockLevelTransition(p, currentStock, newStock);
 
             // Log StockMovement
             StockMovement movement = new StockMovement();
@@ -1171,6 +1179,7 @@ public class InventoryServiceImpl implements InventoryService {
         // Update PO received quantities and transition PO status atomically
         if (linkedPo != null && lockedPoDetails != null) {
             updatePurchaseOrderFulfillment(linkedPo, lockedPoDetails, details);
+            notificationService.sendStockReceiptConfirmed(receipt, linkedPo);
         }
 
         return getStockReceiptById(receipt.getStockReceiptId());
