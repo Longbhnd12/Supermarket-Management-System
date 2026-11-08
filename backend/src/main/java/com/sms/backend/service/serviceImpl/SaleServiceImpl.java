@@ -8,6 +8,9 @@ import com.sms.backend.dto.sale.CreateSaleRequest;
 import com.sms.backend.dto.sale.SaleProductResponse;
 import com.sms.backend.dto.sale.SaleItemResponse;
 import com.sms.backend.dto.sale.UpdateSaleItemRequest;
+import com.sms.backend.entity.Payment;
+import com.sms.backend.enums.PaymentStatus;
+import java.time.Clock;
 import com.sms.backend.entity.Product;
 import com.sms.backend.entity.SaleItem;
 import com.sms.backend.enums.AccountStatus;
@@ -58,6 +61,7 @@ public class SaleServiceImpl implements SaleService {
     private final PaymentRepository paymentRepository;
     private final com.sms.backend.service.SaleCompletionService completion;
     private final com.sms.backend.service.SalePromotionCalculator promotions;
+    private final Clock clock;
 
     @Override
     public PageResponse<SaleListItemResponse> getSales(String search, String status, LocalDateTime fromDate, LocalDateTime toDate, int page, int size) {
@@ -133,8 +137,13 @@ public class SaleServiceImpl implements SaleService {
         List<Product> products;
         if (hasBarcode) {
             if (barcode.strip().length() > 100) throw new BadRequestException("Barcode exceeds 100 characters");
-            products = productRepository.findByBarcode(barcode.strip())
-                    .filter(p -> p.getStatus() == GeneralStatus.ACTIVE).stream().toList();
+            String cleaned = barcode.strip();
+            Optional<Product> exact = productRepository.findByBarcode(cleaned)
+                    .filter(p -> p.getStatus() == GeneralStatus.ACTIVE);
+            products = exact.isPresent()
+                    ? List.of(exact.get())
+                    : productRepository.findTop50ByStatusAndBarcodeContainingIgnoreCaseOrderByProductIdAsc(GeneralStatus.ACTIVE, cleaned);
+
         } else {
             String query = keyword.strip();
             if (query.length() > 200) throw new BadRequestException("Keyword exceeds 200 characters");
@@ -237,9 +246,33 @@ public class SaleServiceImpl implements SaleService {
 
     @Override @Transactional
     public SaleResponse cancelSale(Long saleId) {
-        Sale sale = findDraftForUpdate(saleId);
-        if (paymentRepository.hasBlockingPayment(sale)) {
-            throw new BadRequestException("A sale with a pending, successful or unresolved payment cannot be cancelled");
+        Sale sale = saleRepository.findByIdForUpdate(saleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Sale not found: " + saleId));
+        if (sale.getStatus() != SaleStatus.DRAFT) {
+            throw new BadRequestException("Only DRAFT sales can be cancelled");
+        }
+        List<Payment> payments = paymentRepository.findBySaleOrderByPaymentIdDesc(sale);
+        boolean hasSuccess = payments.stream().anyMatch(p -> p.getPaymentStatus() == PaymentStatus.SUCCESS);
+        if (hasSuccess) {
+            throw new BadRequestException("Không thể hủy: Đơn hàng đã có giao dịch thanh toán thành công.");
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        boolean hasActivePending = payments.stream().anyMatch(p ->
+            p.getPaymentStatus() == PaymentStatus.PENDING && (p.getExpiresAt() == null || p.getExpiresAt().isAfter(now))
+        );
+        if (hasActivePending) {
+            throw new BadRequestException("Không thể hủy: Đơn hàng đang có giao dịch thanh toán chờ xử lý (chưa hết thời hạn). Vui lòng đợi hết hạn thanh toán hoặc hủy trên cổng thanh toán.");
+        }
+
+        for (Payment p : payments) {
+            if (p.getPaymentStatus() == PaymentStatus.PENDING || p.getPaymentStatus() == PaymentStatus.TIMEOUT || p.isReconciliationRequired()) {
+                p.setPaymentStatus(PaymentStatus.FAILED);
+                p.setReconciliationRequired(false);
+                if (p.getFailureReason() == null || p.getFailureReason().isBlank()) {
+                    p.setFailureReason("Đã hủy bởi thu ngân do hết hạn thanh toán");
+                }
+                paymentRepository.save(p);
+            }
         }
         sale.setStatus(SaleStatus.CANCELLED);
         sale.setCompletionRequested(false);
@@ -257,7 +290,7 @@ public class SaleServiceImpl implements SaleService {
         Sale sale = saleRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Sale not found: " + id));
         if (sale.getStatus() != SaleStatus.DRAFT) throw new BadRequestException("Only DRAFT sales can be modified");
-        if (paymentRepository.hasBlockingPayment(sale)) throw new BadRequestException("Sale is locked by a pending, successful or unresolved payment");
+        if (paymentRepository.hasBlockingPayment(sale)) throw new BadRequestException("Đơn hàng đang có giao dịch thanh toán chờ xử lý hoặc cần đối soát.");
         return sale;
     }
 

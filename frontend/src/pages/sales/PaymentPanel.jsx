@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import SaleCompletionStatus from './SaleCompletionStatus';
 import PaymentService from '../../services/paymentService';
-import { getErrorMessage } from '../../utils/errorUtils';
+import { getPOSErrorMessage as getErrorMessage } from './posErrorMessage';
 import useCashChangePreview from './useCashChangePreview';
 import { sandboxPaymentUrl, paymentExpiry, resumablePaymentUrl } from './paymentNavigation';
 import { Banknote, CreditCard, QrCode, ExternalLink, RefreshCw } from 'lucide-react';
 
+const methodLabels = { CASH: 'Cash', CARD: 'Domestic Card', QR: 'QR Payment' };
 const methodIcons = { CASH: Banknote, CARD: CreditCard, QR: QrCode };
 
 const money = (value) => `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value ?? 0)} ₫`;
@@ -23,6 +24,16 @@ export default function PaymentPanel({ sale, busy, runAction, onLock, onComplete
     const [paymentError, setPaymentError] = useState('');
     const [version, setVersion] = useState(0);
     const [now, setNow] = useState(() => Date.now());
+    const [confirmModal, setConfirmModal] = useState(null);
+
+    useEffect(() => {
+        if (!confirmModal) return;
+        function onKey(event) {
+            if (event.key === 'Escape') setConfirmModal(null);
+        }
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [confirmModal]);
     const pendingRequest = useRef(null);
     const alive = useRef(false);
     const lockCallback = useRef(onLock);
@@ -96,18 +107,32 @@ export default function PaymentPanel({ sale, busy, runAction, onLock, onComplete
         revision: `${version}:${selection}` });
     const canConfirmCash = cashPreview.status === 'ready' && cashPreview.result?.sufficient === true;
 
-    async function submit(event) {
+    function submit(event) {
         event.preventDefault();
-        if (disabled || !selected?.enabled || cashSelected && !canConfirmCash) return;
+        if (disabled || !selected?.enabled || Number(sale.totalAmount) <= 0 || !sale.items.length || cashSelected && !canConfirmCash) return;
         const confirmedCash = cashSelected ? cashPreview.result : null;
-        const message = confirmedCash
-            ? `Xác nhận tiền mặt\nTổng cần thu: ${money(confirmedCash.totalAmount)}\nTiền khách đưa: ${money(confirmedCash.receivedAmount)}\nTiền trả lại: ${money(confirmedCash.changeAmount)}`
-            : `Xác nhận thanh toán ${money(sale.totalAmount)} bằng ${selected.label}?`;
-        if (!window.confirm(message)) return;
+        const payload = {
+            paymentMethod: selected.method,
+            bankCode: selected.bankCode,
+            expectedTotal: confirmedCash?.totalAmount ?? sale.totalAmount,
+            receivedAmount: confirmedCash?.receivedAmount ?? null
+        };
+        if (cashSelected) return handleExecutePayment(payload);
+        setConfirmModal({
+            isCash: cashSelected,
+            title: cashSelected ? 'Confirm Cash Payment' : 'Confirm Electronic Payment',
+            totalAmount: confirmedCash?.totalAmount ?? sale.totalAmount,
+            receivedAmount: confirmedCash?.receivedAmount ?? null,
+            changeAmount: confirmedCash?.changeAmount ?? null,
+            methodLabel: methodLabels[selected.method],
+            payload
+        });
+    }
+
+    async function handleExecutePayment(payload) {
+        setConfirmModal(null);
         await runAction(async () => {
             setPaymentError('');
-            const payload = { paymentMethod: selected.method, bankCode: selected.bankCode,
-                expectedTotal: confirmedCash?.totalAmount ?? sale.totalAmount, receivedAmount: confirmedCash?.receivedAmount ?? null };
             // Persist a key before sending; a network timeout must not silently generate a new charge.
             const storageKey = `sms.payment.request.${sale.saleId}`;
             const fingerprint = JSON.stringify(payload);
@@ -115,7 +140,7 @@ export default function PaymentPanel({ sale, busy, runAction, onLock, onComplete
             try { stored = JSON.parse(sessionStorage.getItem(storageKey)); } catch { /* Discard malformed local state. */ }
             if ((pendingRequest.current && pendingRequest.current.fingerprint !== fingerprint)
                 || (stored && stored.fingerprint !== fingerprint)) {
-                setPaymentError('Yêu cầu trước chưa rõ kết quả. Tải lại trạng thái trước khi đổi phương thức.'); return;
+                setPaymentError('The previous request has an unknown outcome. Refresh the status before changing payment methods.'); return;
             }
             const request = stored?.fingerprint === fingerprint ? stored
                 : { fingerprint, key: crypto.randomUUID() };
@@ -134,14 +159,14 @@ export default function PaymentPanel({ sale, busy, runAction, onLock, onComplete
                     // Only accept the exact Sandbox hosted origin; no arbitrary redirect from API data.
                     const url = sandboxPaymentUrl(payment.paymentUrl);
                     if (!url) {
-                        setPaymentError('URL thanh toán không hợp lệ. Vui lòng tải lại trạng thái.'); return;
+                        setPaymentError('Invalid payment URL. Please refresh the status.'); return;
                     }
                     window.location.assign(url);
                 }
             } catch (err) {
                 if (!alive.current) return;
                 setPaymentError(err.response?.status === 400 ? getErrorMessage(err)
-                    : `${getErrorMessage(err)}. Không tự thanh toán lại khi chưa rõ kết quả.`);
+                    : `${getErrorMessage(err)}. Do not retry payment while the outcome is unknown.`);
                 lockCallback.current(true);
                 // A definitive HTTP validation response did not create an attempt; same-key replay remains safe either way.
                 if (err.response && err.response.status < 500) {
@@ -153,84 +178,151 @@ export default function PaymentPanel({ sale, busy, runAction, onLock, onComplete
         });
     }
 
-    return <section className="pos-payment" aria-label="Thanh toán" onFocusCapture={() => setChoosingPayment(true)}
+    return <section className="pos-payment" aria-label="Payment" onFocusCapture={() => setChoosingPayment(true)}
         onBlurCapture={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget)) setChoosingPayment(false);
         }}>
-        <div className="pos-payment-heading"><h3>Thanh toán</h3><span className="pos-sandbox-label">VNPay Sandbox · TEST</span></div>
-        {methodsError && <p role="alert" className="pos-payment-error">Không tải được phương thức: {methodsError}</p>}
+        <div className="pos-payment-heading"><h3>Payment</h3><span className="pos-sandbox-label">VNPay Sandbox · TEST</span></div>
+        {methodsError && <p role="alert" className="pos-payment-error">Unable to load payment methods: {methodsError}</p>}
         {(paymentError || error) && <p role="alert" className="pos-payment-error">{paymentError || error}</p>}
-        {!overview && !error && <p role="status">Đang kiểm tra thanh toán…</p>}
-        {success ? <div className="pos-payment-state" role="status"><strong>Đã thanh toán</strong>
-            <SaleCompletionStatus key={sale.saleId} saleId={sale.saleId} blocked={success.reconciliationRequired} onCompleted={onCompleted} />
-            {success.changeAmount != null && <p>Tiền thừa: <strong>{money(success.changeAmount)}</strong></p>}
-            {success.reconciliationRequired && <p>Có xung đột thanh toán đến muộn. Cần đối soát thủ công, không thu thêm tiền.</p>}
+        {!overview && !error && <p role="status">Checking payment status…</p>}
+        {success ? <div className="pos-payment-state" role="status"><strong>Paid</strong>
+            <SaleCompletionStatus key={sale.saleId} saleId={sale.saleId} blocked={success.reconciliationRequired} onCompleted={onCompleted} english />
+            {success.changeAmount != null && <p>Change Due: <strong>{money(success.changeAmount)}</strong></p>}
+            {success.reconciliationRequired && <p>A late payment conflict requires manual reconciliation. Do not collect another payment.</p>}
         </div> : latest && <div className="pos-payment-state" role="status">
-            <strong>{latest.reconciliationRequired ? 'Cần đối soát kết quả thanh toán' : locallyExpired ? 'Đã hết thời hạn mở trang thanh toán' : latest.status === 'PENDING' ? 'Đang chờ VNPay xác nhận'
-                : latest.status === 'TIMEOUT' ? 'Giao dịch đã hết hạn' : 'Thanh toán không thành công'}</strong>
-            <p>{latest.reconciliationRequired ? 'Chưa rõ kết quả thu tiền. Đơn tạm khóa để tránh thanh toán hai lần.'
-                : overview.locked ? 'Chưa thể thay đổi đơn hoặc thanh toán lại.' : 'Đơn vẫn được giữ. Có thể chọn phương thức và thử lại.'}</p>
+            <strong>{latest.reconciliationRequired ? 'Payment Reconciliation Required' : locallyExpired ? 'Payment Link Expired' : latest.status === 'PENDING' ? 'Awaiting VNPay Confirmation'
+                : latest.status === 'TIMEOUT' ? 'Payment Expired' : 'Payment Unsuccessful'}</strong>
+            <p>{latest.reconciliationRequired ? 'The payment outcome is unknown. This sale is locked to prevent duplicate payment.'
+                : overview.locked ? 'This sale cannot be changed or paid again yet.' : 'The sale is saved. Select a payment method and try again.'}</p>
                         {latest.paymentMethod !== 'CASH' && <>
                 <dl className="pos-pending-details">
-                    <div><dt>Số tiền</dt><dd>{money(latest.amount)}</dd></div>
-                    <div><dt>Mã giao dịch</dt><dd>{latest.txnRef}</dd></div>
-                    {Number.isFinite(expiresAt) && <div><dt>Hạn thanh toán</dt><dd>{new Intl.DateTimeFormat('vi-VN', {
+                    <div><dt>Amount</dt><dd>{money(latest.amount)}</dd></div>
+                    <div><dt>Transaction Reference</dt><dd>{latest.txnRef}</dd></div>
+                    {Number.isFinite(expiresAt) && <div><dt>Payment Deadline</dt><dd>{new Intl.DateTimeFormat('vi-VN', {
                         timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'medium',
-                    }).format(expiresAt)} (giờ Việt Nam)</dd></div>}
+                    }).format(expiresAt)} (Vietnam time)</dd></div>}
                 </dl>
                 {resumeUrl && <>
-                    <p>Còn {Math.floor(remainingSeconds / 60)} phút {remainingSeconds % 60} giây để mở lại giao dịch này.</p>
+                    <p>{Math.floor(remainingSeconds / 60)} minutes {remainingSeconds % 60} seconds remaining to reopen this payment.</p>
                     <a className="pos-gateway-link" href={resumeUrl}><ExternalLink size={14} />
-                        {latest.paymentMethod === 'QR' ? 'Mở lại trang QR VNPay' : 'Tiếp tục tại VNPay Sandbox'}</a>
+                        {latest.paymentMethod === 'QR' ? 'Reopen VNPay QR Page' : 'Continue to VNPay Sandbox'}</a>
                 </>}
-                {locallyExpired && <p>Không mở lại link đã hết hạn. Chờ máy chủ xác minh hoặc bấm Đối soát VNPay; không thu thêm tiền khi chưa rõ kết quả.</p>}
+                {locallyExpired && <p>Do not reopen an expired link. Wait for server verification or select Reconcile VNPay. Do not collect another payment while the outcome is unknown.</p>}
             </>}
         </div>}
         {!success && <form onSubmit={submit}>
-            <div className="pos-method-grid" role="group" aria-label="Chọn phương thức thanh toán">
+            <div className="pos-method-grid" role="group" aria-label="Select payment method">
                 {options.map((option) => {
                     const value = `${option.method}:${option.bankCode ?? ''}`;
                     const Icon = methodIcons[option.method] ?? CreditCard;
                     return <button key={value} type="button" aria-pressed={selection === value}
                         disabled={disabled || !option.enabled} className="pos-method-option" onClick={() => setSelection(value)}>
-                        <Icon size={19} /><span>{option.label}<small>{option.enabled ? option.method === 'CASH' ? 'Tại quầy' : option.method === 'QR' ? 'Quét mã trên trang VNPay' : 'Qua VNPay Sandbox'
-                            : 'Chưa được bật trên BE'}</small></span>
+                        <Icon size={19} /><span>{methodLabels[option.method]}<small>{option.enabled ? option.method === 'CASH' ? 'At the checkout' : option.method === 'QR' ? 'Scan the code on VNPay' : 'Via VNPay Sandbox'
+                            : 'Currently unavailable'}</small></span>
                     </button>;
                 })}
             </div>
-            {methodsLoading && <p role="status" className="pos-hint">Đang tải phương thức…</p>}
+            {methodsLoading && <p role="status" className="pos-hint">Loading payment methods…</p>}
             {cashSelected && <>
-                <label className="pos-cash-received">Tiền khách đưa (VND)<input className="pos-cash-received-input" type="number" inputMode="decimal" placeholder="0" required min="0" max="9999999999999.99" step="0.01"
+                <label className="pos-cash-received">Cash Received (VND)<input className="pos-cash-received-input" type="number" inputMode="decimal" placeholder="0" required min="0" max="9999999999999.99" step="0.01"
                     value={received} disabled={disabled} onChange={(event) => setReceived(event.target.value)} />
                     {received !== '' && Number.isFinite(Number(received)) && Number(received) >= 0 &&
                         <span className="pos-cash-received-formatted">{money(Number(received))}</span>}
                 </label>
                 <div className={`pos-cash-preview ${cashPreview.result && !cashPreview.result.sufficient ? 'pos-cash-preview--short' : ''}`}
                     role="status" aria-live="polite">
-                    <div><span>Tổng cần thu</span><strong>{money(sale.totalAmount)}</strong></div>
-                    {cashPreview.status === 'empty' && <p>Nhập tiền khách đưa để xem tiền trả lại.</p>}
-                    {cashPreview.status === 'loading' && <p>Đang tính tiền trả lại…</p>}
+                    <div><span>Total Due</span><strong>{money(sale.totalAmount)}</strong></div>
+                    {cashPreview.status === 'empty' && <p>Enter cash received to see the change due.</p>}
+                    {cashPreview.status === 'loading' && <p>Calculating change…</p>}
                     {cashPreview.error && <p>{cashPreview.error}</p>}
-                    {cashPreview.result && <div><span>{cashPreview.result.sufficient ? 'Tiền trả lại' : 'Còn thiếu'}</span>
+                    {cashPreview.result && <div><span>{cashPreview.result.sufficient ? 'Change Due' : 'Shortfall'}</span>
                         <strong>{money(cashPreview.result.sufficient ? cashPreview.result.changeAmount : cashPreview.result.shortfallAmount)}</strong></div>}
-                    {cashPreview.status === 'error' && <button type="button" disabled={busy} onClick={() => setVersion((value) => value + 1)}>Tính lại</button>}
+                    {cashPreview.status === 'error' && <button type="button" disabled={busy} onClick={() => setVersion((value) => value + 1)}>Recalculate</button>}
                 </div>
             </>}
             {!cashSelected && selected?.enabled && <div className="pos-electronic-info"><ExternalLink size={15} />
-                <p>Bạn sẽ chuyển sang VNPay Sandbox để thanh toán {money(sale.totalAmount)} bằng {selected.label.toLowerCase()}.
-                    {qrSelected && 'Trang VNPay sẽ hiển thị mã QR của giao dịch để khách thanh toán. '}Khi quay lại, hệ thống đọc kết quả từ máy chủ; đơn được khóa trong lúc chờ xác nhận.</p></div>}
+                <p>You will be redirected to VNPay Sandbox to pay {money(sale.totalAmount)} using {methodLabels[selected.method].toLowerCase()}.
+                    {qrSelected && 'VNPay will display a QR code for the customer to pay. '}On return, the system checks the result with the server. The sale stays locked while awaiting confirmation.</p></div>}
             <button className="pos-primary" disabled={disabled || !selected?.enabled || Number(sale.totalAmount) <= 0 || !sale.items.length || cashSelected && !canConfirmCash}>
-                {cashSelected ? 'Xác nhận tiền mặt' : qrSelected ? 'Mở trang QR VNPay' : 'Thanh toán qua VNPay'} · {money(sale.totalAmount)}</button>
+                {cashSelected ? 'Confirm Cash Payment' : qrSelected ? 'Open VNPay QR Page' : 'Pay via VNPay'} · {money(sale.totalAmount)}</button>
         </form>}
-        <div className="pos-payment-actions"><button disabled={busy} onClick={() => setVersion((value) => value + 1)}>Tải lại trạng thái</button>
+        <div className="pos-payment-actions"><button disabled={busy} onClick={() => setVersion((value) => value + 1)}>Refresh Status</button>
             <button type="button" disabled={busy || methodsLoading} onClick={() => { setMethodsLoading(true); setMethodsVersion((value) => value + 1); }}>
-                <RefreshCw size={12} /> Tải phương thức</button>
+                <RefreshCw size={12} /> Reload Methods</button>
             {latest && latest.paymentMethod !== 'CASH' && (latest.reconciliationRequired || latest.status === 'PENDING') &&
                 <button disabled={busy} onClick={() => runAction(async () => {
                     try { await PaymentService.reconcile(latest.paymentId); }
                     catch (err) { setError(getErrorMessage(err)); }
                     finally { setVersion((value) => value + 1); }
-                })}>Đối soát VNPay</button>}</div>
+                })}>Reconcile VNPay</button>}</div>
+        {confirmModal && (
+            <div className="pos-confirm-overlay" role="dialog" aria-modal="true" onClick={() => setConfirmModal(null)}>
+                <div className="pos-confirm-modal" onClick={(e) => e.stopPropagation()}>
+                    <div className="pos-confirm-header">
+                        <div className={`pos-confirm-icon-box ${confirmModal.isCash ? 'pos-confirm-icon-cash' : 'pos-confirm-icon-card'}`}>
+                            {confirmModal.isCash ? <Banknote size={26} /> : <CreditCard size={26} />}
+                        </div>
+                        <div>
+                            <h4>{confirmModal.title}</h4>
+                            <p>Sale #{sale.saleId} • Cashier: {sale?.cashierUsername || 'Checkout'}</p>
+                        </div>
+                    </div>
+
+                    <div className="pos-confirm-body">
+                        {confirmModal.isCash ? (
+                            <div className="pos-confirm-summary-table">
+                                <div className="pos-confirm-row">
+                                    <span>Total Due:</span>
+                                    <strong className="pos-confirm-total">{money(confirmModal.totalAmount)}</strong>
+                                </div>
+                                <div className="pos-confirm-row">
+                                    <span>Cash Received:</span>
+                                    <strong className="pos-confirm-received">{money(confirmModal.receivedAmount)}</strong>
+                                </div>
+                                <div className="pos-confirm-row pos-confirm-row-highlight">
+                                    <span>Change Due:</span>
+                                    <strong className="pos-confirm-change">{money(confirmModal.changeAmount)}</strong>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="pos-confirm-summary-table">
+                                <div className="pos-confirm-row">
+                                    <span>Payment Method:</span>
+                                    <strong>{confirmModal.methodLabel}</strong>
+                                </div>
+                                <div className="pos-confirm-row pos-confirm-row-highlight">
+                                    <span>Payment Amount:</span>
+                                    <strong className="pos-confirm-total">{money(confirmModal.totalAmount)}</strong>
+                                </div>
+                                <p className="pos-confirm-note">
+                                    You will be redirected to VNPay Sandbox for QR or card payment.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="pos-confirm-footer">
+                        <button
+                            type="button"
+                            className="pos-confirm-btn-cancel"
+                            onClick={() => setConfirmModal(null)}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            className="pos-confirm-btn-ok"
+                            autoFocus
+                            disabled={busy}
+                            onClick={() => handleExecutePayment(confirmModal.payload)}
+                        >
+                            {confirmModal.isCash ? 'Confirm Cash Payment' : 'Continue to Payment'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
     </section>;
 }
 

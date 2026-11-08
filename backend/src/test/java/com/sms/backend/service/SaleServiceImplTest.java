@@ -27,10 +27,12 @@ class SaleServiceImplTest {
     @Mock PromotionRepository promotions;
     SaleServiceImpl service;
 
+    Clock fixedClock = Clock.fixed(Instant.parse("2026-11-03T03:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh"));
+
     @BeforeEach void setup() {
         service = new SaleServiceImpl(sales, items, products, users, payments,
                 mock(SaleCompletionService.class), new SalePromotionCalculator(promotions,
-                Clock.fixed(Instant.parse("2026-11-03T03:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh"))));
+                fixedClock), fixedClock);
     }
 
     @Test void createsEmptyDraftWithoutInvoice() {
@@ -317,5 +319,51 @@ class SaleServiceImplTest {
         var result = service.removeItemFromSale(7L, 1L);
         assertEquals(new BigDecimal("80.00"), result.totalAmount());
         verify(items).saveAll(List.of(b));
+    }
+
+    @Test void cancelSaleCancelsDraftWithTimeoutPayment() {
+        Sale sale = new Sale(); sale.setSaleId(7L); sale.setStatus(SaleStatus.DRAFT);
+        when(sales.findByIdForUpdate(7L)).thenReturn(Optional.of(sale));
+        when(sales.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        Payment timeoutPayment = new Payment();
+        timeoutPayment.setPaymentId(101L);
+        timeoutPayment.setPaymentStatus(PaymentStatus.TIMEOUT);
+        timeoutPayment.setReconciliationRequired(true);
+        when(payments.findBySaleOrderByPaymentIdDesc(sale)).thenReturn(List.of(timeoutPayment));
+
+        SaleResponse response = service.cancelSale(7L);
+        assertEquals(SaleStatus.CANCELLED, response.status());
+        assertEquals(PaymentStatus.FAILED, timeoutPayment.getPaymentStatus());
+        assertFalse(timeoutPayment.isReconciliationRequired());
+        verify(payments).save(timeoutPayment);
+        verify(sales).save(sale);
+    }
+
+    @Test void cancelSaleRejectsWhenPaymentIsSuccess() {
+        Sale sale = new Sale(); sale.setSaleId(7L); sale.setStatus(SaleStatus.DRAFT);
+        when(sales.findByIdForUpdate(7L)).thenReturn(Optional.of(sale));
+
+        Payment successPayment = new Payment();
+        successPayment.setPaymentStatus(PaymentStatus.SUCCESS);
+        when(payments.findBySaleOrderByPaymentIdDesc(sale)).thenReturn(List.of(successPayment));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () -> service.cancelSale(7L));
+        assertTrue(ex.getMessage().contains("thanh toán thành công"));
+        verify(sales, never()).save(any());
+    }
+
+    @Test void cancelSaleRejectsWhenPaymentIsActivePending() {
+        Sale sale = new Sale(); sale.setSaleId(7L); sale.setStatus(SaleStatus.DRAFT);
+        when(sales.findByIdForUpdate(7L)).thenReturn(Optional.of(sale));
+
+        Payment pendingPayment = new Payment();
+        pendingPayment.setPaymentStatus(PaymentStatus.PENDING);
+        pendingPayment.setExpiresAt(LocalDateTime.now(fixedClock).plusMinutes(10));
+        when(payments.findBySaleOrderByPaymentIdDesc(sale)).thenReturn(List.of(pendingPayment));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () -> service.cancelSale(7L));
+        assertTrue(ex.getMessage().contains("chờ xử lý"));
+        verify(sales, never()).save(any());
     }
 }
