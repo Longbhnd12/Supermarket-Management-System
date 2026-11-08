@@ -156,6 +156,42 @@ class InventoryServiceIntegrationTest {
         assertEquals(1, p50Res.totalPages());
     }
 
+    @Test
+    @DisplayName("UC31 - Verify default sorting by productCode ASC, productId ASC across pages")
+    void testGetInventoryListDefaultSortingByProductCodeAsc() {
+        InventoryFilter p0Filter = new InventoryFilter(null, null, null, 0, 5);
+        InventoryPageResponse p0Res = inventoryService.getInventoryList(p0Filter);
+        assertNotNull(p0Res);
+        List<InventoryResponse> page0 = p0Res.content();
+        assertFalse(page0.isEmpty());
+
+        for (int i = 0; i < page0.size() - 1; i++) {
+            String currCode = page0.get(i).productCode();
+            String nextCode = page0.get(i + 1).productCode();
+            assertTrue(currCode.compareTo(nextCode) <= 0,
+                    "Expected productCode ASC order on page 0, but found " + currCode + " before " + nextCode);
+        }
+
+        if (p0Res.totalPages() > 1) {
+            InventoryFilter p1Filter = new InventoryFilter(null, null, null, 1, 5);
+            InventoryPageResponse p1Res = inventoryService.getInventoryList(p1Filter);
+            List<InventoryResponse> page1 = p1Res.content();
+            assertFalse(page1.isEmpty());
+
+            String lastPage0Code = page0.getLast().productCode();
+            String firstPage1Code = page1.getFirst().productCode();
+            assertTrue(lastPage0Code.compareTo(firstPage1Code) <= 0,
+                    "Expected last item of page 0 (" + lastPage0Code + ") <= first item of page 1 (" + firstPage1Code + ")");
+
+            for (int i = 0; i < page1.size() - 1; i++) {
+                String currCode = page1.get(i).productCode();
+                String nextCode = page1.get(i + 1).productCode();
+                assertTrue(currCode.compareTo(nextCode) <= 0,
+                        "Expected productCode ASC order on page 1, but found " + currCode + " before " + nextCode);
+            }
+        }
+    }
+
     // =========================================================================
     // UC34 - Stock History Integration Tests
     // =========================================================================

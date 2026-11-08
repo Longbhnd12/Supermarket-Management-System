@@ -142,7 +142,7 @@ public class InventoryServiceImpl implements InventoryService {
         Page<Product> productPage = productRepository.findAllByFilter(
                 kw,
                 filter.categoryId(),
-                PageRequest.of(page, size, Sort.by("productName").ascending())
+                PageRequest.of(page, size, Sort.by(Sort.Order.asc("productCode"), Sort.Order.asc("productId")))
         );
 
         List<InventoryResponse> rows = productPage.getContent().stream()
