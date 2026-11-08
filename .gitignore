@@ -32,6 +32,12 @@
 # OTHER
 # =====================
 *.log
+**/*.log
+*.md
+**/*.md
+.agents/
+docs/run
+docs/DB_SPM.assets/
 .DS_Store
 Thumbs.db
 

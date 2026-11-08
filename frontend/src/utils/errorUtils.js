@@ -3,9 +3,15 @@ export function getErrorMessage(error) {
         return 'Cannot connect to server';
     }
 
-    return error.response.data?.message
-        || 'An unexpected error occurred';
+    const message = error.response.data?.message;
+    if (message === 'Sale is locked by a pending, successful or unresolved payment' ||
+        message === 'A sale with a pending, successful or unresolved payment cannot be cancelled') {
+        return 'Không thể hủy: Đơn hàng đang có giao dịch thanh toán chờ xử lý hoặc cần đối soát. Vui lòng kiểm tra lại thanh toán.';
+    }
+
+    return message || 'An unexpected error occurred';
 }
+
 // 403 FORBIDDEN -> MSG19 (SRS 5.3), otherwise the backend message.
 // A 403 CSRF_INVALID is not a permission problem, so its own message is shown.
 export function getAccessAwareErrorMessage(error) {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import PaymentService from '../../services/paymentService';
-import { getErrorMessage } from '../../utils/errorUtils';
+import { getPOSErrorMessage as getErrorMessage } from './posErrorMessage';
 
 export default function useCashChangePreview({ saleId, total, received, enabled, revision }) {
     const [state, setState] = useState(null);
@@ -27,7 +27,7 @@ export default function useCashChangePreview({ saleId, total, received, enabled,
     // Never expose an old result during the render before effect cleanup/debounce runs.
     if (!enabled) return { result: null, status: 'inactive', error: '' };
     if (!received) return { result: null, status: 'empty', error: '' };
-    if (!valid) return { result: null, status: 'invalid', error: 'Nhập số tiền không âm, tối đa 13 chữ số nguyên và 2 số thập phân.' };
+    if (!valid) return { result: null, status: 'invalid', error: 'Enter a non-negative amount with up to 13 whole digits and 2 decimal places.' };
     if (state?.key !== key || state.loading) return { result: null, status: 'loading', error: '' };
     return { result: state.result, status: state.error ? 'error' : 'ready', error: state.error };
 }
