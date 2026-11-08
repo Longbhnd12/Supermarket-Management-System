@@ -98,14 +98,14 @@ class SaleCompletionDatabaseTest {
             p.setPromotionType(PromotionType.FIXED_AMOUNT); p.setDiscountValue(new BigDecimal("20"));
             p.setStartAt(LocalDateTime.now(clock).minusDays(1)); p.setEndAt(LocalDateTime.now(clock).plusDays(1));
             em.persist(p); promotionId = p.getPromotionId();
-            assertEquals(new BigDecimal("130.00"), sales.calculateSaleTotal(saleId).totalAmount());
+            assertEquals(new BigDecimal("120.00"), sales.calculateSaleTotal(saleId).totalAmount());
             payments.create(saleId, new com.sms.backend.dto.payment.CreatePaymentRequest(PaymentMethod.CASH,
-                    new BigDecimal("130"), new BigDecimal("150"), null, "uc27-" + UUID.randomUUID()), "127.0.0.1");
+                    new BigDecimal("120"), new BigDecimal("150"), null, "uc27-" + UUID.randomUUID()), "127.0.0.1");
         });
         InvoiceResponse invoice = completion.complete(saleId);
-        assertEquals(new BigDecimal("20.00"), invoice.discountAmount());
-        assertEquals(new BigDecimal("130.00"), invoice.totalAmount());
-        assertEquals(new BigDecimal("20.00"), invoice.items().getFirst().discountAmount());
+        assertEquals(new BigDecimal("30.00"), invoice.discountAmount());
+        assertEquals(new BigDecimal("120.00"), invoice.totalAmount());
+        assertEquals(new BigDecimal("30.00"), invoice.items().getFirst().discountAmount());
         jdbc.update("update dbo.promotion set discount_value=99, status='INACTIVE' where promotion_id=?", promotionId);
         assertEquals(invoice, completion.invoice(saleId));
         assertEquals(invoice, completion.complete(saleId));

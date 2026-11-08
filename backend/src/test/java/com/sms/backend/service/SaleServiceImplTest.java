@@ -303,7 +303,7 @@ class SaleServiceImplTest {
         return p;
     }
 
-    @Test void discountedLineCanBeScannedAgainAndFixedDiscountAppliesOnlyOnce() {
+    @Test void discountedLineCanBeScannedAgainAndFixedDiscountMultipliesByQuantity() {
         SaleItem line = line(11L, "100.00", "1"); line.getProduct().setProductId(2L);
         line.getProduct().setSellingPrice(new BigDecimal("999.00"));
         line.setPromotion(fixedPromotion(line.getProduct(), "20")); line.setDiscountAmount(new BigDecimal("20.00"));
@@ -313,8 +313,8 @@ class SaleServiceImplTest {
         var result = service.addItemToSale(7L, new SaleItemRequest(2L, null, BigDecimal.ONE));
         assertEquals(11L, result.items().getFirst().saleItemId());
         assertEquals(new BigDecimal("100.00"), result.items().getFirst().unitPrice());
-        assertEquals(new BigDecimal("20.00"), result.discountAmount());
-        assertEquals(new BigDecimal("180.00"), result.totalAmount());
+        assertEquals(new BigDecimal("40.00"), result.discountAmount());
+        assertEquals(new BigDecimal("160.00"), result.totalAmount());
         verify(items).saveAll(List.of(line));
     }
 
@@ -324,9 +324,9 @@ class SaleServiceImplTest {
         Sale sale = draftWithItems(List.of(a, b)); when(sales.save(sale)).thenReturn(sale);
         when(promotions.findEffective(eq(GeneralStatus.ACTIVE), any())).thenReturn(List.of(fixedPromotion(a.getProduct(), "20")));
         var result = service.updateItemQuantity(7L, 1L, new UpdateSaleItemRequest(new BigDecimal("0.125")));
-        assertEquals(new BigDecimal("12.50"), a.getDiscountAmount());
+        assertEquals(new BigDecimal("2.50"), a.getDiscountAmount());
         assertEquals(new BigDecimal("0.00"), b.getDiscountAmount());
-        assertEquals(new BigDecimal("100.00"), result.totalAmount());
+        assertEquals(new BigDecimal("110.00"), result.totalAmount());
         assertEquals(result, service.calculateSaleTotal(7L));
         verify(items, times(2)).saveAll(List.of(a, b));
     }

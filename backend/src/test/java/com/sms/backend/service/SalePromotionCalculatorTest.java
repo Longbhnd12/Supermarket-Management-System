@@ -40,7 +40,7 @@ class SalePromotionCalculatorTest {
     }
 
     @Test void choosesBestAcrossProductAndCategoryWithoutStacking() {
-        Promotion fixed = promotion(1, PromotionType.FIXED_AMOUNT, "20000");
+        Promotion fixed = promotion(1, PromotionType.FIXED_AMOUNT, "8000");
         Promotion percentage = promotion(2, PromotionType.PERCENTAGE, "10");
         percentage.setProduct(null); percentage.setCategory(item.getProduct().getCategory());
         apply(fixed, percentage);
@@ -51,13 +51,53 @@ class SalePromotionCalculatorTest {
         verify(repository, times(2)).findEffective(GeneralStatus.ACTIVE, now);
     }
 
-    @Test void fixedDiscountAppliesOnceForWholeLineAndIsCapped() {
-        Promotion fixed = promotion(1, PromotionType.FIXED_AMOUNT, "20000");
+    @Test void fixedDiscountMultipliesByQuantityForSingleTwoAndMultipleItems() {
+        // Example from business requirement: Coffee with unit price 15,000, fixed discount 2,000/product
+        item.setUnitPrice(new BigDecimal("15000.00"));
+        Promotion fixed = promotion(1, PromotionType.FIXED_AMOUNT, "2000");
+
+        // 1 item -> discount 2,000
+        item.setQuantity(new BigDecimal("1"));
+        item.setSubtotal(new BigDecimal("15000.00"));
         apply(fixed);
-        assertEquals(new BigDecimal("20000.00"), item.getDiscountAmount());
-        item.setQuantity(new BigDecimal("0.125")); item.setSubtotal(new BigDecimal("12500.00"));
+        assertEquals(new BigDecimal("2000.00"), item.getDiscountAmount());
+
+        // 2 items -> discount 4,000
+        item.setQuantity(new BigDecimal("2"));
+        item.setSubtotal(new BigDecimal("30000.00"));
         calculator.apply(List.of(item));
-        assertEquals(new BigDecimal("12500.00"), item.getDiscountAmount());
+        assertEquals(new BigDecimal("4000.00"), item.getDiscountAmount());
+
+        // 5 items -> discount 10,000
+        item.setQuantity(new BigDecimal("5"));
+        item.setSubtotal(new BigDecimal("75000.00"));
+        calculator.apply(List.of(item));
+        assertEquals(new BigDecimal("10000.00"), item.getDiscountAmount());
+    }
+
+    @Test void fixedDiscountIsCappedAtLineSubtotalWhenDiscountExceedsPrice() {
+        // Unit price 1,500, fixed discount 2,000/item
+        item.setUnitPrice(new BigDecimal("1500.00"));
+        Promotion fixed = promotion(1, PromotionType.FIXED_AMOUNT, "2000");
+
+        // 1 item: subtotal 1,500 < raw discount 2,000 -> capped at 1,500.00
+        item.setQuantity(new BigDecimal("1"));
+        item.setSubtotal(new BigDecimal("1500.00"));
+        apply(fixed);
+        assertEquals(new BigDecimal("1500.00"), item.getDiscountAmount());
+
+        // 2 items: subtotal 3,000 < raw discount 4,000 -> capped at 3,000.00
+        item.setQuantity(new BigDecimal("2"));
+        item.setSubtotal(new BigDecimal("3000.00"));
+        calculator.apply(List.of(item));
+        assertEquals(new BigDecimal("3000.00"), item.getDiscountAmount());
+
+        // Fractional quantity 0.125 with unit price 100,000: fixed 20,000 * 0.125 = 2,500.00
+        item.setUnitPrice(new BigDecimal("100000.00"));
+        item.setQuantity(new BigDecimal("0.125"));
+        item.setSubtotal(new BigDecimal("12500.00"));
+        calculator.apply(List.of(item));
+        assertEquals(new BigDecimal("2500.00"), item.getDiscountAmount());
     }
 
     @Test void roundsPercentageHalfUpAndAllowsInclusiveTimeBounds() {
@@ -71,7 +111,7 @@ class SalePromotionCalculatorTest {
 
     @Test void equalDiscountUsesStableIdRegardlessOfCandidateOrder() {
         Promotion a = promotion(9, PromotionType.PERCENTAGE, "10");
-        Promotion b = promotion(3, PromotionType.FIXED_AMOUNT, "30000");
+        Promotion b = promotion(3, PromotionType.FIXED_AMOUNT, "10000");
         apply(a, b); assertSame(b, item.getPromotion());
         apply(b, a); assertSame(b, item.getPromotion());
         assertEquals(new BigDecimal("30000.00"), item.getDiscountAmount());
