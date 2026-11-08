@@ -23,9 +23,6 @@ export default function SupplierListPage() {
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [toastMessage, setToastMessage] = useState(null);
 
-    // Simulation / Prototype states
-    const [simulatedEmpty, setSimulatedEmpty] = useState(false);
-
     // Create modal state (UC20 integration)
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [createForm, setCreateForm] = useState({
@@ -85,8 +82,6 @@ export default function SupplierListPage() {
 
     // Filter suppliers
     const filteredSuppliers = useMemo(() => {
-        if (simulatedEmpty) return [];
-
         return rawSuppliers.filter((s) => {
             const matchStatus =
                 statusFilter === 'ALL'
@@ -109,7 +104,7 @@ export default function SupplierListPage() {
                 (s.category && s.category.toLowerCase().includes(q))
             );
         });
-    }, [rawSuppliers, statusFilter, searchTerm, simulatedEmpty]);
+    }, [rawSuppliers, statusFilter, searchTerm]);
 
     // Statistics
     const stats = useMemo(() => {
@@ -212,66 +207,6 @@ export default function SupplierListPage() {
 
     return (
         <div className="supplier-management-page">
-            {/* Top Prototype State Simulator */}
-            <div className="supplier-simulator-banner">
-                <div className="simulator-header">
-                    <Sparkles size={16} className="simulator-icon" />
-                    <span>INTERACTIVE PROTOTYPE STATE SIMULATOR:</span>
-                </div>
-                <div className="simulator-controls">
-                    <button
-                        type="button"
-                        className={`sim-btn ${statusFilter === 'ALL' && !simulatedEmpty ? 'active' : ''}`}
-                        onClick={() => {
-                            setSimulatedEmpty(false);
-                            setStatusFilter('ALL');
-                            setSearchTerm('');
-                        }}
-                    >
-                        Default: All ({stats.total})
-                    </button>
-                    <button
-                        type="button"
-                        className={`sim-btn ${statusFilter === 'ACTIVE' && !simulatedEmpty ? 'active' : ''}`}
-                        onClick={() => {
-                            setSimulatedEmpty(false);
-                            setStatusFilter('ACTIVE');
-                            setSearchTerm('');
-                        }}
-                    >
-                        Active Only ({stats.active})
-                    </button>
-                    <button
-                        type="button"
-                        className={`sim-btn ${statusFilter === 'DISABLED' && !simulatedEmpty ? 'active' : ''}`}
-                        onClick={() => {
-                            setSimulatedEmpty(false);
-                            setStatusFilter('DISABLED');
-                            setSearchTerm('');
-                        }}
-                    >
-                        Disabled Only ({stats.disabled})
-                    </button>
-                    <button
-                        type="button"
-                        className={`sim-btn ${simulatedEmpty ? 'active' : ''}`}
-                        onClick={() => {
-                            setSimulatedEmpty(true);
-                            setSelectedIds(new Set());
-                        }}
-                    >
-                        Empty State
-                    </button>
-                    <button
-                        type="button"
-                        className="sim-btn trigger-toast"
-                        onClick={() => showToast('Audit Policy 2025.2: Supplier ledger verified with Store #04 Vault.')}
-                    >
-                        Trigger Toast
-                    </button>
-                </div>
-            </div>
-
             {/* Breadcrumb & Main Header */}
             <div className="supplier-page-header">
                 <div className="header-breadcrumbs">
@@ -427,10 +362,7 @@ export default function SupplierListPage() {
                             placeholder="Search by supplier name, code, phone, or email..."
                             value={searchTerm}
                             maxLength={100}
-                            onChange={(e) => {
-                                setSearchTerm(e.target.value);
-                                setSimulatedEmpty(false);
-                            }}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                         />
                         <span className="search-char-count">{searchTerm.length}/100 max</span>
                     </div>
@@ -439,30 +371,21 @@ export default function SupplierListPage() {
                         <button
                             type="button"
                             className={`pill-btn ${statusFilter === 'ALL' ? 'active' : ''}`}
-                            onClick={() => {
-                                setStatusFilter('ALL');
-                                setSimulatedEmpty(false);
-                            }}
+                            onClick={() => setStatusFilter('ALL')}
                         >
                             All Suppliers {stats.total}
                         </button>
                         <button
                             type="button"
                             className={`pill-btn ${statusFilter === 'ACTIVE' ? 'active' : ''}`}
-                            onClick={() => {
-                                setStatusFilter('ACTIVE');
-                                setSimulatedEmpty(false);
-                            }}
+                            onClick={() => setStatusFilter('ACTIVE')}
                         >
                             Active {stats.active}
                         </button>
                         <button
                             type="button"
                             className={`pill-btn ${statusFilter === 'DISABLED' ? 'active' : ''}`}
-                            onClick={() => {
-                                setStatusFilter('DISABLED');
-                                setSimulatedEmpty(false);
-                            }}
+                            onClick={() => setStatusFilter('DISABLED')}
                         >
                             Disabled {stats.disabled}
                         </button>
@@ -484,14 +407,13 @@ export default function SupplierListPage() {
                     <span className="applied-tag store-tag">
                         Store: Dist 1 Flagship
                     </span>
-                    {(searchTerm || statusFilter !== 'ALL' || simulatedEmpty) && (
+                    {(searchTerm || statusFilter !== 'ALL') && (
                         <button
                             type="button"
                             className="reset-filters-btn"
                             onClick={() => {
                                 setSearchTerm('');
                                 setStatusFilter('ALL');
-                                setSimulatedEmpty(false);
                             }}
                         >
                             Reset all filters
@@ -543,7 +465,6 @@ export default function SupplierListPage() {
                                             onClick={() => {
                                                 setSearchTerm('');
                                                 setStatusFilter('ALL');
-                                                setSimulatedEmpty(false);
                                             }}
                                         >
                                             Đặt lại bộ lọc

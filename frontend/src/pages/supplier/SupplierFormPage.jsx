@@ -35,9 +35,7 @@ export default function SupplierFormPage() {
     const [formErrors, setFormErrors] = useState({});
     const [toastMessage, setToastMessage] = useState(null);
 
-    // Simulation / Prototype States
-    const [simulatedRole, setSimulatedRole] = useState(currentUser?.role || 'ADMIN'); // 'ADMIN' or 'WAREHOUSE_STAFF'
-    const isStatusLocked = simulatedRole === 'WAREHOUSE_STAFF';
+    const isStatusLocked = currentUser?.role === 'WAREHOUSE_STAFF';
 
     // Deactivation Dialog State
     const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false);
@@ -348,59 +346,6 @@ export default function SupplierFormPage() {
         showToast('Đã hoàn tác và đặt lại form về trạng thái ban đầu.');
     };
 
-    // Prototype Simulator Helper: Switch to Create / Edit
-    const handleSimulateMode = (mode) => {
-        if (mode === 'CREATE') {
-            navigate('/suppliers/create');
-            setFormData({
-                supplierCode: 'SUP-009',
-                supplierName: '',
-                contactPerson: '',
-                phone: '',
-                email: '',
-                address: '',
-                taxCode: '',
-                status: 'ACTIVE'
-            });
-            setFormErrors({});
-        } else if (mode === 'EDIT_VINAMILK') {
-            navigate('/suppliers/1/edit');
-            const vinamilk = MOCK_SUPPLIERS.find((s) => s.supplierCode === 'SUP-001') || MOCK_SUPPLIERS[0];
-            setFormData({
-                supplierCode: vinamilk.supplierCode,
-                supplierName: vinamilk.supplierName,
-                contactPerson: vinamilk.contactPerson || '',
-                phone: vinamilk.phone || '',
-                email: vinamilk.email || '',
-                address: vinamilk.address || '',
-                taxCode: vinamilk.taxCode || '',
-                status: vinamilk.status || 'ACTIVE'
-            });
-            setFormErrors({});
-        }
-    };
-
-    // Simulate Validation Errors
-    const handleSimulateErrors = () => {
-        setFormData({
-            supplierCode: 'SUP-009',
-            supplierName: '', // empty error
-            contactPerson: 'Nguyễn Văn Test',
-            phone: '123', // invalid length error
-            email: 'invalid-email-address', // invalid email
-            address: 'Địa chỉ mẫu kiểm thử...',
-            taxCode: '12345', // invalid tax code
-            status: 'ACTIVE'
-        });
-        setFormErrors({
-            supplierName: 'Tên pháp nhân nhà cung cấp là bắt buộc (SRS 3.7.3.1)',
-            phone: 'Số điện thoại phải từ 10 đến 15 chữ số',
-            email: 'Định dạng email không hợp lệ (Ví dụ: contact@vinamilk.com.vn)',
-            taxCode: 'Mã số thuế phải gồm 10 hoặc 13 chữ số'
-        });
-        showToast('Đã giả lập các lỗi xác thực dữ liệu SRS 3.7.3.');
-    };
-
     if (loading) {
         return (
             <div className="supplier-form-loading-box">
@@ -414,82 +359,6 @@ export default function SupplierFormPage() {
 
     return (
         <div className="supplier-form-page">
-            {/* Top Interactive State Simulator Toolbar */}
-            <div className="uc20-simulator-banner">
-                <div className="sim-title-group">
-                    <Sparkles size={16} className="sparkle-icon" />
-                    <span>Simulator: UC20 Prototype</span>
-                </div>
-
-                <div className="sim-controls-group">
-                    <div className="sim-pill-group">
-                        <button
-                            type="button"
-                            className={`sim-pill-btn ${!isEditMode ? 'active' : ''}`}
-                            onClick={() => handleSimulateMode('CREATE')}
-                        >
-                            Create New (SUP-009)
-                        </button>
-                        <button
-                            type="button"
-                            className={`sim-pill-btn ${isEditMode ? 'active' : ''}`}
-                            onClick={() => handleSimulateMode('EDIT_VINAMILK')}
-                        >
-                            Edit (SUP-001 Vinamilk)
-                        </button>
-                    </div>
-
-                    <div className="sim-pill-group">
-                        <button
-                            type="button"
-                            className={`sim-pill-btn ${simulatedRole === 'ADMIN' ? 'active-role' : ''}`}
-                            onClick={() => {
-                                setSimulatedRole('ADMIN');
-                                showToast('Chuyển sang vai trò: Admin / Manager (Toàn quyền đổi trạng thái).');
-                            }}
-                        >
-                            <ShieldCheck size={14} />
-                            Admin / Manager
-                        </button>
-                        <button
-                            type="button"
-                            className={`sim-pill-btn ${simulatedRole === 'WAREHOUSE_STAFF' ? 'active-role' : ''}`}
-                            onClick={() => {
-                                setSimulatedRole('WAREHOUSE_STAFF');
-                                showToast('Chuyển sang vai trò: Inventory Staff (Khóa đổi trạng thái hoạt động).');
-                            }}
-                        >
-                            <Lock size={14} />
-                            Inventory Staff (Locked Status)
-                        </button>
-                    </div>
-
-                    <div className="sim-actions-group">
-                        <button
-                            type="button"
-                            className="sim-test-btn red"
-                            onClick={handleSimulateErrors}
-                        >
-                            Simulate Validation Errors
-                        </button>
-                        <button
-                            type="button"
-                            className="sim-test-btn amber"
-                            onClick={() => setIsDeactivateDialogOpen(true)}
-                        >
-                            Test Deactivation Dialog
-                        </button>
-                        <button
-                            type="button"
-                            className="sim-test-btn cyan"
-                            onClick={() => showToast('SRS 3.7.3: Supplier payload verified against schema.')}
-                        >
-                            Trigger Toast
-                        </button>
-                    </div>
-                </div>
-            </div>
-
             {/* Breadcrumb & Top Actions Header */}
             <div className="form-page-header">
                 <div className="header-breadcrumbs">

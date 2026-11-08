@@ -22,9 +22,6 @@ export default function SupplierDetailPage() {
     const [error, setError] = useState(null);
     const [toastMessage, setToastMessage] = useState(null);
 
-    // Simulated Role for prototype preview (defaults to currentUser role or Administrator)
-    const [simulatedRole, setSimulatedRole] = useState(currentUser?.role || 'ADMIN');
-
     // Modals
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [targetStatusAction, setTargetStatusAction] = useState('DISABLED'); // DISABLED or ACTIVE
@@ -45,7 +42,7 @@ export default function SupplierDetailPage() {
     const [editError, setEditError] = useState(null);
     const [savingEdit, setSavingEdit] = useState(false);
 
-    const isAdminOrManager = simulatedRole === 'ADMIN' || simulatedRole === 'MANAGER';
+    const isAdminOrManager = currentUser?.role === 'ADMIN' || currentUser?.role === 'MANAGER';
 
     // Toast helper
     const showToast = (msg) => {
@@ -190,69 +187,6 @@ export default function SupplierDetailPage() {
 
     return (
         <div className="supplier-detail-page">
-            {/* Top Interactive State Simulator Banner */}
-            <div className="supplier-detail-simulator">
-                <div className="sim-title">
-                    <Sparkles size={16} />
-                    <span>SRS 3.7.2 Interactive State Simulator: Preview supplier status states, role permissions & confirmation dialogs</span>
-                </div>
-                <div className="sim-actions-row">
-                    <button
-                        type="button"
-                        className={`sim-state-btn ${supplier.supplierCode === 'SUP-001' ? 'active' : ''}`}
-                        onClick={() => {
-                            const vinamilk = MOCK_SUPPLIERS.find((s) => s.supplierCode === 'SUP-001');
-                            if (vinamilk) setSupplier(enrichSupplier(vinamilk));
-                        }}
-                    >
-                        ● Active: SUP-001 (Vinamilk)
-                    </button>
-                    <button
-                        type="button"
-                        className={`sim-state-btn ${supplier.supplierCode === 'SUP-005' ? 'active' : ''}`}
-                        onClick={() => {
-                            const longan = MOCK_SUPPLIERS.find((s) => s.supplierCode === 'SUP-005');
-                            if (longan) setSupplier(enrichSupplier(longan));
-                        }}
-                    >
-                        ● Disabled: SUP-005 (Long An Agri)
-                    </button>
-
-                    <div className="sim-role-picker">
-                        <span>Role:</span>
-                        <select
-                            value={simulatedRole}
-                            onChange={(e) => setSimulatedRole(e.target.value)}
-                        >
-                            <option value="ADMIN">Administrator</option>
-                            <option value="MANAGER">Store Manager</option>
-                            <option value="WAREHOUSE_STAFF">Inventory Staff (Read-Only)</option>
-                        </select>
-                    </div>
-
-                    <button
-                        type="button"
-                        className="sim-modal-trigger amber"
-                        onClick={() => {
-                            setTargetStatusAction('DISABLED');
-                            setIsStatusModalOpen(true);
-                        }}
-                    >
-                        Test Disable Modal
-                    </button>
-                    <button
-                        type="button"
-                        className="sim-modal-trigger green"
-                        onClick={() => {
-                            setTargetStatusAction('ACTIVE');
-                            setIsStatusModalOpen(true);
-                        }}
-                    >
-                        Test Enable Modal
-                    </button>
-                </div>
-            </div>
-
             {/* Breadcrumb & Top Bar */}
             <div className="detail-top-nav">
                 <div className="detail-breadcrumbs">

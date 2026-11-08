@@ -43,9 +43,6 @@ export default function CreatePromotionPage() {
     const [toastMessage, setToastMessage] = useState(null);
     const [toastType, setToastType] = useState('success');
 
-    // Simulator active mode
-    const [simMode, setSimMode] = useState('percentage');
-
     const showToast = (msg, type = 'success') => {
         setToastType(type);
         setToastMessage(msg);
@@ -311,70 +308,6 @@ export default function CreatePromotionPage() {
         }
     };
 
-    // Simulator handlers
-    const handleSimDefaultPercentage = () => {
-        setSimMode('percentage');
-        setFormData({
-            promotionName: 'Khuyến mãi Giờ Vàng: Cuối tuần Mua sắm Rộn ràng',
-            promotionType: 'PERCENTAGE',
-            discountValue: '15',
-            scopeType: 'PRODUCTS',
-            selectedProductIds: [1, 2, 3],
-            selectedCategoryId: 1,
-            startAt: '2025-06-01T08:00',
-            endAt: '2025-06-07T22:00'
-        });
-        setFormErrors({});
-        showToast('Đã áp dụng mẫu mặc định: Giảm theo Phần trăm (15%)', 'info');
-    };
-
-    const handleSimFixedAmount = () => {
-        setSimMode('fixed');
-        setFormData(prev => ({
-            ...prev,
-            promotionName: 'Giảm giá Đặc biệt Mì Hảo Hảo & Đồ khô',
-            promotionType: 'FIXED_AMOUNT',
-            discountValue: '5000',
-            scopeType: 'PRODUCTS',
-            selectedProductIds: [2]
-        }));
-        setFormErrors({});
-        showToast('Đã chuyển sang chế độ Giảm Tiền Cố Định (5.000 VND)', 'info');
-    };
-
-    const handleSimCategoryScope = () => {
-        setSimMode('category');
-        setFormData(prev => ({
-            ...prev,
-            promotionName: 'Ưu đãi Lễ hội Sữa & Trứng Toàn Hệ thống',
-            promotionType: 'PERCENTAGE',
-            discountValue: '10',
-            scopeType: 'CATEGORIES',
-            selectedCategoryId: 1
-        }));
-        setFormErrors({});
-        showToast('Đã chuyển sang chế độ Áp dụng theo Danh mục (Sữa & Trứng)', 'info');
-    };
-
-    const handleSimErrors = () => {
-        setSimMode('errors');
-        setFormData(prev => ({
-            ...prev,
-            promotionName: '',
-            discountValue: '0',
-            selectedProductIds: [],
-            startAt: '2025-06-10T12:00',
-            endAt: '2025-06-01T08:00' // Earlier than start
-        }));
-        setFormErrors({
-            promotionName: 'Tên chương trình khuyến mãi không được để trống',
-            discountValue: 'Giá trị giảm giá phải lớn hơn 0',
-            scope: 'Vui lòng chọn ít nhất 1 sản phẩm áp dụng',
-            endAt: 'Thời gian kết thúc phải sau thời gian bắt đầu'
-        });
-        showToast('Đang mô phỏng các lỗi xác thực form!', 'error');
-    };
-
     return (
         <div className="cpp-root">
             {/* Top Toast Banner */}
@@ -386,52 +319,6 @@ export default function CreatePromotionPage() {
                     <span>{toastMessage}</span>
                 </div>
             )}
-
-            {/* UI STATE SIMULATOR TOOLBAR */}
-            <div className="cpp-simulator-bar">
-                <div className="cpp-sim-title">
-                    <Sparkles size={13} />
-                    <span>UI STATE SIMULATOR:</span>
-                    <span className="cpp-sim-sub">SRS 3.5.6 Test Scenarios</span>
-                </div>
-                <div className="cpp-sim-buttons">
-                    <button
-                        type="button"
-                        className={`cpp-sim-btn ${simMode === 'percentage' ? 'active' : ''}`}
-                        onClick={handleSimDefaultPercentage}
-                    >
-                        % Default Form (Percentage)
-                    </button>
-                    <button
-                        type="button"
-                        className={`cpp-sim-btn ${simMode === 'fixed' ? 'active' : ''}`}
-                        onClick={handleSimFixedAmount}
-                    >
-                        💵 Fixed Amount (VND)
-                    </button>
-                    <button
-                        type="button"
-                        className={`cpp-sim-btn ${simMode === 'category' ? 'active' : ''}`}
-                        onClick={handleSimCategoryScope}
-                    >
-                        📁 Category Scope Mode
-                    </button>
-                    <button
-                        type="button"
-                        className={`cpp-sim-btn cpp-sim-btn--error ${simMode === 'errors' ? 'active' : ''}`}
-                        onClick={handleSimErrors}
-                    >
-                        🔴 Validation Errors
-                    </button>
-                    <button
-                        type="button"
-                        className="cpp-sim-btn cpp-sim-btn--success"
-                        onClick={() => showToast('Khuyến mãi đã được tạo thành công! (Mô phỏng HTTP 201)', 'success')}
-                    >
-                        ✨ Success Toast
-                    </button>
-                </div>
-            </div>
 
             {/* Breadcrumb */}
             <div className="cpp-breadcrumb">

@@ -68,9 +68,6 @@ export default function EmployeeFormPage() {
     const [toastMessage, setToastMessage] = useState(null);
     const [toastType, setToastType] = useState('success');
 
-    // QA Simulator state
-    const [simMode, setSimMode] = useState('create'); // 'create' | 'edit'
-
     const showToast = (msg, type = 'success') => {
         setToastType(type);
         setToastMessage(msg);
@@ -259,54 +256,6 @@ export default function EmployeeFormPage() {
         }
     };
 
-    // QA Simulator actions
-    const handleSimulateErrors = () => {
-        setFormErrors({
-            fullName: 'Họ và tên là bắt buộc',
-            position: 'Vui lòng chọn vị trí',
-            phone: 'Số điện thoại không hợp lệ (10-15 chữ số)',
-            email: 'Email không hợp lệ',
-        });
-        showToast('Đang hiển thị lỗi xác thực mô phỏng.', 'error');
-    };
-
-    const handleSimEdit = () => {
-        const emp = MOCK_EMPLOYEES[0]; // EMP-0101 Mai
-        setSimMode('edit');
-        setFormData({
-            employeeCode: emp.employeeCode,
-            position: emp.position,
-            hireDate: emp.hireDate,
-            status: emp.status,
-            fullName: emp.fullName,
-            dateOfBirth: emp.dateOfBirth || '',
-            gender: emp.gender || '',
-            phone: (emp.phone || '').replace(/\s/g, ''),
-            email: emp.email,
-            address: emp.address || '',
-        });
-        setFormErrors({});
-        showToast('Đang xem ở chế độ Edit (EMP-0101 Mai) — dữ liệu mô phỏng.', 'info');
-    };
-
-    const handleSimCreate = () => {
-        setSimMode('create');
-        setFormData({
-            employeeCode: generateNextCode(),
-            position: '',
-            hireDate: today,
-            status: 'ACTIVE',
-            fullName: '',
-            dateOfBirth: '',
-            gender: '',
-            phone: '',
-            email: '',
-            address: '',
-        });
-        setFormErrors({});
-        showToast('Đã chuyển sang chế độ Create mới.', 'info');
-    };
-
     // Live card preview helpers
     const cardName = formData.fullName.trim() || 'Họ và Tên St...';
     const cardPosition = formData.position || 'Chức vụ chưa chọn';
@@ -337,36 +286,6 @@ export default function EmployeeFormPage() {
                     {toastMessage}
                 </div>
             )}
-
-            {/* QA Prototype Simulator Toolbar */}
-            <div className="efp-simulator-bar">
-                <span className="efp-sim-label">
-                    <Zap size={13} /> QA PROTOTYPE SIMULATOR: &nbsp;<span className="efp-sim-sub">SRS 3.6.3 / UC18 Test Scenarios</span>
-                </span>
-                <div className="efp-sim-btns">
-                    <button
-                        className={`efp-sim-btn efp-sim-btn--create ${simMode === 'create' && !isEditMode ? 'active' : ''}`}
-                        onClick={handleSimCreate}
-                    >
-                        <span className="efp-sim-dot blue"></span> Mode: Create ({generateNextCode()})
-                    </button>
-                    <button
-                        className={`efp-sim-btn efp-sim-btn--edit ${simMode === 'edit' ? 'active' : ''}`}
-                        onClick={handleSimEdit}
-                    >
-                        ✏️ Mode: Edit (EMP-0101 Mai)
-                    </button>
-                    <button className="efp-sim-btn efp-sim-btn--error" onClick={handleSimulateErrors}>
-                        <span className="efp-sim-dot red"></span> Simulate Validation Errors
-                    </button>
-                    <button className="efp-sim-btn efp-sim-btn--warn" onClick={() => showToast('⚠️ Test Deactivation Modal — chức năng mô phỏng.', 'info')}>
-                        ⚠️ Test Deactivation Modal
-                    </button>
-                    <button className="efp-sim-btn efp-sim-btn--success" onClick={() => showToast('✅ Đã lưu hồ sơ nhân viên thành công! (Mô phỏng)', 'success')}>
-                        ✅ Trigger Success Toast
-                    </button>
-                </div>
-            </div>
 
             {/* Breadcrumb */}
             <div className="efp-breadcrumb">

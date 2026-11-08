@@ -27,9 +27,6 @@ export default function PromotionListPage() {
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
 
-    // Simulator active state
-    const [simMode, setSimMode] = useState('default');
-
     const showToast = (msg, type = 'success') => {
         setToastType(type);
         setToastMessage(msg);
@@ -160,35 +157,9 @@ export default function PromotionListPage() {
         showToast('Đã xuất danh sách khuyến mãi thành công (CSV)!', 'success');
     };
 
-    // Simulator Scenarios
-    const handleSimDefault = () => {
-        setSimMode('default');
-        setPromotions(MOCK_PROMOTIONS);
+    const handleResetFilters = () => {
         setSearchTerm('');
         setActiveTab('ALL');
-        showToast('Đã khôi phục bảng khuyến mãi mặc định (7 chiến dịch).', 'info');
-    };
-
-    const handleSimDeactivateModal = () => {
-        setSimMode('deactivate');
-        const target = promotions.find(p => p.code === 'PROMO-2025-01') || promotions[0];
-        setDeactivateTarget(target);
-    };
-
-    const handleSimDeleteUnused = () => {
-        setSimMode('delete');
-        const target = promotions.find(p => p.code === 'PROMO-2025-04') || promotions.find(p => p.isDeletable);
-        if (target) {
-            setDeleteTarget(target);
-        } else {
-            showToast('Không tìm thấy chiến dịch nháp chưa sử dụng để xóa.', 'error');
-        }
-    };
-
-    const handleSimEmpty = () => {
-        setSimMode('empty');
-        setSearchTerm('xyz-nonexistent-search-query-12345');
-        showToast('Đang mô phỏng trạng thái không có kết quả tìm kiếm.', 'info');
     };
 
     return (
@@ -202,52 +173,6 @@ export default function PromotionListPage() {
                     <span>{toastMessage}</span>
                 </div>
             )}
-
-            {/* UI STATE SIMULATOR BAR */}
-            <div className="pmp-simulator-bar">
-                <div className="pmp-sim-title">
-                    <Sparkles size={13} />
-                    <span>UI STATE SIMULATOR (SRS 3.5.7 / UC15):</span>
-                    <span className="pmp-sim-sub">Audit Engine</span>
-                </div>
-                <div className="pmp-sim-buttons">
-                    <button
-                        type="button"
-                        className={`pmp-sim-btn ${simMode === 'default' ? 'active' : ''}`}
-                        onClick={handleSimDefault}
-                    >
-                        ● 1. Default Table
-                    </button>
-                    <button
-                        type="button"
-                        className={`pmp-sim-btn ${simMode === 'deactivate' ? 'active' : ''}`}
-                        onClick={handleSimDeactivateModal}
-                    >
-                        ● 2. Deactivation Modal
-                    </button>
-                    <button
-                        type="button"
-                        className={`pmp-sim-btn pmp-sim-btn--warn ${simMode === 'delete' ? 'active' : ''}`}
-                        onClick={handleSimDeleteUnused}
-                    >
-                        ● 3. Delete Unused Promo
-                    </button>
-                    <button
-                        type="button"
-                        className={`pmp-sim-btn ${simMode === 'empty' ? 'active' : ''}`}
-                        onClick={handleSimEmpty}
-                    >
-                        ● 4. Empty Results
-                    </button>
-                    <button
-                        type="button"
-                        className="pmp-sim-btn pmp-sim-btn--toast"
-                        onClick={() => showToast('Đồng bộ hóa 8/8 máy POS cashier thành công! (Mesh Latency: 42ms)', 'success')}
-                    >
-                        ✨ 5. Trigger Toast
-                    </button>
-                </div>
-            </div>
 
             {/* Breadcrumb */}
             <div className="pmp-breadcrumb">
@@ -479,7 +404,7 @@ export default function PromotionListPage() {
                                         <button
                                             type="button"
                                             className="empty-reset-btn"
-                                            onClick={handleSimDefault}
+                                            onClick={handleResetFilters}
                                         >
                                             Đặt lại bộ lọc
                                         </button>

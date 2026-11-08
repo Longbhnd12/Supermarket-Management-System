@@ -24,7 +24,6 @@ export default function EmployeeListPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [positionFilter, setPositionFilter] = useState('ALL');
     const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'INACTIVE'
-    const [activeSimulatorTab, setActiveSimulatorTab] = useState('ALL_ACTIVE');
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
@@ -136,51 +135,12 @@ export default function EmployeeListPage() {
         };
     }, [employees]);
 
-    // Simulator presets
-    const handleSimulatorAction = (type) => {
-        setActiveSimulatorTab(type);
-        setCurrentPage(1);
-
-        switch (type) {
-            case 'ALL_ACTIVE':
-                setSearchTerm('');
-                setPositionFilter('ALL');
-                setStatusFilter('ALL');
-                showToast('Chế độ giả lập: Hiển thị toàn bộ nhân sự Store #04 (36 nhân viên).');
-                break;
-            case 'CASHIERS_ONLY':
-                setSearchTerm('');
-                setPositionFilter('Cashier');
-                setStatusFilter('ALL');
-                showToast('Chế độ giả lập: Lọc riêng nhóm Thu ngân POS Frontline (18 nhân viên).');
-                break;
-            case 'INACTIVE_STAFF':
-                setSearchTerm('');
-                setPositionFilter('ALL');
-                setStatusFilter('INACTIVE');
-                showToast('Chế độ giả lập: Lọc nhân viên tạm dừng / nghỉ phép / nghỉ việc (4 nhân viên).');
-                break;
-            case 'EMPTY_RESULTS':
-                setSearchTerm('___KHONG_CO_KET_QUA___');
-                setPositionFilter('ALL');
-                setStatusFilter('ALL');
-                showToast('Chế độ giả lập: Mô phỏng trường hợp tìm kiếm không có dữ liệu.');
-                break;
-            case 'TOAST_NOTIFICATION':
-                showToast('SRS 3.6.1: Real-time biometric terminal sync active for Store #04 Flagship.');
-                break;
-            default:
-                break;
-        }
-    };
-
     // Reset all filters
     const handleResetFilters = () => {
         setSearchTerm('');
         setPositionFilter('ALL');
         setStatusFilter('ALL');
         setCurrentPage(1);
-        setActiveSimulatorTab('ALL_ACTIVE');
         showToast('Đã đặt lại toàn bộ bộ lọc về trạng thái ban đầu.');
     };
 
@@ -277,54 +237,6 @@ export default function EmployeeListPage() {
                     <span>{toastMessage}</span>
                 </div>
             )}
-
-            {/* SCREEN SIMULATOR TOOLBAR */}
-            <div className="screen-simulator-bar">
-                <div className="sim-title-group">
-                    <span className="sim-badge-tag">
-                        <Sparkles size={13} />
-                        SCREEN SIMULATOR (UC17)
-                    </span>
-                    <span className="sim-caption">• Test interactive SRS validation flows</span>
-                </div>
-                <div className="sim-pills-row">
-                    <button
-                        type="button"
-                        className={`sim-pill ${activeSimulatorTab === 'ALL_ACTIVE' ? 'active' : ''}`}
-                        onClick={() => handleSimulatorAction('ALL_ACTIVE')}
-                    >
-                        1. All Active ({metrics.total})
-                    </button>
-                    <button
-                        type="button"
-                        className={`sim-pill ${activeSimulatorTab === 'CASHIERS_ONLY' ? 'active' : ''}`}
-                        onClick={() => handleSimulatorAction('CASHIERS_ONLY')}
-                    >
-                        2. Cashiers Only
-                    </button>
-                    <button
-                        type="button"
-                        className={`sim-pill ${activeSimulatorTab === 'INACTIVE_STAFF' ? 'active' : ''}`}
-                        onClick={() => handleSimulatorAction('INACTIVE_STAFF')}
-                    >
-                        3. Inactive Staff ({metrics.inactive})
-                    </button>
-                    <button
-                        type="button"
-                        className={`sim-pill ${activeSimulatorTab === 'EMPTY_RESULTS' ? 'active' : ''}`}
-                        onClick={() => handleSimulatorAction('EMPTY_RESULTS')}
-                    >
-                        4. Empty Results
-                    </button>
-                    <button
-                        type="button"
-                        className="sim-pill test-toast-btn"
-                        onClick={() => handleSimulatorAction('TOAST_NOTIFICATION')}
-                    >
-                        5. Toast Notification
-                    </button>
-                </div>
-            </div>
 
             {/* Breadcrumb & Main Header */}
             <div className="employee-page-header">

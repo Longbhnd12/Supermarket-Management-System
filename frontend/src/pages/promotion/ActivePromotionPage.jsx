@@ -24,9 +24,6 @@ export default function ActivePromotionPage() {
     const [toastMessage, setToastMessage] = useState(null);
     const [toastType, setToastType] = useState('success');
 
-    // Simulator active scenario
-    const [simMode, setSimMode] = useState('cards');
-
     const showToast = (msg, type = 'success') => {
         setToastType(type);
         setToastMessage(msg);
@@ -98,43 +95,6 @@ export default function ActivePromotionPage() {
         });
     }, [promotions, searchTerm, scopeFilter]);
 
-    // Simulator presets
-    const handleSimDefaultCards = () => {
-        setSimMode('cards');
-        setViewMode('cards');
-        setScopeFilter('ALL');
-        setSearchTerm('');
-        setPromotions(MOCK_ACTIVE_PROMOTIONS);
-        showToast('Chuyển sang Chế độ Thẻ Mặc Định (Default Cards View)', 'info');
-    };
-
-    const handleSimDenseCashierList = () => {
-        setSimMode('dense');
-        setViewMode('dense');
-        showToast('Chuyển sang Chế độ Danh Sách Thu Ngân Tinh Gọn (Dense Cashier List)', 'info');
-    };
-
-    const handleSimCategoryScopeOnly = () => {
-        setSimMode('category');
-        setScopeFilter('CATEGORIES');
-        showToast('Lọc riêng các chương trình áp dụng theo Ngành hàng (Category Scope)', 'info');
-    };
-
-    const handleSimNearExpiry = () => {
-        setSimMode('expiry');
-        setPromotions(prev => prev.map((p, idx) =>
-            idx === 0
-                ? {
-                    ...p,
-                    remainingDays: '⏳ Sắp hết hạn (<24h)',
-                    isNearExpiry: true,
-                    validUntil: 'Hôm nay • 23:59'
-                }
-                : p
-        ));
-        showToast('Đang mô phỏng khuyến mãi cận giờ hết hạn (<24h)', 'error');
-    };
-
     return (
         <div className="app-root">
             {/* Toast Notification */}
@@ -146,45 +106,6 @@ export default function ActivePromotionPage() {
                     <span>{toastMessage}</span>
                 </div>
             )}
-
-            {/* UI STATE SIMULATOR BAR */}
-            <div className="app-simulator-bar">
-                <div className="app-sim-title">
-                    <Sparkles size={13} />
-                    <span>SRS UC16 INSPECTOR:</span>
-                    <span className="app-sim-sub">Read-Only POS Live Broadcast Sync</span>
-                </div>
-                <div className="app-sim-buttons">
-                    <button
-                        type="button"
-                        className={`app-sim-btn ${simMode === 'cards' ? 'active' : ''}`}
-                        onClick={handleSimDefaultCards}
-                    >
-                        <LayoutGrid size={12} /> Default Cards View
-                    </button>
-                    <button
-                        type="button"
-                        className={`app-sim-btn ${simMode === 'dense' ? 'active' : ''}`}
-                        onClick={handleSimDenseCashierList}
-                    >
-                        <List size={12} /> Dense Cashier List
-                    </button>
-                    <button
-                        type="button"
-                        className={`app-sim-btn ${simMode === 'category' ? 'active' : ''}`}
-                        onClick={handleSimCategoryScopeOnly}
-                    >
-                        <FolderTree size={12} /> Category Scope Only
-                    </button>
-                    <button
-                        type="button"
-                        className={`app-sim-btn app-sim-btn--warn ${simMode === 'expiry' ? 'active' : ''}`}
-                        onClick={handleSimNearExpiry}
-                    >
-                        ⏳ Simulate Near-Expiry (&lt;24h)
-                    </button>
-                </div>
-            </div>
 
             {/* Breadcrumb */}
             <div className="app-breadcrumb">

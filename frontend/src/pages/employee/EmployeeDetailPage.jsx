@@ -77,16 +77,6 @@ export default function EmployeeDetailPage() {
         fetchEmployee();
     }, [id]);
 
-    // Simulator Switcher
-    const handleSimulateSwitch = (targetCode) => {
-        navigate(`/employees/${targetCode}`);
-        const found = ALL_MOCK_EMPLOYEES.find((m) => m.employeeCode === targetCode);
-        if (found) {
-            setEmployee(enrichEmployee(found));
-            showToast(`Chuyển sang xem hồ sơ mẫu: ${found.fullName} (${found.employeeCode}).`);
-        }
-    };
-
     // Status Toggle Handler
     const handleConfirmDeactivate = async () => {
         if (!employee) return;
@@ -180,55 +170,6 @@ export default function EmployeeDetailPage() {
                     <span>{toastMessage}</span>
                 </div>
             )}
-
-            {/* TOP STATE SIMULATOR BAR */}
-            <div className="screen-simulator-bar">
-                <div className="sim-title-group">
-                    <span className="sim-badge-tag">
-                        <Sparkles size={13} />
-                        SRS 3.6.2 STATE SIMULATOR:
-                    </span>
-                </div>
-                <div className="sim-pills-row">
-                    <button
-                        type="button"
-                        className={`sim-pill ${employee.employeeCode === 'EMP-0101' ? 'active' : ''}`}
-                        onClick={() => handleSimulateSwitch('EMP-0101')}
-                    >
-                        ● Active Staff (EMP-0101 Mai)
-                    </button>
-                    <button
-                        type="button"
-                        className={`sim-pill ${employee.employeeCode === 'EMP-0106' ? 'active' : ''}`}
-                        onClick={() => handleSimulateSwitch('EMP-0106')}
-                    >
-                        ● Inactive Staff (EMP-0106 Thắng)
-                    </button>
-                    <button
-                        type="button"
-                        className="sim-pill test-modal-btn danger"
-                        onClick={() => setIsDeactivateOpen(true)}
-                    >
-                        Test Deactivate Dialog
-                    </button>
-                    <button
-                        type="button"
-                        className="sim-pill test-modal-btn success"
-                        onClick={() => setIsActivateOpen(true)}
-                    >
-                        Test Activate Dialog
-                    </button>
-                    <button
-                        type="button"
-                        className="sim-pill test-toast-btn"
-                        onClick={() =>
-                            showToast('SRS 3.6.2: Personnel clearance synchronized with master security gateway.')
-                        }
-                    >
-                        Trigger Success Toast
-                    </button>
-                </div>
-            </div>
 
             {/* Breadcrumb & Main Header */}
             <div className="employee-detail-header">
