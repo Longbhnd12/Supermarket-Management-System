@@ -25,6 +25,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     Optional<Product> findByProductCode(String productCode);
     Optional<Product> findByBarcode(String barcode);
 
+    List<Product> findTop50ByStatusAndBarcodeContainingIgnoreCaseOrderByProductIdAsc(
+            GeneralStatus status, String barcode);
+
     List<Product> findTop50ByStatusAndProductNameContainingIgnoreCaseOrStatusAndProductCodeContainingIgnoreCaseOrderByProductIdAsc(
             GeneralStatus nameStatus, String name, GeneralStatus codeStatus, String code);
 

@@ -44,7 +44,7 @@ export const MENU_GROUPS = [
             { label: 'Stock History', icon: History, path: '/inventory/stock-history', end: true, access: PAGE_ACCESS.stockHistory },
             { label: 'Stock Alerts', icon: AlertTriangle, path: '/inventory/stock-alerts', end: true, access: PAGE_ACCESS.stockAlerts },
             { label: 'Sales & POS', icon: ShoppingCart, path: '/sales/pos', access: PAGE_ACCESS.pos },
-            { label: 'Sales Monitoring', icon: BarChart3, path: '/sales', access: PAGE_ACCESS.salesMonitoring },
+            { label: 'Sales Monitoring', icon: BarChart3, path: '/sales', end: true, access: PAGE_ACCESS.salesMonitoring },
             { label: 'Search invoices', icon: FileText, path: '/invoices', access: PAGE_ACCESS.invoices },
             { label: 'Supplier Management', icon: Truck, path: '/suppliers', access: PAGE_ACCESS.suppliers },
             { label: 'Promotion Management', icon: Tags, path: '/promotions', access: PAGE_ACCESS.promotions }
