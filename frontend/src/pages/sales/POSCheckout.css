@@ -225,7 +225,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 9999;
+    z-index: 1000;
     padding: 16px;
     animation: posFadeIn 0.15s ease-out;
 }
@@ -236,8 +236,6 @@
 }
 
 .pos-confirm-modal {
-    position: relative;
-    z-index: 10000;
     background: #ffffff;
     border-radius: 14px;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
