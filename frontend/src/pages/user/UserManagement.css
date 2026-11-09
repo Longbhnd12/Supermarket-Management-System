@@ -282,6 +282,11 @@
     color: #067647;
 }
 
+.um-alert-warning {
+    background: #fffaeb;
+    color: #b54708;
+}
+
 /* Form */
 .um-form {
     display: grid;

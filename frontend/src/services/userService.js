@@ -12,7 +12,8 @@ const UserService = {
     // UC05 form dropdowns. userId: the user being edited (keeps its own employee/supplier in the list)
     getOptions: (userId) => API.get('/users/options', { params: userId ? { userId } : {} }),
     getById: (id) => API.get(`/users/${id}`),
-    create: (data) => API.post('/users', data),
+    // Longer timeout: creating an account also emails its login details (SMTP can take a few seconds)
+    create: (data) => API.post('/users', data, { timeout: 30000 }),
     update: (id, data) => API.put(`/users/${id}`, data),
     updateStatus: (id, status) => API.patch(`/users/${id}/status`, null, { params: { status } }),
     delete: (id) => API.delete(`/users/${id}`),
