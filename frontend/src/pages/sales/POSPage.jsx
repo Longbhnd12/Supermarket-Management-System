@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ScanLine, ShoppingCart, Trash2, Store, Search, Plus, RefreshCw, ClipboardList, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../context/authContext';
 import SaleService from '../../services/saleService';
@@ -59,7 +60,7 @@ function POSConfirmDialog({ title, subMessage, message, confirmLabel = 'Confirm'
         return () => window.removeEventListener('keydown', onKey);
     }, [onCancel]);
 
-    return (
+    const dialog = (
         <div className="pos-confirm-overlay" role="dialog" aria-modal="true" onClick={onCancel}>
             <div className="pos-confirm-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="pos-confirm-header">
@@ -96,6 +97,8 @@ function POSConfirmDialog({ title, subMessage, message, confirmLabel = 'Confirm'
             </div>
         </div>
     );
+
+    return typeof document !== 'undefined' ? createPortal(dialog, document.body) : dialog;
 }
 
 function DraftSales({ currentId, disabled, onOpen, onCancelled }) {
