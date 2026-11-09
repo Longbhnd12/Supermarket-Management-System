@@ -31,6 +31,11 @@ public class EmployeeController {
         return ResponseEntity.ok(ApiResponse.success("Employees retrieved", result));
     }
 
+    @GetMapping("/positions")
+    public ResponseEntity<ApiResponse<List<String>>> getDistinctPositions() {
+        return ResponseEntity.ok(ApiResponse.success("Positions retrieved", employeeService.getDistinctPositions()));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<EmployeeResponse>> getEmployeeById(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success("Employee retrieved", employeeService.getEmployeeById(id)));

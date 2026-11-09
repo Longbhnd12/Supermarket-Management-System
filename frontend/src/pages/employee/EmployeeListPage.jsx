@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../../context/authContext';
 import EmployeeService from '../../services/employeeService';
 import { enrichEmployee } from './mockEmployeesData';
+import { mergePositions, getPositionDisplayLabel } from './employeePositions';
 import './EmployeeListPage.css';
 
 export default function EmployeeListPage() {
@@ -17,6 +18,7 @@ export default function EmployeeListPage() {
 
     // Data states
     const [employees, setEmployees] = useState([]);
+    const [dbPositions, setDbPositions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [toastMessage, setToastMessage] = useState(null);
 
@@ -58,9 +60,29 @@ export default function EmployeeListPage() {
         }
     };
 
+    // Fetch distinct positions from database API
+    const fetchPositions = async () => {
+        try {
+            const res = await EmployeeService.getPositions();
+            const list = res.data?.data || res.data || [];
+            if (Array.isArray(list)) {
+                setDbPositions(list);
+            }
+        } catch (err) {
+            console.warn('Backend distinct positions fetch failed:', err);
+        }
+    };
+
     useEffect(() => {
         fetchEmployees();
+        fetchPositions();
     }, []);
+
+    // Dynamically derive unique positions from API, DB, and unpaginated employees
+    const availablePositions = useMemo(() => {
+        const fromEmployees = employees.map(e => e.position).filter(Boolean);
+        return mergePositions([...dbPositions, ...fromEmployees]);
+    }, [dbPositions, employees]);
 
     // Close dropdown on outside click
     useEffect(() => {
@@ -397,10 +419,11 @@ export default function EmployeeListPage() {
                             }}
                         >
                             <option value="ALL">All Positions</option>
-                            <option value="Cashier">Cashier (Frontline Retail)</option>
-                            <option value="Inventory Staff">Inventory Staff (Warehouse)</option>
-                            <option value="Manager">Store Operations Manager</option>
-                            <option value="Administrator">System Administrator</option>
+                            {availablePositions.map((pos) => (
+                                <option key={pos.value} value={pos.value}>
+                                    {getPositionDisplayLabel(pos.value)}
+                                </option>
+                            ))}
                         </select>
                     </div>
 
@@ -711,12 +734,12 @@ export default function EmployeeListPage() {
 
             {/* 3 BOTTOM INFORMATIONAL PANELS */}
             <div className="employee-bottom-cards-grid">
-                {/* Panel 1: System Role Allocation */}
+                {/* Panel 1: Position Allocation */}
                 <div className="bottom-info-card role-allocation-card">
                     <div className="bottom-card-header">
                         <div className="title-with-icon">
                             <ShieldCheck size={18} className="panel-icon blue" />
-                            <h3>System Role Allocation</h3>
+                            <h3>Position Allocation</h3>
                         </div>
                         <span className="header-meta-tag">Active Staff</span>
                     </div>

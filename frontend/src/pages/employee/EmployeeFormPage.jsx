@@ -9,15 +9,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/authContext';
 import EmployeeService from '../../services/employeeService';
+import { BASE_POSITIONS, mergePositions } from './employeePositions';
 import './EmployeeFormPage.css';
-
-const POSITIONS = [
-    { value: 'Cashier', label: 'Cashier', desc: 'Frontline Retail / POS Cashier' },
-    { value: 'Inventory Staff', label: 'Inventory Staff', desc: 'Warehouse & Receiving' },
-    { value: 'Manager', label: 'Manager', desc: 'Store Operations Supervisor' },
-    { value: 'Administrator', label: 'Administrator', desc: 'Systems & Database Admin' },
-    { value: 'POS Support', label: 'POS Support', desc: 'Hardware & Terminal Technician' },
-];
 
 const today = new Date().toISOString().split('T')[0];
 
@@ -39,6 +32,10 @@ export default function EmployeeFormPage() {
     const { currentUser, hasRole } = useAuth();
 
     const isEditMode = Boolean(id);
+
+    const [dbPositions, setDbPositions] = useState([]);
+    const [isCustomPosition, setIsCustomPosition] = useState(false);
+    const [customPositionValue, setCustomPositionValue] = useState('');
 
     const [formData, setFormData] = useState({
         employeeCode: '',
@@ -63,6 +60,34 @@ export default function EmployeeFormPage() {
         setToastType(type);
         setToastMessage(msg);
         setTimeout(() => setToastMessage(null), 3500);
+    };
+
+    // Load distinct positions from backend database
+    useEffect(() => {
+        EmployeeService.getPositions()
+            .then((res) => {
+                const list = res.data?.data || res.data || [];
+                if (Array.isArray(list)) {
+                    setDbPositions(list);
+                }
+            })
+            .catch(() => {});
+    }, []);
+
+    // Merge baseline positions with database positions and current employee position
+    const positionOptions = useMemo(() => {
+        return mergePositions(dbPositions, formData.position);
+    }, [dbPositions, formData.position]);
+
+    const handlePositionSelect = (e) => {
+        const val = e.target.value;
+        if (val === '__CUSTOM__') {
+            setIsCustomPosition(true);
+            handleChange('position', customPositionValue);
+        } else {
+            setIsCustomPosition(false);
+            handleChange('position', val);
+        }
     };
 
     // Load data
@@ -114,7 +139,7 @@ export default function EmployeeFormPage() {
 
         return [
             { key: 'fullName', label: 'Full Name provided (≤ 100)', detail: 'Mandatory string, max 100 characters', passed: nameOk },
-            { key: 'position', label: 'Position / System Role assigned', detail: 'Must select one of 5 system roles', passed: positionOk },
+            { key: 'position', label: 'Position assigned', detail: 'Employee operational position must be specified', passed: positionOk },
             { key: 'hireDate', label: 'Hire Date valid & not in future', detail: 'Must be today or earlier', passed: hireDateOk },
             { key: 'phone', label: 'Phone format valid (10-15 digits)', detail: 'Digits only, standard Vietnam telecom', passed: phoneOk },
             { key: 'email', label: 'Email format valid & unique', detail: 'Valid RFC email format required', passed: emailOk },
@@ -152,6 +177,8 @@ export default function EmployeeFormPage() {
     };
 
     const handleReset = () => {
+        setIsCustomPosition(false);
+        setCustomPositionValue('');
         if (isEditMode) {
             // Reload from backend
             if (id) {
@@ -353,27 +380,44 @@ export default function EmployeeFormPage() {
                             {/* Position */}
                             <div className="efp-field-group">
                                 <label className="efp-label">
-                                    Position / System Role *
+                                    Position *
                                     <span className={`efp-label-badge ${formData.position ? 'efp-label-badge--green' : 'efp-label-badge--warn'}`}>
                                         {formData.position ? <BadgeCheck size={10} /> : <AlertCircle size={10} />}
-                                        {formData.position ? 'Role Assigned' : 'Terminal Clearance Pending'}
+                                        {formData.position ? 'Position Assigned' : 'Position Not Assigned'}
                                     </span>
                                 </label>
                                 <div className={`efp-input-wrapper ${formErrors.position ? 'efp-input--error' : ''}`}>
                                     <Briefcase size={15} className="efp-input-icon" />
                                     <select
                                         className="efp-select"
-                                        value={formData.position}
-                                        onChange={e => handleChange('position', e.target.value)}
+                                        value={isCustomPosition ? '__CUSTOM__' : formData.position}
+                                        onChange={handlePositionSelect}
                                     >
-                                        <option value="">Select system authorization role...</option>
-                                        {POSITIONS.map(p => (
-                                            <option key={p.value} value={p.value}>{p.label} — {p.desc}</option>
+                                        <option value="">Select employee position...</option>
+                                        {positionOptions.map(p => (
+                                            <option key={p.value} value={p.value}>{p.value} — {p.desc}</option>
                                         ))}
+                                        <option value="__CUSTOM__">Other (Enter new position...)</option>
                                     </select>
                                 </div>
+                                {isCustomPosition && (
+                                    <div className="efp-custom-position-wrapper" style={{ marginTop: '8px' }}>
+                                        <input
+                                            type="text"
+                                            className="efp-input"
+                                            placeholder="Enter new employee position (e.g. Baker, Electrician)..."
+                                            value={customPositionValue}
+                                            maxLength={100}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setCustomPositionValue(val);
+                                                handleChange('position', val);
+                                            }}
+                                        />
+                                    </div>
+                                )}
                                 {formErrors.position && <p className="efp-error">{formErrors.position}</p>}
-                                <p className="efp-hint">Select role to verify hardware &amp; POS authorization clearance</p>
+                                <p className="efp-hint">Job position within supermarket store operations</p>
                             </div>
 
                             {/* Hire Date */}
@@ -414,7 +458,7 @@ export default function EmployeeFormPage() {
                                         Suspended
                                     </button>
                                 </div>
-                                <p className="efp-hint">Active staff can access POS/Inventory terminals. Inactive status revokes session tokens without altering sales ledgers.</p>
+                                <p className="efp-hint">Active staff are currently employed in store operations. Inactive status marks personnel who have resigned or are on leave.</p>
                             </div>
                         </div>
                     </div>
@@ -608,12 +652,12 @@ export default function EmployeeFormPage() {
                             </div>
                             <div className="efp-id-card-footer">
                                 <span>Hire Date: {cardHireDate}</span>
-                                <span>Terminal: POS Standard</span>
+                                <span>Department: Store Operations</span>
                             </div>
                         </div>
 
                         <p className="efp-id-card-note">
-                            Synchronized with barcode scanner, thermal label printers, and checkout NFC terminals.
+                            Synchronized with employee directory, schedule management, and operations log.
                         </p>
                     </div>
 
@@ -652,10 +696,10 @@ export default function EmployeeFormPage() {
                             <Shield size={14} /> Supermarket Audit Guarantee
                         </div>
                         <p className="efp-audit-desc">
-                            Role assignment strictly adheres to the 5 system roles. Deactivation revokes terminal tokens while preserving ledger integrity per UC08 Audit Logs. An immutable employee code is forever bound to their sales receipts and stock adjustments.
+                            Employee positions represent operational store roles and do not grant system login permissions. System access roles (ADMIN, MANAGER, CASHIER, WAREHOUSE_STAFF, SUPPLIER) are managed separately in User Management. An immutable employee code is forever bound to their records.
                         </p>
                         <div className="efp-audit-footer">
-                            <span>Terminal Gateway: v4.8</span>
+                            <span>Operational Records: Active</span>
                             <span className="efp-audit-sync">
                                 <span className="efp-sync-dot"></span> Sync Live
                             </span>

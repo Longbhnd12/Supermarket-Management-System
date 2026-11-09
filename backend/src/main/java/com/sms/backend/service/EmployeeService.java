@@ -14,6 +14,8 @@ public interface EmployeeService {
 
     List<EmployeeResponse> getAllEmployees();
 
+    List<String> getDistinctPositions();
+
     List<EmployeeResponse> getEmployeesByStatus(GeneralStatus status);
 
     EmployeeResponse getEmployeeById(Long id);

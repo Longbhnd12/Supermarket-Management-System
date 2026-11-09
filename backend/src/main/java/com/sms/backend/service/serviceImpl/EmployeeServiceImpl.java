@@ -36,6 +36,11 @@ public class EmployeeServiceImpl implements EmployeeService {
     }
 
     @Override
+    public List<String> getDistinctPositions() {
+        return employeeRepository.findDistinctPositions();
+    }
+
+    @Override
     public List<EmployeeResponse> getEmployeesByStatus(GeneralStatus status) {
         return employeeRepository.findByStatus(status)
                 .stream()
