@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/authContext';
 import EmployeeService from '../../services/employeeService';
-import { ALL_MOCK_EMPLOYEES, enrichEmployee } from './mockEmployeesData';
+import { enrichEmployee } from './mockEmployeesData';
 import './EmployeeDetailPage.css';
 
 export default function EmployeeDetailPage() {
@@ -45,29 +45,19 @@ export default function EmployeeDetailPage() {
     const fetchEmployee = async () => {
         setLoading(true);
         try {
-            // Find in mock dataset first or call backend API
             let rawData = null;
-            try {
-                // If id is numeric, fetch by ID
-                if (!isNaN(id)) {
-                    const res = await EmployeeService.getById(id);
-                    rawData = res.data?.data || res.data;
-                }
-            } catch (apiErr) {
-                console.warn('Backend employee fetch error, trying mock dataset:', apiErr);
+            if (!isNaN(id)) {
+                const res = await EmployeeService.getById(id);
+                rawData = res.data?.data || res.data;
             }
-
-            if (!rawData) {
-                rawData = ALL_MOCK_EMPLOYEES.find(
-                    (m) => String(m.employeeId) === String(id) || m.employeeCode === id
-                ) || ALL_MOCK_EMPLOYEES[0];
+            if (rawData) {
+                setEmployee(enrichEmployee(rawData));
+            } else {
+                setEmployee(null);
             }
-
-            setEmployee(enrichEmployee(rawData));
         } catch (err) {
             console.error('Failed to load employee details:', err);
-            const fallback = ALL_MOCK_EMPLOYEES[0];
-            setEmployee(enrichEmployee(fallback));
+            setEmployee(null);
         } finally {
             setLoading(false);
         }
@@ -88,8 +78,7 @@ export default function EmployeeDetailPage() {
             setEmployee((prev) => ({
                 ...prev,
                 status: 'INACTIVE',
-                posClearanceBadge: 'Deactivated',
-                auditSecurityState: 'Suspended'
+                posClearanceBadge: 'Deactivated'
             }));
             showToast(`Đã tạm dừng hoạt động nhân viên ${employee.fullName} (${employee.employeeCode}).`);
         } catch (err) {
@@ -97,8 +86,7 @@ export default function EmployeeDetailPage() {
             setEmployee((prev) => ({
                 ...prev,
                 status: 'INACTIVE',
-                posClearanceBadge: 'Deactivated',
-                auditSecurityState: 'Suspended'
+                posClearanceBadge: 'Deactivated'
             }));
             showToast(`Đã tạm dừng hoạt động nhân viên ${employee.fullName} (Mô phỏng).`);
         } finally {
@@ -117,8 +105,7 @@ export default function EmployeeDetailPage() {
             setEmployee((prev) => ({
                 ...prev,
                 status: 'ACTIVE',
-                posClearanceBadge: 'Authorized',
-                auditSecurityState: 'Verified'
+                posClearanceBadge: 'Authorized'
             }));
             showToast(`Đã kích hoạt lại quyền hoạt động cho nhân viên ${employee.fullName}.`);
         } catch (err) {
@@ -126,8 +113,7 @@ export default function EmployeeDetailPage() {
             setEmployee((prev) => ({
                 ...prev,
                 status: 'ACTIVE',
-                posClearanceBadge: 'Authorized',
-                auditSecurityState: 'Verified'
+                posClearanceBadge: 'Authorized'
             }));
             showToast(`Đã kích hoạt lại quyền hoạt động cho ${employee.fullName} (Mô phỏng).`);
         } finally {
@@ -356,13 +342,13 @@ export default function EmployeeDetailPage() {
                     <div className="subhero-val-row">
                         <span className="subhero-val">{employee.posClearanceLevel}</span>
                         <span className={`subhero-badge ${isActive ? 'green' : 'gray'}`}>
-                            {employee.posClearanceBadge}
+                            {isActive ? 'Authorized' : 'Deactivated'}
                         </span>
                     </div>
                     <p className="subhero-desc">{employee.posClearanceDesc}</p>
                 </div>
 
-                {/* Metric 2: Retail Seniority */}
+                {/* Metric 2: Retail Seniority (Calculated dynamically from hireDate or createdAt) */}
                 <div className="subhero-metric-card">
                     <div className="subhero-header">
                         <span className="subhero-label">RETAIL SENIORITY</span>
@@ -370,37 +356,41 @@ export default function EmployeeDetailPage() {
                     </div>
                     <div className="subhero-val-row">
                         <span className="subhero-val">{employee.seniority}</span>
-                        <span className="subhero-meta-date">Since {employee.hireDate}</span>
+                        <span className="subhero-meta-date">Since {employee.hireDate || 'N/A'}</span>
                     </div>
-                    <p className="subhero-desc">Continuous contract • Regular staff</p>
+                    <p className="subhero-desc">{employee.seniorityDetail}</p>
                 </div>
 
-                {/* Metric 3: Shift Compliance */}
+                {/* Metric 3: Work Status */}
                 <div className="subhero-metric-card">
                     <div className="subhero-header">
-                        <span className="subhero-label">SHIFT COMPLIANCE</span>
-                        <Clock size={16} className="subhero-icon blue" />
+                        <span className="subhero-label">WORK STATUS</span>
+                        <UserCheck size={16} className="subhero-icon green" />
                     </div>
                     <div className="subhero-val-row">
-                        <span className="subhero-val">{employee.shiftCompliance}%</span>
-                        <span className="subhero-badge blue">On Time</span>
+                        <span className="subhero-val">{isActive ? 'Đang làm việc' : 'Đã tạm ngưng'}</span>
+                        <span className={`subhero-badge ${isActive ? 'green' : 'gray'}`}>
+                            {employee.status}
+                        </span>
+                    </div>
+                    <p className="subhero-desc">Hợp đồng chính thức • Nhân sự nội bộ</p>
+                </div>
+
+                {/* Metric 4: System Account */}
+                <div className="subhero-metric-card">
+                    <div className="subhero-header">
+                        <span className="subhero-label">SYSTEM ACCOUNT</span>
+                        <Key size={16} className="subhero-icon purple" />
+                    </div>
+                    <div className="subhero-val-row">
+                        <span className="subhero-val">
+                            {employee.linkedAccount?.username ? `@${employee.linkedAccount.username}` : 'Chưa liên kết'}
+                        </span>
+                        <span className="subhero-badge blue">{employee.position}</span>
                     </div>
                     <p className="subhero-desc">
-                        {employee.unexcusedAbsences} unexcused absences • {employee.totalShifts} total shifts
+                        {employee.email ? `Email: ${employee.email}` : 'Tài khoản đăng nhập SMS'}
                     </p>
-                </div>
-
-                {/* Metric 4: Audit Security State */}
-                <div className="subhero-metric-card">
-                    <div className="subhero-header">
-                        <span className="subhero-label">AUDIT SECURITY STATE</span>
-                        <ShieldCheck size={16} className="subhero-icon purple" />
-                    </div>
-                    <div className="subhero-val-row">
-                        <span className="subhero-val">{employee.auditSecurityState}</span>
-                        <span className="subhero-badge dark">{employee.auditSyncStatus}</span>
-                    </div>
-                    <p className="subhero-desc">Last verified {employee.lastVerifiedDate} by Manager</p>
                 </div>
             </div>
 

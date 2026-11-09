@@ -561,86 +561,139 @@ export const ALL_MOCK_EMPLOYEES = generateRemainingEmployees();
  */
 export function enrichEmployee(raw) {
     if (!raw) return null;
-    const found = ALL_MOCK_EMPLOYEES.find(
-        (m) => String(m.employeeId) === String(raw.employeeId) || m.employeeCode === raw.employeeCode
-    );
 
     // Compute initials from full name
-    const parts = (raw.fullName || '').trim().split(' ');
+    const parts = (raw.fullName || '').trim().split(' ').filter(Boolean);
     const initials = parts.length >= 2
         ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
         : (raw.fullName || 'NV').slice(0, 2).toUpperCase();
 
-    // Default seniority
-    let seniority = '1y 6m';
-    let seniorityDetail = '1 năm 6 tháng làm việc';
-    if (raw.hireDate) {
+    // Calculate seniority dynamically from hireDate (or createdAt)
+    const startDateStr = raw.hireDate || raw.createdAt;
+    let seniority = 'Mới vào làm';
+    let seniorityDetail = 'Dưới 1 tháng làm việc';
+    if (startDateStr) {
         try {
-            const hire = new Date(raw.hireDate);
+            const start = new Date(startDateStr);
             const now = new Date();
-            const diffMonths = (now.getFullYear() - hire.getFullYear()) * 12 + (now.getMonth() - hire.getMonth());
-            const yrs = Math.floor(diffMonths / 12);
-            const mos = diffMonths % 12;
-            seniority = `${yrs}y ${mos}m`;
-            seniorityDetail = `${yrs} năm ${mos} tháng làm việc liên tục`;
+            if (!isNaN(start.getTime())) {
+                const diffTime = Math.max(0, now - start);
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                const diffMonths = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+                const yrs = Math.floor(diffMonths / 12);
+                const mos = Math.max(0, diffMonths % 12);
+
+                if (yrs >= 1) {
+                    seniority = mos > 0 ? `${yrs}y ${mos}m` : `${yrs}y`;
+                    seniorityDetail = mos > 0 ? `${yrs} năm ${mos} tháng làm việc liên tục` : `${yrs} năm làm việc liên tục`;
+                } else if (mos >= 1) {
+                    seniority = `${mos}m`;
+                    seniorityDetail = `${mos} tháng làm việc liên tục`;
+                } else if (diffDays > 0) {
+                    seniority = `${diffDays}d`;
+                    seniorityDetail = `${diffDays} ngày làm việc`;
+                } else {
+                    seniority = 'Hôm nay';
+                    seniorityDetail = 'Ngày đầu tiên làm việc';
+                }
+            }
         } catch (ignored) {}
     }
 
+    // Clearance level based on real position
+    const pos = raw.position || 'Staff';
+    let posClearanceLevel = 'Level 1 (Staff)';
+    let posClearanceDesc = 'Quyền nhân viên tiêu chuẩn';
+    let assignedLanes = 'Chưa phân công quầy';
+    let barcodeScanner = 'Thiết bị quét mã vạch theo quầy';
+
+    if (pos === 'Cashier') {
+        posClearanceLevel = 'Level 1 (Cashier)';
+        posClearanceDesc = 'Cổng quét mã vạch & Quầy thu ngân POS';
+        assignedLanes = 'Lanes 01 - 04 (Quầy thu ngân)';
+        barcodeScanner = 'Máy quét mã vạch Zebra DS2208 Handheld';
+    } else if (pos === 'Inventory Staff') {
+        posClearanceLevel = 'Level 2 (Inventory Clerk)';
+        posClearanceDesc = 'Quyền nhập hàng, kiểm kho & xuất kho FEFO';
+        assignedLanes = 'Khu vực xuất nhập kho & quầy kiểm kê';
+        barcodeScanner = 'Máy quét kiểm kho không dây Zebra DS2208';
+    } else if (pos === 'Manager') {
+        posClearanceLevel = 'Level 3 (Manager)';
+        posClearanceDesc = 'Giám sát vận hành cửa hàng & phê duyệt chiết khấu';
+        assignedLanes = 'Toàn bộ quầy POS & Văn phòng điều hành';
+        barcodeScanner = 'Toàn quyền truy cập thiết bị quét';
+    } else if (pos === 'Administrator') {
+        posClearanceLevel = 'Level 4 (Admin)';
+        posClearanceDesc = 'Toàn quyền cấu hình hệ thống & phân quyền truy cập';
+        assignedLanes = 'Toàn quyền truy cập hệ thống';
+        barcodeScanner = 'Toàn quyền truy cập hệ thống';
+    }
+
+    // Calculate age from dateOfBirth if available
+    let age = '';
+    if (raw.dateOfBirth) {
+        try {
+            const dob = new Date(raw.dateOfBirth);
+            const now = new Date();
+            if (!isNaN(dob.getTime())) {
+                age = now.getFullYear() - dob.getFullYear();
+            }
+        } catch (ignored) {}
+    }
+
+    const hireDateFormatted = raw.hireDate
+        ? new Date(raw.hireDate).toLocaleDateString('vi-VN')
+        : (raw.createdAt ? new Date(raw.createdAt).toLocaleDateString('vi-VN') : '---');
+
+    const createdMeta = raw.createdAt
+        ? new Date(raw.createdAt).toLocaleString('vi-VN')
+        : (raw.hireDate ? new Date(raw.hireDate).toLocaleDateString('vi-VN') : '---');
+
     return {
-        ...found,
+        ...raw,
         employeeId: raw.employeeId,
-        employeeCode: raw.employeeCode || found?.employeeCode || 'EMP-0101',
-        fullName: raw.fullName || found?.fullName || 'Nhân viên siêu thị',
-        initials: found?.initials || initials,
-        position: raw.position || found?.position || 'Cashier',
-        department: found?.department || (raw.position === 'Cashier' ? 'Frontline Retail' : raw.position === 'Inventory Staff' ? 'Warehouse & Receiving' : raw.position === 'Manager' ? 'Store Operations Supervisor' : 'Systems & IT'),
-        supermarketDept: found?.supermarketDept || 'Front End Operations & Checkout Services',
-        phone: raw.phone || found?.phone || '0903 123 456',
-        email: raw.email || found?.email || 'employee@smsretail.vn',
-        status: raw.status || found?.status || 'ACTIVE',
-        gender: raw.gender || found?.gender || 'FEMALE',
-        dateOfBirth: raw.dateOfBirth || found?.dateOfBirth || '1998-05-14',
-        age: found?.age || 27,
-        citizenId: found?.citizenId || '079198004521',
-        isCccdVerified: found?.isCccdVerified ?? true,
-        address: raw.address || found?.address || '124/8 Nguyễn Thị Minh Khai, Phường Bến Thành, Quận 1, TP. Hồ Chí Minh',
-        hireDate: raw.hireDate || found?.hireDate || '2023-03-15',
-        seniority: found?.seniority || seniority,
-        seniorityDetail: found?.seniorityDetail || seniorityDetail,
-        storeFacility: found?.storeFacility || 'Store #04 - Dist 1 Flagship',
-        supervisor: found?.supervisor || {
-            name: 'Phạm Quốc Tuấn',
-            code: 'EMP-0012',
+        employeeCode: raw.employeeCode || `EMP-${String(raw.employeeId || '0001').padStart(4, '0')}`,
+        fullName: raw.fullName || 'Nhân viên siêu thị',
+        initials,
+        position: pos,
+        department: raw.department || (pos === 'Cashier' ? 'Frontline Retail' : pos === 'Inventory Staff' ? 'Warehouse & Receiving' : pos === 'Manager' ? 'Store Operations Supervisor' : 'Systems & IT'),
+        supermarketDept: raw.supermarketDept || (pos === 'Cashier' ? 'Front End Operations & Checkout Services' : pos === 'Inventory Staff' ? 'Warehouse & Receiving Logistics' : 'Operations Management'),
+        phone: raw.phone || '',
+        email: raw.email || '',
+        status: raw.status || 'ACTIVE',
+        gender: raw.gender || 'OTHER',
+        dateOfBirth: raw.dateOfBirth || '',
+        age: age ? `${age} tuổi` : '',
+        citizenId: raw.citizenId || '---',
+        isCccdVerified: Boolean(raw.citizenId),
+        address: raw.address || 'Chưa cập nhật địa chỉ',
+        hireDate: raw.hireDate || (raw.createdAt ? String(raw.createdAt).substring(0, 10) : ''),
+        hireDateFormatted,
+        seniority,
+        seniorityDetail,
+        storeFacility: raw.storeFacility || 'Store #04 - Dist 1 Flagship',
+        supervisor: raw.supervisor || {
+            name: 'Ban Quản Lý Siêu Thị',
+            code: 'MGR-01',
             role: 'Store Operations Manager',
-            initials: 'PT'
+            initials: 'QL'
         },
-        posClearanceLevel: found?.posClearanceLevel || (raw.position === 'Cashier' ? 'Level 1 (Cashier)' : raw.position === 'Inventory Staff' ? 'Level 2 (Inventory Clerk)' : raw.position === 'Manager' ? 'Level 3 (Manager)' : 'Level 4 (Admin)'),
-        posClearanceBadge: found?.posClearanceBadge || (raw.status === 'ACTIVE' ? 'Authorized' : 'Deactivated'),
-        posClearanceDesc: found?.posClearanceDesc || 'Lanes 01-04 active registry barcode scanner',
-        assignedLanes: found?.assignedLanes || 'Lanes 01, 02, 03, 04 (Express & Standard)',
-        priceOverride: found?.priceOverride || (raw.position === 'Manager' || raw.position === 'Administrator' ? 'Authorized' : 'Strictly Restricted (Manager Key Required)'),
-        barcodeScanner: found?.barcodeScanner || 'Zebra DS2208 Handheld Synced',
-        shiftCompliance: found?.shiftCompliance || 99.4,
-        unexcusedAbsences: found?.unexcusedAbsences || 0,
-        totalShifts: found?.totalShifts || 412,
-        auditSecurityState: found?.auditSecurityState || 'Verified',
-        auditSyncStatus: found?.auditSyncStatus || 'Synced UC08',
-        lastVerifiedDate: found?.lastVerifiedDate || '10/01/2026',
-        linkedAccount: found?.linkedAccount || {
-            username: (raw.email || '').split('@')[0] || 'employee.user',
-            role: raw.position || 'Staff',
+        posClearanceLevel,
+        posClearanceBadge: raw.status === 'ACTIVE' ? 'Authorized' : 'Deactivated',
+        posClearanceDesc,
+        assignedLanes,
+        priceOverride: (pos === 'Manager' || pos === 'Administrator') ? 'Authorized' : 'Strictly Restricted (Manager Key Required)',
+        barcodeScanner,
+        linkedAccount: raw.linkedAccount || {
+            username: (raw.email || '').split('@')[0] || (raw.employeeCode || 'employee'),
+            role: pos,
             status: raw.status === 'ACTIVE' ? 'Active' : 'Inactive'
         },
-        auditLogs: found?.auditLogs || [
+        auditLogs: raw.auditLogs || [
             {
-                title: 'Initial Employee Record Created',
-                timestamp: '15/03/2023 08:30:14',
-                operator: 'ADM-01 (System Admin)'
-            },
-            {
-                title: 'Annual Clearance Review Completed',
-                timestamp: '10/01/2026 14:15:02',
-                operator: 'Phạm Quốc Tuấn (MGR-04)'
+                title: 'Hồ sơ nhân viên được khởi tạo',
+                timestamp: createdMeta,
+                operator: 'System Admin'
             }
         ]
     };

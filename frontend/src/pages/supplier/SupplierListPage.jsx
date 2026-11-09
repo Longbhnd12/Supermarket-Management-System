@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/authContext';
 import SupplierService from '../../services/supplierService';
-import { MOCK_SUPPLIERS, enrichSupplier } from './mockSuppliersData';
+import { enrichSupplier } from './mockSuppliersData';
 import './SupplierListPage.css';
 
 export default function SupplierListPage() {
@@ -58,19 +58,14 @@ export default function SupplierListPage() {
             const res = await SupplierService.getAll();
             const data = res.data?.data || [];
             if (Array.isArray(data) && data.length > 0) {
-                // Merge real DB data with enriched metadata
                 const enriched = data.map((item) => enrichSupplier(item));
-                // If DB has fewer than mock, also include remaining mock suppliers so demo is intact
-                const existingCodes = new Set(enriched.map((s) => s.supplierCode));
-                const extraMocks = MOCK_SUPPLIERS.filter((m) => !existingCodes.has(m.supplierCode));
-                setRawSuppliers([...enriched, ...extraMocks]);
+                setRawSuppliers(enriched);
             } else {
-                // Fallback to baseline mock data matching screenshot
-                setRawSuppliers(MOCK_SUPPLIERS);
+                setRawSuppliers([]);
             }
         } catch (err) {
             console.error('Failed to load suppliers from backend:', err);
-            setRawSuppliers(MOCK_SUPPLIERS);
+            setRawSuppliers([]);
         } finally {
             setLoading(false);
         }

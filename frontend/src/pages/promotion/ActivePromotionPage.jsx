@@ -9,13 +9,12 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/authContext';
 import PromotionService from '../../services/promotionService';
-import { MOCK_ACTIVE_PROMOTIONS } from './mockPromotionsData';
 import './ActivePromotionPage.css';
 
 export default function ActivePromotionPage() {
     const { currentUser } = useAuth();
 
-    const [promotions, setPromotions] = useState(MOCK_ACTIVE_PROMOTIONS);
+    const [promotions, setPromotions] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [scopeFilter, setScopeFilter] = useState('ALL'); // 'ALL' | 'PRODUCTS' | 'CATEGORIES'
@@ -38,38 +37,48 @@ export default function ActivePromotionPage() {
         return () => clearInterval(timer);
     }, []);
 
-    // Fetch active promotions from backend with fallback
+    // Fetch active promotions from backend
     const fetchActivePromotions = async () => {
         setLoading(true);
         try {
             const res = await PromotionService.getActive();
             const list = res.data?.data || res.data;
-            if (Array.isArray(list) && list.length > 0) {
-                // Enrich backend items with mockup layout fields
+            if (Array.isArray(list)) {
                 const mapped = list.map((item, idx) => {
-                    const mockMatch = MOCK_ACTIVE_PROMOTIONS.find(m => m.promotionId === item.promotionId || m.promotionName === item.promotionName);
                     const isPct = item.promotionType === 'PERCENTAGE';
+                    let remainingDays = 'Đang diễn ra';
+                    if (item.endAt) {
+                        const diffMs = new Date(item.endAt) - new Date();
+                        const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                        remainingDays = days > 0 ? `Còn ${days} ngày` : 'Sắp hết hạn';
+                    }
+                    const validUntil = item.endAt
+                        ? `${new Date(item.endAt).toLocaleDateString('vi-VN')} • ${new Date(item.endAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`
+                        : '';
                     return {
                         ...item,
-                        code: item.code || mockMatch?.code || `PROMO-2025-${String(idx + 1).padStart(2, '0')}`,
+                        code: item.code || `PROMO-${String(item.promotionId || idx + 1).padStart(4, '0')}`,
                         shortTitle: item.promotionName,
                         discountBadge: isPct ? `${item.discountValue}% OFF` : `${Number(item.discountValue).toLocaleString('vi-VN')} đ`,
                         scopeType: item.categoryName ? 'CATEGORY' : 'PRODUCTS',
-                        scopeLabel: item.categoryName ? 'Entire Department Category' : (mockMatch?.scopeLabel || 'Specific Products'),
-                        scopeSub: item.categoryName ? 'Category Auto-Scan' : (mockMatch?.scopeSub || 'Direct Barcode Match'),
-                        items: mockMatch?.items || (item.productName ? [{ name: item.productName, sku: `SKU-${item.productId}` }] : []),
-                        categoryName: item.categoryName || mockMatch?.categoryName || null,
-                        categoryCode: mockMatch?.categoryCode || 'CAT-00' + (idx + 1),
-                        categoryDesc: mockMatch?.categoryDesc || `Applies to all products under category: ${item.categoryName}`,
-                        validUntil: mockMatch?.validUntil || (item.endAt ? `${item.endAt.substring(0, 10)} • ${item.endAt.substring(11, 16)}` : '30/06/2025 • 22:00'),
-                        remainingDays: mockMatch?.remainingDays || 'Active: in effect',
-                        badgeRight: mockMatch?.badgeRight || '8 POS Lanes'
+                        scopeLabel: item.categoryName ? 'Áp dụng toàn bộ Danh mục' : 'Sản phẩm cụ thể',
+                        scopeSub: item.categoryName ? 'Category Auto-Scan' : 'Direct Barcode Match',
+                        items: item.productName ? [{ name: item.productName, sku: `SKU-${item.productId}` }] : [],
+                        categoryName: item.categoryName || null,
+                        categoryCode: item.categoryId ? `CAT-${item.categoryId}` : '',
+                        categoryDesc: item.categoryName ? `Áp dụng cho tất cả sản phẩm thuộc danh mục: ${item.categoryName}` : '',
+                        validUntil,
+                        remainingDays,
+                        badgeRight: 'POS Sync OK'
                     };
                 });
                 setPromotions(mapped);
+            } else {
+                setPromotions([]);
             }
-        } catch {
-            // Keep MOCK_ACTIVE_PROMOTIONS
+        } catch (err) {
+            console.error('Failed to load active promotions:', err);
+            setPromotions([]);
         } finally {
             setLoading(false);
             setSyncSecondsAgo(0);

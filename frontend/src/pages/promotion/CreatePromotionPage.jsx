@@ -10,10 +10,6 @@ import { useAuth } from '../../context/authContext';
 import PromotionService from '../../services/promotionService';
 import ProductService from '../../services/productService';
 import CategoryService from '../../services/categoryService';
-import {
-    MOCK_CATALOG_PRODUCTS,
-    MOCK_CATEGORIES
-} from './mockPromotionsData';
 import './CreatePromotionPage.css';
 
 const formatDateTimeLocal = (date) => {
@@ -32,8 +28,8 @@ export default function CreatePromotionPage() {
     const { currentUser, hasRole } = useAuth();
 
     // Catalog state
-    const [products, setProducts] = useState(MOCK_CATALOG_PRODUCTS);
-    const [categories, setCategories] = useState(MOCK_CATEGORIES);
+    const [products, setProducts] = useState([]);
+    const [categories, setCategories] = useState([]);
     const [catalogSearch, setCatalogSearch] = useState('');
     const [selectedDeptFilter, setSelectedDeptFilter] = useState('ALL');
 
@@ -54,12 +50,12 @@ export default function CreatePromotionPage() {
         end.setHours(22, 0, 0, 0);
 
         return {
-            promotionName: 'Khuyến mãi Giờ Vàng: Cuối tuần Mua sắm Rộn ràng',
+            promotionName: '',
             promotionType: 'PERCENTAGE', // 'PERCENTAGE' | 'FIXED_AMOUNT'
-            discountValue: '15',
+            discountValue: '',
             scopeType: 'PRODUCTS', // 'PRODUCTS' | 'CATEGORIES'
-            selectedProductIds: [1, 2, 3], // Default 3 items like mockup
-            selectedCategoryId: 1, // Category id if in category mode
+            selectedProductIds: [],
+            selectedCategoryId: null,
             startAt: formatDateTimeLocal(start),
             endAt: formatDateTimeLocal(end)
         };
@@ -76,34 +72,37 @@ export default function CreatePromotionPage() {
         setTimeout(() => setToastMessage(null), 3500);
     };
 
-    // Load live catalog data from API with fallback
+    // Load live catalog data from API
     useEffect(() => {
         const loadCatalog = async () => {
             try {
                 const prodRes = await ProductService.getAll({ status: 'ACTIVE' });
                 const fetchedProds = prodRes.data?.data || prodRes.data;
-                if (Array.isArray(fetchedProds) && fetchedProds.length > 0) {
+                if (Array.isArray(fetchedProds)) {
                     const mapped = fetchedProds.map(p => ({
                         productId: p.productId,
                         productCode: p.productCode || `SKU-${p.productId}`,
                         productName: p.productName,
                         shortName: p.productName,
                         barcode: p.barcode || '---',
-                        category: p.categoryName || 'General',
+                        category: p.categoryName || 'Chung',
                         categoryCode: p.categoryCode || 'GEN',
                         sellingPrice: p.sellingPrice || 0,
                         status: p.status || 'ACTIVE'
                     }));
                     setProducts(mapped);
+                } else {
+                    setProducts([]);
                 }
-            } catch {
-                // Keep mock products
+            } catch (err) {
+                console.error('Failed to load products:', err);
+                setProducts([]);
             }
 
             try {
                 const catRes = await CategoryService.getAll();
                 const fetchedCats = catRes.data?.data || catRes.data;
-                if (Array.isArray(fetchedCats) && fetchedCats.length > 0) {
+                if (Array.isArray(fetchedCats)) {
                     const mappedCats = fetchedCats.map(c => ({
                         categoryId: c.categoryId,
                         categoryName: c.categoryName,
@@ -112,9 +111,12 @@ export default function CreatePromotionPage() {
                         itemCount: c.productCount || 0
                     }));
                     setCategories(mappedCats);
+                } else {
+                    setCategories([]);
                 }
-            } catch {
-                // Keep mock categories
+            } catch (err) {
+                console.error('Failed to load categories:', err);
+                setCategories([]);
             }
         };
 
@@ -162,15 +164,11 @@ export default function CreatePromotionPage() {
         return `${days} days ${hours} hours`;
     }, [formData.startAt, formData.endAt]);
 
-    // Live POS preview calculation (based on Vinamilk or first selected product)
+    // Live POS preview calculation (based on first selected product or first catalog product)
     const previewCalculations = useMemo(() => {
-        const target = selectedProductObjects[0] || products[0] || {
-            productName: 'Sữa tươi Vinamilk 1L',
-            productCode: 'SKU-8930124',
-            sellingPrice: 38500
-        };
+        const target = selectedProductObjects[0] || products[0] || null;
 
-        const originalPrice = target.sellingPrice || 38500;
+        const originalPrice = target?.sellingPrice || 0;
         const discVal = parseFloat(formData.discountValue) || 0;
         let discountAmount = 0;
         let promoLabel = '';
@@ -187,7 +185,11 @@ export default function CreatePromotionPage() {
         const netTotal = Math.max(0, originalPrice - discountAmount);
 
         return {
-            target,
+            target: target || {
+                productName: 'Chưa chọn sản phẩm',
+                productCode: '---',
+                sellingPrice: 0
+            },
             originalPrice,
             discountAmount,
             promoLabel,

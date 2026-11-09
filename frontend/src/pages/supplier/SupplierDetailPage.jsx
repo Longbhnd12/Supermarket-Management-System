@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/authContext';
 import SupplierService from '../../services/supplierService';
-import { MOCK_SUPPLIERS, enrichSupplier } from './mockSuppliersData';
+import { enrichSupplier } from './mockSuppliersData';
 import './SupplierDetailPage.css';
 
 export default function SupplierDetailPage() {
@@ -21,6 +21,7 @@ export default function SupplierDetailPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [toastMessage, setToastMessage] = useState(null);
+    const [toastType, setToastType] = useState('success');
 
     // Modals
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
@@ -45,8 +46,9 @@ export default function SupplierDetailPage() {
     const isAdminOrManager = currentUser?.role === 'ADMIN' || currentUser?.role === 'MANAGER';
 
     // Toast helper
-    const showToast = (msg) => {
+    const showToast = (msg, type = 'success') => {
         setToastMessage(msg);
+        setToastType(type);
         setTimeout(() => setToastMessage(null), 3500);
     };
 
@@ -55,24 +57,16 @@ export default function SupplierDetailPage() {
         setLoading(true);
         setError(null);
         try {
-            // Check if numeric ID or code
             const res = await SupplierService.getById(targetId);
-            const data = res.data?.data;
+            const data = res.data?.data || res.data;
             if (data) {
                 setSupplier(enrichSupplier(data));
             } else {
-                // Check mock
-                const match = MOCK_SUPPLIERS.find(
-                    (m) => String(m.supplierId) === String(targetId) || m.supplierCode === targetId
-                );
-                setSupplier(match || enrichSupplier(MOCK_SUPPLIERS[0]));
+                setSupplier(null);
             }
         } catch (err) {
-            console.warn('Backend getById failed, using mock data:', err);
-            const match = MOCK_SUPPLIERS.find(
-                (m) => String(m.supplierId) === String(targetId) || m.supplierCode === targetId
-            );
-            setSupplier(match || enrichSupplier(MOCK_SUPPLIERS[0]));
+            console.error('Backend getById failed:', err);
+            setSupplier(null);
         } finally {
             setLoading(false);
         }
@@ -94,12 +88,9 @@ export default function SupplierDetailPage() {
         if (!supplier) return;
         setStatusUpdating(true);
         try {
-            await SupplierService.updateStatus(supplier.supplierId, targetStatusAction);
-            setSupplier((prev) => ({
-                ...prev,
-                status: targetStatusAction,
-                lastAuditedMeta: `Hôm nay bởi ${currentUser?.username || 'Admin'}`
-            }));
+            const res = await SupplierService.updateStatus(supplier.supplierId, targetStatusAction);
+            const updated = res.data?.data || { ...supplier, status: targetStatusAction };
+            setSupplier(enrichSupplier(updated));
             setIsStatusModalOpen(false);
             showToast(
                 targetStatusAction === 'DISABLED'
@@ -107,18 +98,10 @@ export default function SupplierDetailPage() {
                     : `Đã kích hoạt lại nhà cung cấp ${supplier.supplierCode}.`
             );
         } catch (err) {
-            // Fallback: update local state if backend is mock/offline
-            setSupplier((prev) => ({
-                ...prev,
-                status: targetStatusAction,
-                lastAuditedMeta: `Hôm nay bởi ${currentUser?.username || 'Admin'}`
-            }));
+            console.error('Failed to update supplier status:', err);
             setIsStatusModalOpen(false);
-            showToast(
-                targetStatusAction === 'DISABLED'
-                    ? `[Demo] Đã vô hiệu hóa nhà cung cấp ${supplier.supplierCode} (UC21 Blocked).`
-                    : `[Demo] Đã kích hoạt lại nhà cung cấp ${supplier.supplierCode}.`
-            );
+            const msg = err.response?.data?.message || 'Không thể cập nhật trạng thái nhà cung cấp. Vui lòng thử lại.';
+            showToast(msg, 'error');
         } finally {
             setStatusUpdating(false);
             setStatusReason('');
@@ -153,10 +136,9 @@ export default function SupplierDetailPage() {
             setIsEditModalOpen(false);
             showToast(`Cập nhật thông tin nhà cung cấp ${supplier.supplierCode} thành công!`);
         } catch (err) {
-            // Fallback in case of mock
-            setSupplier((prev) => ({ ...prev, ...editForm }));
-            setIsEditModalOpen(false);
-            showToast(`[Demo] Cập nhật thông tin nhà cung cấp ${supplier.supplierCode} thành công!`);
+            console.error('Failed to save supplier edit:', err);
+            const msg = err.response?.data?.message || 'Cập nhật thông tin thất bại. Vui lòng kiểm tra lại.';
+            setEditError(msg);
         } finally {
             setSavingEdit(false);
         }
@@ -909,8 +891,12 @@ export default function SupplierDetailPage() {
 
             {/* Toast popup */}
             {toastMessage && (
-                <div className="supplier-toast">
-                    <CheckCircle2 size={16} className="toast-icon" />
+                <div className={`supplier-toast ${toastType === 'error' ? 'toast-error' : ''}`}>
+                    {toastType === 'error' ? (
+                        <AlertCircle size={16} className="toast-icon error" />
+                    ) : (
+                        <CheckCircle2 size={16} className="toast-icon" />
+                    )}
                     <span>{toastMessage}</span>
                 </div>
             )}

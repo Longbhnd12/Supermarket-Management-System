@@ -8,14 +8,13 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/authContext';
 import PromotionService from '../../services/promotionService';
-import { MOCK_PROMOTIONS } from './mockPromotionsData';
 import './PromotionListPage.css';
 
 export default function PromotionListPage() {
     const navigate = useNavigate();
     const { currentUser, hasRole } = useAuth();
 
-    const [promotions, setPromotions] = useState(MOCK_PROMOTIONS);
+    const [promotions, setPromotions] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'INACTIVE'
@@ -38,25 +37,35 @@ export default function PromotionListPage() {
         try {
             const res = await PromotionService.getAll();
             const list = res.data?.data || res.data;
-            if (Array.isArray(list) && list.length > 0) {
-                // Merge with mock details to preserve UI metadata
+            if (Array.isArray(list)) {
                 const merged = list.map((item, idx) => {
-                    const mockMatch = MOCK_PROMOTIONS.find(m => m.promotionId === item.promotionId || m.promotionName === item.promotionName);
+                    const startFormatted = item.startAt ? new Date(item.startAt).toLocaleDateString('vi-VN') : '';
+                    const endFormatted = item.endAt ? new Date(item.endAt).toLocaleDateString('vi-VN') : '';
+                    const isUpcoming = item.startAt && new Date(item.startAt) > new Date();
+
+                    let timelineBadge = 'Concluded / Inactive';
+                    if (item.status === 'ACTIVE') {
+                        timelineBadge = isUpcoming ? 'Upcoming (Chưa bắt đầu)' : 'Active: In Service';
+                    }
+
                     return {
                         ...item,
-                        code: item.code || mockMatch?.code || `PROMO-2025-${String(idx + 1).padStart(2, '0')}`,
-                        scopeSummary: mockMatch?.scopeSummary || (item.categoryName ? `Scope: Category: ${item.categoryName}` : (item.productName ? `Scope: Product: ${item.productName}` : 'Storewide Scope')),
-                        validPeriodText: mockMatch?.validPeriodText || `${item.startAt?.substring(0, 10)} - ${item.endAt?.substring(0, 10)}`,
-                        timelineBadge: mockMatch?.timelineBadge || (item.status === 'ACTIVE' ? 'Active: In Service' : 'Concluded / Inactive'),
-                        redemptions: mockMatch ? mockMatch.redemptions : (item.status === 'ACTIVE' ? 120 : 350),
-                        isDeletable: mockMatch ? mockMatch.isDeletable : false,
-                        isDraft: mockMatch ? mockMatch.isDraft : false
+                        code: item.code || `PROMO-${String(item.promotionId || idx + 1).padStart(4, '0')}`,
+                        scopeSummary: item.categoryName ? `Scope: Danh mục: ${item.categoryName}` : (item.productName ? `Scope: Sản phẩm: ${item.productName}` : 'Toàn bộ cửa hàng'),
+                        validPeriodText: item.startAt && item.endAt ? `${startFormatted} - ${endFormatted}` : 'Không thời hạn',
+                        timelineBadge,
+                        redemptions: 0,
+                        isDeletable: item.status !== 'ACTIVE',
+                        isDraft: false
                     };
                 });
                 setPromotions(merged);
+            } else {
+                setPromotions([]);
             }
-        } catch {
-            // Keep MOCK_PROMOTIONS fallback
+        } catch (err) {
+            console.error('Failed to load promotions:', err);
+            setPromotions([]);
         } finally {
             setLoading(false);
         }
