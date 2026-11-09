@@ -23,9 +23,11 @@ import com.sms.backend.repository.RoleRepository;
 import com.sms.backend.repository.SupplierRepository;
 import com.sms.backend.repository.UserRepository;
 import com.sms.backend.security.CurrentUserProvider;
+import com.sms.backend.service.EmailService;
 import com.sms.backend.service.SystemLogService;
 import com.sms.backend.service.UserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -50,8 +52,12 @@ import java.util.UUID;
  *     <li>BR-02: username and email are unique.</li>
  *     <li>BR-03: a deleted account releases its username / email.</li>
  *     <li>BR-04: an Admin cannot deactivate, delete or change the role of their own account.</li>
+ *     <li>After a new account is created, its username and temporary password are emailed to the account's
+ *     email address. If the email cannot be sent the account is still created and the Admin is told to
+ *     hand over the login details in person.</li>
  * </ul>
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -69,6 +75,7 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final SystemLogService systemLogService;
     private final CurrentUserProvider currentUserProvider;
+    private final EmailService emailService;
 
     // ---------------- UC04 - View Users ----------------
 
@@ -154,9 +161,40 @@ public class UserServiceImpl implements UserService {
         user.setFailedLoginAttempts(0);
         applyRoleAndLinks(user, request.roleId(), request.employeeId(), request.supplierId());
 
+        // saveAndFlush: duplicates are rejected here, before any email goes out
         User saved = saveUnique(user);
-        log("USER_CREATED", saved, "Created account " + saved.getUsername() + " (role " + roleName(saved) + ")");
-        return toResponse(saved);
+        boolean emailSent = sendLoginDetails(saved, request.password());
+        log("USER_CREATED", saved, "Created account " + saved.getUsername() + " (role " + roleName(saved) + ")"
+                + (emailSent ? "; login details emailed to " + saved.getEmail()
+                             : "; login details email could not be sent"));
+        return toResponse(saved, emailSent);
+    }
+
+    /**
+     * Emails the username + temporary password to the new account. Never throws: a mail problem
+     * (Gmail not configured, unreachable...) must not undo the account the Admin has just created.
+     * The password itself is never logged.
+     */
+    private boolean sendLoginDetails(User user, String temporaryPassword) {
+        try {
+            emailService.sendNewAccountCredentials(user.getEmail(), displayName(user), user.getUsername(),
+                    temporaryPassword, user.getStatus() == AccountStatus.ACTIVE);
+            return true;
+        } catch (RuntimeException exception) {
+            log.warn("UC05: account {} was created but its login details email was not sent: {}",
+                    user.getUsername(), exception.getMessage());
+            return false;
+        }
+    }
+
+    private String displayName(User user) {
+        if (user.getEmployee() != null && user.getEmployee().getFullName() != null) {
+            return user.getEmployee().getFullName();
+        }
+        if (user.getSupplier() != null && user.getSupplier().getSupplierName() != null) {
+            return user.getSupplier().getSupplierName();
+        }
+        return user.getUsername();
     }
 
     @Override
@@ -356,6 +394,10 @@ public class UserServiceImpl implements UserService {
     }
 
     private UserResponse toResponse(User u) {
+        return toResponse(u, null);
+    }
+
+    private UserResponse toResponse(User u, Boolean credentialsEmailSent) {
         Long employeeId = u.getEmployee() != null ? u.getEmployee().getEmployeeId() : null;
         String employeeFullName = u.getEmployee() != null ? u.getEmployee().getFullName() : null;
         Long supplierId = u.getSupplier() != null ? u.getSupplier().getSupplierId() : null;
@@ -373,7 +415,8 @@ public class UserServiceImpl implements UserService {
                 u.getEmail(),
                 u.getStatus(),
                 u.getLastLoginAt(),
-                u.getLockedUntil()
+                u.getLockedUntil(),
+                credentialsEmailSent
         );
     }
 }
