@@ -5,26 +5,19 @@ import {
     User, Phone, Mail, MapPin, Calendar, ArrowLeft,
     RefreshCw, Sparkles, Check, X, Save, RotateCcw,
     CreditCard, IdCard, Fingerprint, Briefcase, UserCheck,
-    ChevronDown, BadgeCheck, Zap, Terminal
+    ChevronDown, BadgeCheck, Zap, Terminal, Plus
 } from 'lucide-react';
 import { useAuth } from '../../context/authContext';
 import EmployeeService from '../../services/employeeService';
 import { MOCK_EMPLOYEES } from './mockEmployeesData';
+import { BASE_POSITIONS, getMergedPositions } from './employeePositions';
 import './EmployeeFormPage.css';
-
-const POSITIONS = [
-    { value: 'Cashier', label: 'Cashier', desc: 'Frontline Retail / POS Cashier' },
-    { value: 'Inventory Staff', label: 'Inventory Staff', desc: 'Warehouse & Receiving' },
-    { value: 'Manager', label: 'Manager', desc: 'Store Operations Supervisor' },
-    { value: 'Administrator', label: 'Administrator', desc: 'Systems & Database Admin' },
-    { value: 'POS Support', label: 'POS Support', desc: 'Hardware & Terminal Technician' },
-];
 
 const today = new Date().toISOString().split('T')[0];
 
-function generateNextCode() {
-    // Find max code from mock data
-    const codes = MOCK_EMPLOYEES
+function generateNextCode(employeesList = []) {
+    const all = [...(Array.isArray(employeesList) ? employeesList : []), ...MOCK_EMPLOYEES];
+    const codes = all
         .map(e => e.employeeCode)
         .filter(c => c && c.startsWith('EMP-'))
         .map(c => parseInt(c.replace('EMP-', ''), 10))
@@ -48,6 +41,10 @@ export default function EmployeeFormPage() {
     const { currentUser, hasRole } = useAuth();
 
     const isEditMode = Boolean(id);
+
+    const [existingEmployees, setExistingEmployees] = useState([]);
+    const [isCustomPosition, setIsCustomPosition] = useState(false);
+    const [customPositionValue, setCustomPositionValue] = useState('');
 
     const [formData, setFormData] = useState({
         employeeCode: '',
@@ -74,7 +71,30 @@ export default function EmployeeFormPage() {
         setTimeout(() => setToastMessage(null), 3500);
     };
 
-    // Load data
+    // Load full employees list to discover all existing positions across the entire database
+    useEffect(() => {
+        EmployeeService.getAll()
+            .then(res => {
+                const list = res.data?.data || res.data || [];
+                if (Array.isArray(list)) {
+                    setExistingEmployees(list);
+                    if (!isEditMode) {
+                        setFormData(prev => ({
+                            ...prev,
+                            employeeCode: prev.employeeCode || generateNextCode(list)
+                        }));
+                    }
+                }
+            })
+            .catch(() => {});
+    }, [isEditMode]);
+
+    // Position options consistent with database and Employee List
+    const positionOptions = useMemo(() => {
+        return getMergedPositions(existingEmployees, formData.position);
+    }, [existingEmployees, formData.position]);
+
+    // Load employee details in edit mode
     useEffect(() => {
         if (!isEditMode) {
             const code = generateNextCode();
@@ -89,9 +109,10 @@ export default function EmployeeFormPage() {
                 const res = await EmployeeService.getById(id);
                 const data = res.data?.data || res.data;
                 if (data) {
+                    const pos = data.position || '';
                     setFormData({
                         employeeCode: data.employeeCode || '',
-                        position: data.position || '',
+                        position: pos,
                         hireDate: data.hireDate || today,
                         status: data.status || 'ACTIVE',
                         fullName: data.fullName || '',
@@ -106,9 +127,10 @@ export default function EmployeeFormPage() {
                 // Fallback to mock data
                 const emp = MOCK_EMPLOYEES.find(e => String(e.employeeId) === String(id) || e.employeeCode === id);
                 if (emp) {
+                    const pos = emp.position || '';
                     setFormData({
                         employeeCode: emp.employeeCode || '',
-                        position: emp.position || '',
+                        position: pos,
                         hireDate: emp.hireDate || today,
                         status: emp.status || 'ACTIVE',
                         fullName: emp.fullName || '',
@@ -127,6 +149,17 @@ export default function EmployeeFormPage() {
         fetchEmployee();
     }, [id, isEditMode]);
 
+    const handlePositionSelect = (e) => {
+        const val = e.target.value;
+        if (val === '__CUSTOM__') {
+            setIsCustomPosition(true);
+            handleChange('position', customPositionValue);
+        } else {
+            setIsCustomPosition(false);
+            handleChange('position', val);
+        }
+    };
+
     // SRS 3.6.3 checklist
     const checklist = useMemo(() => {
         const nameOk = formData.fullName.trim().length > 0 && formData.fullName.trim().length <= 100;
@@ -138,7 +171,7 @@ export default function EmployeeFormPage() {
 
         return [
             { key: 'fullName', label: 'Full Name provided (≤ 100)', detail: 'Mandatory string, max 100 characters', passed: nameOk },
-            { key: 'position', label: 'Position / System Role assigned', detail: 'Must select one of 5 system roles', passed: positionOk },
+            { key: 'position', label: 'Position assigned', detail: 'Employee operational position must be specified', passed: positionOk },
             { key: 'hireDate', label: 'Hire Date valid & not in future', detail: 'Must be today or earlier', passed: hireDateOk },
             { key: 'phone', label: 'Phone format valid (10-15 digits)', detail: 'Digits only, standard Vietnam telecom', passed: phoneOk },
             { key: 'email', label: 'Email format valid & unique', detail: 'Valid RFC email format required', passed: emailOk },
@@ -210,6 +243,8 @@ export default function EmployeeFormPage() {
             });
         }
         setFormErrors({});
+        setIsCustomPosition(false);
+        setCustomPositionValue('');
         showToast('Form đã được đặt lại.', 'info');
     };
 
@@ -371,27 +406,43 @@ export default function EmployeeFormPage() {
                             {/* Position */}
                             <div className="efp-field-group">
                                 <label className="efp-label">
-                                    Position / System Role *
+                                    Position *
                                     <span className={`efp-label-badge ${formData.position ? 'efp-label-badge--green' : 'efp-label-badge--warn'}`}>
                                         {formData.position ? <BadgeCheck size={10} /> : <AlertCircle size={10} />}
-                                        {formData.position ? 'Role Assigned' : 'Terminal Clearance Pending'}
+                                        {formData.position ? 'Position Assigned' : 'Position Not Assigned'}
                                     </span>
                                 </label>
                                 <div className={`efp-input-wrapper ${formErrors.position ? 'efp-input--error' : ''}`}>
                                     <Briefcase size={15} className="efp-input-icon" />
                                     <select
                                         className="efp-select"
-                                        value={formData.position}
-                                        onChange={e => handleChange('position', e.target.value)}
+                                        value={isCustomPosition ? '__CUSTOM__' : formData.position}
+                                        onChange={handlePositionSelect}
                                     >
-                                        <option value="">Select system authorization role...</option>
-                                        {POSITIONS.map(p => (
+                                        <option value="">Select employee position...</option>
+                                        {positionOptions.map(p => (
                                             <option key={p.value} value={p.value}>{p.label} — {p.desc}</option>
                                         ))}
+                                        <option value="__CUSTOM__">+ Other (Enter new position...)</option>
                                     </select>
                                 </div>
+                                {isCustomPosition && (
+                                    <div className="efp-input-wrapper efp-custom-pos-input" style={{ marginTop: '8px' }}>
+                                        <input
+                                            type="text"
+                                            className="efp-input"
+                                            placeholder="Enter position title (e.g. Security Guard, Cleaner, Electrician...)"
+                                            value={customPositionValue}
+                                            maxLength={100}
+                                            onChange={e => {
+                                                setCustomPositionValue(e.target.value);
+                                                handleChange('position', e.target.value);
+                                            }}
+                                        />
+                                    </div>
+                                )}
                                 {formErrors.position && <p className="efp-error">{formErrors.position}</p>}
-                                <p className="efp-hint">Select role to verify hardware &amp; POS authorization clearance</p>
+                                <p className="efp-hint">Job position within supermarket store operations</p>
                             </div>
 
                             {/* Hire Date */}
@@ -432,7 +483,7 @@ export default function EmployeeFormPage() {
                                         Suspended
                                     </button>
                                 </div>
-                                <p className="efp-hint">Active staff can access POS/Inventory terminals. Inactive status revokes session tokens without altering sales ledgers.</p>
+                                <p className="efp-hint">Active staff are currently employed in store operations. Inactive status marks personnel who have resigned or are on leave.</p>
                             </div>
                         </div>
                     </div>
@@ -626,12 +677,12 @@ export default function EmployeeFormPage() {
                             </div>
                             <div className="efp-id-card-footer">
                                 <span>Hire Date: {cardHireDate}</span>
-                                <span>Terminal: POS Standard</span>
+                                <span>Department: Store Operations</span>
                             </div>
                         </div>
 
                         <p className="efp-id-card-note">
-                            Synchronized with barcode scanner, thermal label printers, and checkout NFC terminals.
+                            Employee identification profile for supermarket store operations.
                         </p>
                     </div>
 
@@ -664,16 +715,16 @@ export default function EmployeeFormPage() {
                         </div>
                     </div>
 
-                    {/* Supermarket Audit Guarantee */}
+                    {/* Supermarket Operations Record */}
                     <div className="efp-audit-card">
                         <div className="efp-audit-header">
-                            <Shield size={14} /> Supermarket Audit Guarantee
+                            <Shield size={14} /> Supermarket Operations Record
                         </div>
                         <p className="efp-audit-desc">
-                            Role assignment strictly adheres to the 5 system roles. Deactivation revokes terminal tokens while preserving ledger integrity per UC08 Audit Logs. An immutable employee code is forever bound to their sales receipts and stock adjustments.
+                            Employee positions categorize supermarket operational duties. System user accounts and permissions are managed separately under User Management.
                         </p>
                         <div className="efp-audit-footer">
-                            <span>Terminal Gateway: v4.8</span>
+                            <span>System Status: Operational</span>
                             <span className="efp-audit-sync">
                                 <span className="efp-sync-dot"></span> Sync Live
                             </span>

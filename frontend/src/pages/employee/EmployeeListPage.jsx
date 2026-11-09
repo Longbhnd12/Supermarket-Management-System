@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../../context/authContext';
 import EmployeeService from '../../services/employeeService';
 import { ALL_MOCK_EMPLOYEES, enrichEmployee } from './mockEmployeesData';
+import { getMergedPositions, getPositionLabel } from './employeePositions';
 import './EmployeeListPage.css';
 
 export default function EmployeeListPage() {
@@ -37,7 +38,7 @@ export default function EmployeeListPage() {
         setTimeout(() => setToastMessage(null), 3500);
     };
 
-    // Load employees from backend API with mock fallback
+    // Load employees from backend API
     const fetchEmployees = async () => {
         setLoading(true);
         try {
@@ -46,14 +47,10 @@ export default function EmployeeListPage() {
             if (Array.isArray(backendList) && backendList.length > 0) {
                 // Enrich backend items with UI metadata
                 const enriched = backendList.map(enrichEmployee);
-                // If backend has fewer than 36, fill remaining from mock dataset to match SRS flagship specs
-                if (enriched.length < ALL_MOCK_EMPLOYEES.length) {
-                    const existingCodes = new Set(enriched.map((e) => e.employeeCode));
-                    const remainingMocks = ALL_MOCK_EMPLOYEES.filter((m) => !existingCodes.has(m.employeeCode));
-                    setEmployees([...enriched, ...remainingMocks]);
-                } else {
-                    setEmployees(enriched);
-                }
+                setEmployees(enriched);
+            } else if (Array.isArray(backendList)) {
+                // Backend returned empty list from database
+                setEmployees([]);
             } else {
                 setEmployees(ALL_MOCK_EMPLOYEES);
             }
@@ -109,6 +106,11 @@ export default function EmployeeListPage() {
         return filteredEmployees.slice(start, start + pageSize);
     }, [filteredEmployees, currentPage, pageSize]);
 
+    // Extract unique positions from loaded employees merged with base standard positions
+    const availablePositions = useMemo(() => {
+        return getMergedPositions(employees).map((p) => p.value);
+    }, [employees]);
+
     // Summary Metrics
     const metrics = useMemo(() => {
         const total = employees.length;
@@ -117,10 +119,22 @@ export default function EmployeeListPage() {
         const activePercent = total > 0 ? ((active / total) * 100).toFixed(1) : '0.0';
         const inactivePercent = total > 0 ? ((inactive / total) * 100).toFixed(1) : '0.0';
 
-        const cashiers = employees.filter((e) => e.position === 'Cashier').length;
-        const inventory = employees.filter((e) => e.position === 'Inventory Staff').length;
-        const managers = employees.filter((e) => e.position === 'Manager').length;
-        const admins = employees.filter((e) => e.position === 'Administrator').length;
+        const cashiers = employees.filter((e) => {
+            const p = (e.position || '').toLowerCase();
+            return p.includes('cashier') || p.includes('thu ngân');
+        }).length;
+        const inventory = employees.filter((e) => {
+            const p = (e.position || '').toLowerCase();
+            return p.includes('inventory') || p.includes('kho') || p.includes('warehouse');
+        }).length;
+        const managers = employees.filter((e) => {
+            const p = (e.position || '').toLowerCase();
+            return p.includes('manager') || p.includes('quản lý');
+        }).length;
+        const admins = employees.filter((e) => {
+            const p = (e.position || '').toLowerCase();
+            return p.includes('admin') || p.includes('quản trị');
+        }).length;
 
         return {
             total,
@@ -194,38 +208,45 @@ export default function EmployeeListPage() {
     };
 
     const getPositionBadge = (pos) => {
-        switch (pos) {
-            case 'Cashier':
-                return (
-                    <span className="pos-badge pos-cashier">
-                        <Users size={12} />
-                        Cashier
-                    </span>
-                );
-            case 'Inventory Staff':
-                return (
-                    <span className="pos-badge pos-inventory">
-                        <Package size={12} />
-                        Inventory Staff
-                    </span>
-                );
-            case 'Manager':
-                return (
-                    <span className="pos-badge pos-manager">
-                        <UserCheck size={12} />
-                        Manager
-                    </span>
-                );
-            case 'Administrator':
-                return (
-                    <span className="pos-badge pos-admin">
-                        <Shield size={12} />
-                        Administrator
-                    </span>
-                );
-            default:
-                return <span className="pos-badge">{pos}</span>;
+        const p = (pos || '').toLowerCase();
+        if (p.includes('cashier') || p.includes('thu ngân')) {
+            return (
+                <span className="pos-badge pos-cashier">
+                    <Users size={12} />
+                    {pos}
+                </span>
+            );
         }
+        if (p.includes('inventory') || p.includes('kho') || p.includes('warehouse')) {
+            return (
+                <span className="pos-badge pos-inventory">
+                    <Package size={12} />
+                    {pos}
+                </span>
+            );
+        }
+        if (p.includes('manager') || p.includes('quản lý')) {
+            return (
+                <span className="pos-badge pos-manager">
+                    <UserCheck size={12} />
+                    {pos}
+                </span>
+            );
+        }
+        if (p.includes('admin') || p.includes('quản trị')) {
+            return (
+                <span className="pos-badge pos-admin">
+                    <Shield size={12} />
+                    {pos}
+                </span>
+            );
+        }
+        return (
+            <span className="pos-badge">
+                <Users size={12} />
+                {pos || 'Staff'}
+            </span>
+        );
     };
 
     return (
@@ -302,7 +323,7 @@ export default function EmployeeListPage() {
                             <Building2 size={12} />
                             Store #04 Flagship
                         </span>
-                        <span className="capacity-text">100% capacity</span>
+                        <span className="capacity-text">{metrics.active} active staff</span>
                     </div>
                 </div>
 
@@ -342,7 +363,7 @@ export default function EmployeeListPage() {
                         <span className="val-label purple">Staff</span>
                     </div>
                     <div className="metric-breakdown-row">
-                        <span className="leave-detail">● 2 Medical • 2 Resigned</span>
+                        <span className="leave-detail">● {metrics.inactive} inactive / on-leave</span>
                         <span className="leave-percent">{metrics.inactivePercent}%</span>
                     </div>
                 </div>
@@ -404,10 +425,11 @@ export default function EmployeeListPage() {
                             }}
                         >
                             <option value="ALL">All Positions</option>
-                            <option value="Cashier">Cashier (Frontline Retail)</option>
-                            <option value="Inventory Staff">Inventory Staff (Warehouse)</option>
-                            <option value="Manager">Store Operations Manager</option>
-                            <option value="Administrator">System Administrator</option>
+                            {availablePositions.map((pos) => (
+                                <option key={pos} value={pos}>
+                                    {getPositionLabel(pos)}
+                                </option>
+                            ))}
                         </select>
                     </div>
 
@@ -718,12 +740,12 @@ export default function EmployeeListPage() {
 
             {/* 3 BOTTOM INFORMATIONAL PANELS */}
             <div className="employee-bottom-cards-grid">
-                {/* Panel 1: System Role Allocation */}
+                {/* Panel 1: Position Allocation */}
                 <div className="bottom-info-card role-allocation-card">
                     <div className="bottom-card-header">
                         <div className="title-with-icon">
                             <ShieldCheck size={18} className="panel-icon blue" />
-                            <h3>System Role Allocation</h3>
+                            <h3>Position Allocation</h3>
                         </div>
                         <span className="header-meta-tag">Active Staff</span>
                     </div>

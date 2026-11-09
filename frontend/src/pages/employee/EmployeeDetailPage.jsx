@@ -500,9 +500,9 @@ export default function EmployeeDetailPage() {
                             </div>
 
                             <div className="dossier-field-col">
-                                <label className="field-caption">POSITION / OPERATIONAL ROLE</label>
+                                <label className="field-caption">POSITION</label>
                                 <span className="field-value strong">
-                                    {employee.position} ({employee.department})
+                                    {employee.position} {employee.department ? `(${employee.department})` : ''}
                                 </span>
                             </div>
 
