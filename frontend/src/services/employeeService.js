@@ -6,6 +6,7 @@ import API from './api';
  */
 const EmployeeService = {
     getAll: (params) => API.get('/employees', { params }),          // params: { status }
+    getPositions: () => API.get('/employees/positions'),
     getById: (id) => API.get(`/employees/${id}`),
     create: (data) => API.post('/employees', data),
     update: (id, data) => API.put(`/employees/${id}`, data),
