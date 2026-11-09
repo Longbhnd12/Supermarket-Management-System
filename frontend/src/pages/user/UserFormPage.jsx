@@ -4,6 +4,7 @@ import { ArrowLeft, Wand2 } from 'lucide-react';
 import UserService from '../../services/userService';
 import { getAccessAwareErrorMessage } from '../../utils/errorUtils';
 import { roleLabel } from '../../utils/roleLabels';
+import { createdUserNotice } from '../../utils/userNotices';
 import './UserManagement.css';
 
 // UC05 - Manage Users: Create / Edit User screen (SRS Table 3-6)
@@ -123,10 +124,15 @@ export default function UserFormPage() {
 
         setSaving(true);
         try {
-            if (isEdit) await UserService.update(id, payload);
-            else await UserService.create({ ...payload, password: form.password });
             // "User saved" -> back to the Users List
-            navigate('/users', { state: { notice: isEdit ? 'Updated successfully.' : 'Added successfully.' } });
+            if (isEdit) {
+                await UserService.update(id, payload);
+                navigate('/users', { state: { notice: 'Updated successfully.' } });
+            } else {
+                // The backend also emails the username + temporary password to the new account
+                const { data } = await UserService.create({ ...payload, password: form.password });
+                navigate('/users', { state: createdUserNotice(data?.data) });
+            }
         } catch (err) {
             setError(getAccessAwareErrorMessage(err));
         } finally {
@@ -143,7 +149,7 @@ export default function UserFormPage() {
             <div className="um-header">
                 <div>
                     <h1>{isEdit ? 'Edit User' : 'Create User'}</h1>
-                    <p>{isEdit ? 'Update the account information. The password is not changed here.' : 'Create a new account and give the user a temporary password.'}</p>
+                    <p>{isEdit ? 'Update the account information. The password is not changed here.' : 'Create a new account. The username and temporary password are emailed to the user.'}</p>
                 </div>
                 <Link to="/users" className="um-btn um-btn-outline"><ArrowLeft size={16} /> Back to Users</Link>
             </div>
@@ -221,7 +227,7 @@ export default function UserFormPage() {
                                     <Wand2 size={15} /> Generate
                                 </button>
                             </div>
-                            {fieldError('password') || <span className="um-field-hint">Give this password to the user; they should change it after the first login.</span>}
+                            {fieldError('password') || <span className="um-field-hint">Sent to the email above together with the username; the user should change it after the first login.</span>}
                         </label>
                     )}
 

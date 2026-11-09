@@ -39,6 +39,8 @@ export default function UserListPage() {
     const [loaded, setLoaded] = useState({ key: null, result: EMPTY_RESULT, error: '' });
     const [actionError, setActionError] = useState('');
     const [notice, setNotice] = useState(location.state?.notice || '');
+    // 'success' (green) or 'warning' (amber, e.g. the new account's email could not be sent)
+    const [noticeType, setNoticeType] = useState(location.state?.noticeType || 'success');
     const [confirm, setConfirm] = useState(null); // { type: 'status' | 'delete', user }
     const [busy, setBusy] = useState(false);
 
@@ -101,6 +103,7 @@ export default function UserListPage() {
                 await UserService.updateStatus(confirm.user.userId, target);
                 setNotice('Updated successfully.');
             }
+            setNoticeType('success');
             setConfirm(null);
             reload();
         } catch (err) {
@@ -130,7 +133,7 @@ export default function UserListPage() {
                 </div>
             </div>
 
-            {notice && <p className="um-alert um-alert-success" role="status">{notice}</p>}
+            {notice && <p className={`um-alert um-alert-${noticeType}`} role="status">{notice}</p>}
             {error && <p className="um-alert um-alert-error" role="alert">{error}</p>}
 
             <form className="um-card um-filters" onSubmit={applySearch}>

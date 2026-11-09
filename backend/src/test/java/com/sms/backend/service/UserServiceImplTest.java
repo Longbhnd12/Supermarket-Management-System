@@ -11,6 +11,7 @@ import com.sms.backend.enums.AccountStatus;
 import com.sms.backend.enums.GeneralStatus;
 import com.sms.backend.enums.RoleName;
 import com.sms.backend.exception.BadRequestException;
+import com.sms.backend.exception.BusinessException;
 import com.sms.backend.exception.ResourceNotFoundException;
 import com.sms.backend.repository.EmployeeRepository;
 import com.sms.backend.repository.RoleRepository;
@@ -43,13 +44,14 @@ class UserServiceImplTest {
     @Mock SupplierRepository suppliers;
     @Mock SystemLogService logs;
     @Mock CurrentUserProvider currentUser;
+    @Mock EmailService email;
 
     UserServiceImpl service;
     User admin;
 
     @BeforeEach
     void setup() {
-        service = new UserServiceImpl(users, roles, employees, suppliers, ENCODER, logs, currentUser);
+        service = new UserServiceImpl(users, roles, employees, suppliers, ENCODER, logs, currentUser, email);
         admin = new User();
         admin.setUserId(1L);
         admin.setUsername("admin");
@@ -154,6 +156,70 @@ class UserServiceImplTest {
         BadRequestException error = assertThrows(BadRequestException.class,
                 () -> service.createUser(createRequest(3L, 20L, null)));
         assertEquals("Username/Email already exists", error.getMessage());
+    }
+
+    // ---------- UC05 create: login details email ----------
+
+    @Test
+    void newAccountReceivesUsernameAndTemporaryPasswordByEmail() {
+        when(roles.findById(3L)).thenReturn(Optional.of(role(3L, RoleName.CASHIER)));
+        when(employees.findById(20L)).thenReturn(Optional.of(employee(20L)));
+
+        UserResponse result = service.createUser(createRequest(3L, 20L, null));
+
+        verify(email).sendNewAccountCredentials("cashier02@sms.vn", "Tran Thi B", "cashier02", "Secret123", true);
+        assertEquals(Boolean.TRUE, result.credentialsEmailSent());
+        verify(logs).createLog(eq(admin), eq("USER_CREATED"), eq("USER"), eq(50L),
+                argThat((String text) -> text.contains("emailed") && !text.contains("Secret123")), eq("127.0.0.1"));
+    }
+
+    @Test
+    void inactiveAccountEmailSaysTheAccountIsNotActiveYet() {
+        when(roles.findById(10L)).thenReturn(Optional.of(role(10L, RoleName.ADMIN)));
+        CreateUserRequest inactive = new CreateUserRequest(10L, null, null, "admin2", "admin2@sms.vn", "Secret123",
+                AccountStatus.INACTIVE);
+
+        service.createUser(inactive);
+
+        verify(email).sendNewAccountCredentials("admin2@sms.vn", "admin2", "admin2", "Secret123", false);
+    }
+
+    @Test
+    void accountIsStillCreatedWhenTheEmailCannotBeSent() {
+        when(roles.findById(3L)).thenReturn(Optional.of(role(3L, RoleName.CASHIER)));
+        when(employees.findById(20L)).thenReturn(Optional.of(employee(20L)));
+        doThrow(new BusinessException("Unable to send the account details email."))
+                .when(email).sendNewAccountCredentials(anyString(), anyString(), anyString(), anyString(), anyBoolean());
+
+        UserResponse result = assertDoesNotThrow(() -> service.createUser(createRequest(3L, 20L, null)));
+
+        assertEquals(Boolean.FALSE, result.credentialsEmailSent());
+        verify(users).saveAndFlush(any());
+        verify(logs).createLog(eq(admin), eq("USER_CREATED"), eq("USER"), eq(50L),
+                argThat((String text) -> text.contains("could not be sent") && !text.contains("Secret123")), eq("127.0.0.1"));
+    }
+
+    @Test
+    void noEmailWhenTheAccountIsRejected() {
+        when(users.existsByUsername("cashier02")).thenReturn(true);
+
+        assertThrows(BadRequestException.class, () -> service.createUser(createRequest(3L, 20L, null)));
+
+        verifyNoInteractions(email);
+    }
+
+    @Test
+    void otherResponsesDoNotCarryTheEmailFlag() {
+        User user = new User();
+        user.setUserId(9L);
+        user.setUsername("cashier09");
+        user.setEmail("c9@sms.vn");
+        user.setStatus(AccountStatus.INACTIVE);
+        when(users.findById(9L)).thenReturn(Optional.of(user));
+        when(users.save(user)).thenReturn(user);
+
+        assertNull(service.updateUserStatus(9L, AccountStatus.ACTIVE).credentialsEmailSent());
+        verifyNoInteractions(email);
     }
 
     // ---------- UC05 update / status / delete ----------

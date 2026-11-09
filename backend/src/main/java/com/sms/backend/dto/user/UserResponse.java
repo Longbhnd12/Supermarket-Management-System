@@ -20,6 +20,9 @@ public record UserResponse(
         String email,
         AccountStatus status,
         LocalDateTime lastLoginAt,
-        LocalDateTime lockedUntil
+        LocalDateTime lockedUntil,
+        /* Only set by "create user": true when the login details were emailed to the new account,
+           false when the email could not be sent. null in every other response. */
+        Boolean credentialsEmailSent
 ) {
 }
