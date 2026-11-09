@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/authContext';
 import SupplierService from '../../services/supplierService';
-import { MOCK_SUPPLIERS, enrichSupplier } from './mockSuppliersData';
+import { enrichSupplier } from './mockSuppliersData';
 import './SupplierFormPage.css';
 
 export default function SupplierFormPage() {
@@ -48,7 +48,7 @@ export default function SupplierFormPage() {
 
     // Auto-generate code for create mode if not provided
     const generateNextCode = () => {
-        return `SUP-00${MOCK_SUPPLIERS.length + 1}`;
+        return `SUP-${Date.now().toString().slice(-4)}`;
     };
 
     // Load supplier data in Edit mode
@@ -67,7 +67,7 @@ export default function SupplierFormPage() {
             setLoading(true);
             try {
                 const res = await SupplierService.getById(id);
-                const data = res.data?.data;
+                const data = res.data?.data || res.data;
                 if (data) {
                     setFormData({
                         supplierCode: data.supplierCode || '',
@@ -79,43 +79,12 @@ export default function SupplierFormPage() {
                         taxCode: data.taxCode || '',
                         status: data.status || 'ACTIVE'
                     });
-                } else {
-                    loadFromMock(id);
                 }
             } catch (err) {
-                console.warn('Failed to load supplier from backend, fallback to mock:', err);
-                loadFromMock(id);
+                console.error('Failed to load supplier from backend:', err);
+                showToast('Không thể tải thông tin nhà cung cấp.', 'error');
             } finally {
                 setLoading(false);
-            }
-        };
-
-        const loadFromMock = (targetId) => {
-            const found = MOCK_SUPPLIERS.find(
-                (m) => String(m.supplierId) === String(targetId) || m.supplierCode === targetId
-            );
-            if (found) {
-                setFormData({
-                    supplierCode: found.supplierCode,
-                    supplierName: found.supplierName,
-                    contactPerson: found.contactPerson || '',
-                    phone: found.phone || '',
-                    email: found.email || '',
-                    address: found.address || '',
-                    taxCode: found.taxCode || '',
-                    status: found.status || 'ACTIVE'
-                });
-            } else {
-                setFormData({
-                    supplierCode: `SUP-00${targetId}`,
-                    supplierName: '',
-                    contactPerson: '',
-                    phone: '',
-                    email: '',
-                    address: '',
-                    taxCode: '',
-                    status: 'ACTIVE'
-                });
             }
         };
 
@@ -317,18 +286,26 @@ export default function SupplierFormPage() {
     // Reset Form
     const handleResetForm = () => {
         if (isEditMode) {
-            const found = MOCK_SUPPLIERS.find((m) => String(m.supplierId) === String(id));
-            if (found) {
-                setFormData({
-                    supplierCode: found.supplierCode,
-                    supplierName: found.supplierName,
-                    contactPerson: found.contactPerson || '',
-                    phone: found.phone || '',
-                    email: found.email || '',
-                    address: found.address || '',
-                    taxCode: found.taxCode || '',
-                    status: found.status || 'ACTIVE'
-                });
+            if (id) {
+                setLoading(true);
+                SupplierService.getById(id)
+                    .then((res) => {
+                        const data = res.data?.data || res.data;
+                        if (data) {
+                            setFormData({
+                                supplierCode: data.supplierCode || '',
+                                supplierName: data.supplierName || '',
+                                contactPerson: data.contactPerson || '',
+                                phone: data.phone || '',
+                                email: data.email || '',
+                                address: data.address || '',
+                                taxCode: data.taxCode || '',
+                                status: data.status || 'ACTIVE'
+                            });
+                        }
+                    })
+                    .catch((err) => console.error(err))
+                    .finally(() => setLoading(false));
             }
         } else {
             setFormData({

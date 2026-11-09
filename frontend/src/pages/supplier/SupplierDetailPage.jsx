@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/authContext';
 import SupplierService from '../../services/supplierService';
-import { MOCK_SUPPLIERS, enrichSupplier } from './mockSuppliersData';
+import { enrichSupplier } from './mockSuppliersData';
 import './SupplierDetailPage.css';
 
 export default function SupplierDetailPage() {
@@ -55,24 +55,16 @@ export default function SupplierDetailPage() {
         setLoading(true);
         setError(null);
         try {
-            // Check if numeric ID or code
             const res = await SupplierService.getById(targetId);
-            const data = res.data?.data;
+            const data = res.data?.data || res.data;
             if (data) {
                 setSupplier(enrichSupplier(data));
             } else {
-                // Check mock
-                const match = MOCK_SUPPLIERS.find(
-                    (m) => String(m.supplierId) === String(targetId) || m.supplierCode === targetId
-                );
-                setSupplier(match || enrichSupplier(MOCK_SUPPLIERS[0]));
+                setSupplier(null);
             }
         } catch (err) {
-            console.warn('Backend getById failed, using mock data:', err);
-            const match = MOCK_SUPPLIERS.find(
-                (m) => String(m.supplierId) === String(targetId) || m.supplierCode === targetId
-            );
-            setSupplier(match || enrichSupplier(MOCK_SUPPLIERS[0]));
+            console.error('Backend getById failed:', err);
+            setSupplier(null);
         } finally {
             setLoading(false);
         }

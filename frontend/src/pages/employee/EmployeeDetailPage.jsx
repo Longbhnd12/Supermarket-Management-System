@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/authContext';
 import EmployeeService from '../../services/employeeService';
-import { ALL_MOCK_EMPLOYEES, enrichEmployee } from './mockEmployeesData';
+import { enrichEmployee } from './mockEmployeesData';
 import './EmployeeDetailPage.css';
 
 export default function EmployeeDetailPage() {
@@ -45,29 +45,19 @@ export default function EmployeeDetailPage() {
     const fetchEmployee = async () => {
         setLoading(true);
         try {
-            // Find in mock dataset first or call backend API
             let rawData = null;
-            try {
-                // If id is numeric, fetch by ID
-                if (!isNaN(id)) {
-                    const res = await EmployeeService.getById(id);
-                    rawData = res.data?.data || res.data;
-                }
-            } catch (apiErr) {
-                console.warn('Backend employee fetch error, trying mock dataset:', apiErr);
+            if (!isNaN(id)) {
+                const res = await EmployeeService.getById(id);
+                rawData = res.data?.data || res.data;
             }
-
-            if (!rawData) {
-                rawData = ALL_MOCK_EMPLOYEES.find(
-                    (m) => String(m.employeeId) === String(id) || m.employeeCode === id
-                ) || ALL_MOCK_EMPLOYEES[0];
+            if (rawData) {
+                setEmployee(enrichEmployee(rawData));
+            } else {
+                setEmployee(null);
             }
-
-            setEmployee(enrichEmployee(rawData));
         } catch (err) {
             console.error('Failed to load employee details:', err);
-            const fallback = ALL_MOCK_EMPLOYEES[0];
-            setEmployee(enrichEmployee(fallback));
+            setEmployee(null);
         } finally {
             setLoading(false);
         }

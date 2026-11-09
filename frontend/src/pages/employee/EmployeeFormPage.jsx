@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/authContext';
 import EmployeeService from '../../services/employeeService';
-import { MOCK_EMPLOYEES } from './mockEmployeesData';
 import './EmployeeFormPage.css';
 
 const POSITIONS = [
@@ -23,15 +22,7 @@ const POSITIONS = [
 const today = new Date().toISOString().split('T')[0];
 
 function generateNextCode() {
-    // Find max code from mock data
-    const codes = MOCK_EMPLOYEES
-        .map(e => e.employeeCode)
-        .filter(c => c && c.startsWith('EMP-'))
-        .map(c => parseInt(c.replace('EMP-', ''), 10))
-        .filter(n => !isNaN(n));
-    const maxNum = codes.length > 0 ? Math.max(...codes) : 100;
-    const next = maxNum + 1;
-    return `EMP-${String(next).padStart(4, '0')}`;
+    return `EMP-${Date.now().toString().slice(-4)}`;
 }
 
 function isValidEmail(email) {
@@ -102,23 +93,8 @@ export default function EmployeeFormPage() {
                         address: data.address || '',
                     });
                 }
-            } catch {
-                // Fallback to mock data
-                const emp = MOCK_EMPLOYEES.find(e => String(e.employeeId) === String(id) || e.employeeCode === id);
-                if (emp) {
-                    setFormData({
-                        employeeCode: emp.employeeCode || '',
-                        position: emp.position || '',
-                        hireDate: emp.hireDate || today,
-                        status: emp.status || 'ACTIVE',
-                        fullName: emp.fullName || '',
-                        dateOfBirth: emp.dateOfBirth || '',
-                        gender: emp.gender || '',
-                        phone: (emp.phone || '').replace(/\s/g, ''),
-                        email: emp.email || '',
-                        address: emp.address || '',
-                    });
-                }
+            } catch (err) {
+                console.error('Failed to load employee:', err);
             } finally {
                 setLoading(false);
             }
@@ -177,24 +153,30 @@ export default function EmployeeFormPage() {
 
     const handleReset = () => {
         if (isEditMode) {
-            // Reload
-            setLoading(true);
-            const emp = MOCK_EMPLOYEES.find(e => String(e.employeeId) === String(id));
-            if (emp) {
-                setFormData({
-                    employeeCode: emp.employeeCode || '',
-                    position: emp.position || '',
-                    hireDate: emp.hireDate || today,
-                    status: emp.status || 'ACTIVE',
-                    fullName: emp.fullName || '',
-                    dateOfBirth: emp.dateOfBirth || '',
-                    gender: emp.gender || '',
-                    phone: (emp.phone || '').replace(/\s/g, ''),
-                    email: emp.email || '',
-                    address: emp.address || '',
-                });
+            // Reload from backend
+            if (id) {
+                setLoading(true);
+                EmployeeService.getById(id)
+                    .then(res => {
+                        const data = res.data?.data || res.data;
+                        if (data) {
+                            setFormData({
+                                employeeCode: data.employeeCode || '',
+                                position: data.position || '',
+                                hireDate: data.hireDate || today,
+                                status: data.status || 'ACTIVE',
+                                fullName: data.fullName || '',
+                                dateOfBirth: data.dateOfBirth || '',
+                                gender: data.gender || '',
+                                phone: data.phone || '',
+                                email: data.email || '',
+                                address: data.address || '',
+                            });
+                        }
+                    })
+                    .catch(err => console.error('Reset failed:', err))
+                    .finally(() => setLoading(false));
             }
-            setLoading(false);
         } else {
             setFormData({
                 employeeCode: generateNextCode(),

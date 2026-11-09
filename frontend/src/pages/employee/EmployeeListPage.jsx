@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/authContext';
 import EmployeeService from '../../services/employeeService';
-import { ALL_MOCK_EMPLOYEES, enrichEmployee } from './mockEmployeesData';
+import { enrichEmployee } from './mockEmployeesData';
 import './EmployeeListPage.css';
 
 export default function EmployeeListPage() {
@@ -37,7 +37,7 @@ export default function EmployeeListPage() {
         setTimeout(() => setToastMessage(null), 3500);
     };
 
-    // Load employees from backend API with mock fallback
+    // Load employees from backend API
     const fetchEmployees = async () => {
         setLoading(true);
         try {
@@ -46,20 +46,13 @@ export default function EmployeeListPage() {
             if (Array.isArray(backendList) && backendList.length > 0) {
                 // Enrich backend items with UI metadata
                 const enriched = backendList.map(enrichEmployee);
-                // If backend has fewer than 36, fill remaining from mock dataset to match SRS flagship specs
-                if (enriched.length < ALL_MOCK_EMPLOYEES.length) {
-                    const existingCodes = new Set(enriched.map((e) => e.employeeCode));
-                    const remainingMocks = ALL_MOCK_EMPLOYEES.filter((m) => !existingCodes.has(m.employeeCode));
-                    setEmployees([...enriched, ...remainingMocks]);
-                } else {
-                    setEmployees(enriched);
-                }
+                setEmployees(enriched);
             } else {
-                setEmployees(ALL_MOCK_EMPLOYEES);
+                setEmployees([]);
             }
         } catch (err) {
-            console.warn('Backend employee fetch failed, falling back to mock dataset:', err);
-            setEmployees(ALL_MOCK_EMPLOYEES);
+            console.warn('Backend employee fetch failed:', err);
+            setEmployees([]);
         } finally {
             setLoading(false);
         }
