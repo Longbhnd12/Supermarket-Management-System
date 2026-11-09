@@ -3,28 +3,29 @@ package com.sms.backend.service.serviceImpl;
 import com.sms.backend.dto.supplier.SupplierRequest;
 import com.sms.backend.dto.supplier.SupplierResponse;
 import com.sms.backend.entity.Supplier;
-import com.sms.backend.entity.SystemLog;
 import com.sms.backend.enums.SupplierStatus;
 import com.sms.backend.exception.BadRequestException;
 import com.sms.backend.exception.ResourceNotFoundException;
 import com.sms.backend.repository.SupplierRepository;
-import com.sms.backend.repository.SystemLogRepository;
 import com.sms.backend.security.CurrentUserProvider;
 import com.sms.backend.service.SupplierService;
+import com.sms.backend.service.SystemLogService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class SupplierServiceImpl implements SupplierService {
 
     private final SupplierRepository supplierRepository;
-    private final SystemLogRepository systemLogRepository;
+    private final SystemLogService systemLogService;
     private final CurrentUserProvider currentUserProvider;
 
     @Override
@@ -73,7 +74,7 @@ public class SupplierServiceImpl implements SupplierService {
         supplier.setCreatedAt(LocalDateTime.now());
         supplier.setUpdatedAt(LocalDateTime.now());
 
-        Supplier saved = supplierRepository.save(supplier);
+        Supplier saved = supplierRepository.saveAndFlush(supplier);
         logAction("SUPPLIER_SAVED", saved.getSupplierId(), "Đăng ký nhà cung cấp mới: " + saved.getSupplierName());
         return toResponse(saved);
     }
@@ -107,9 +108,12 @@ public class SupplierServiceImpl implements SupplierService {
         if (request.status() != null) {
             supplier.setStatus(request.status());
         }
+        if (supplier.getCreatedAt() == null) {
+            supplier.setCreatedAt(LocalDateTime.now());
+        }
         supplier.setUpdatedAt(LocalDateTime.now());
 
-        Supplier saved = supplierRepository.save(supplier);
+        Supplier saved = supplierRepository.saveAndFlush(supplier);
         logAction("SUPPLIER_SAVED", saved.getSupplierId(), "Cập nhật thông tin nhà cung cấp: " + saved.getSupplierName());
         return toResponse(saved);
     }
@@ -120,8 +124,11 @@ public class SupplierServiceImpl implements SupplierService {
         Supplier supplier = findById(id);
         SupplierStatus oldStatus = supplier.getStatus();
         supplier.setStatus(status);
+        if (supplier.getCreatedAt() == null) {
+            supplier.setCreatedAt(LocalDateTime.now());
+        }
         supplier.setUpdatedAt(LocalDateTime.now());
-        Supplier saved = supplierRepository.save(supplier);
+        Supplier saved = supplierRepository.saveAndFlush(supplier);
 
         logAction("STATUS_CHANGED", saved.getSupplierId(),
                 "Thay đổi trạng thái nhà cung cấp từ " + oldStatus + " sang " + status + " (" + saved.getSupplierName() + ")");
@@ -143,17 +150,16 @@ public class SupplierServiceImpl implements SupplierService {
 
     private void logAction(String action, Long entityId, String description) {
         try {
-            SystemLog log = new SystemLog();
-            log.setUser(currentUserProvider.currentUser().orElse(null));
-            log.setAction(action);
-            log.setEntityType("Supplier");
-            log.setEntityId(entityId);
-            log.setDescription(description);
-            log.setIpAddress(currentUserProvider.clientIp());
-            log.setCreatedAt(LocalDateTime.now());
-            systemLogRepository.save(log);
-        } catch (Exception ignored) {
-            // Audit log error must not fail business transaction
+            systemLogService.createLog(
+                    currentUserProvider.currentUser().orElse(null),
+                    action,
+                    "Supplier",
+                    entityId,
+                    description,
+                    currentUserProvider.clientIp()
+            );
+        } catch (Exception e) {
+            log.warn("Không thể lưu log hệ thống cho hành động nhà cung cấp {}: {}", action, e.getMessage());
         }
     }
 

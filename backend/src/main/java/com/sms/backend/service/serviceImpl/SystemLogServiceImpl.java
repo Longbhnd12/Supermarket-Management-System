@@ -15,6 +15,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -114,17 +115,21 @@ public class SystemLogServiceImpl implements SystemLogService {
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void createLog(User user, String action, String entityType, Long entityId, String description, String ipAddress) {
-        SystemLog log = new SystemLog();
-        log.setUser(user);
-        log.setAction(action);
-        log.setEntityType(entityType);
-        log.setEntityId(entityId);
-        log.setDescription(description);
-        log.setIpAddress(ipAddress);
-        log.setCreatedAt(LocalDateTime.now());
-        systemLogRepository.save(log);
+        try {
+            SystemLog log = new SystemLog();
+            log.setUser(user);
+            log.setAction(action);
+            log.setEntityType(entityType);
+            log.setEntityId(entityId);
+            log.setDescription(description);
+            log.setIpAddress(ipAddress);
+            log.setCreatedAt(LocalDateTime.now());
+            systemLogRepository.save(log);
+        } catch (Exception ignored) {
+            // Audit log error must never fail caller or transaction
+        }
     }
 
     private SystemLogResponse mapToResponse(SystemLog entity) {

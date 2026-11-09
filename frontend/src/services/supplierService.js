@@ -9,7 +9,7 @@ const SupplierService = {
     getById: (id) => API.get(`/suppliers/${id}`),
     create: (data) => API.post('/suppliers', data),
     update: (id, data) => API.put(`/suppliers/${id}`, data),
-    updateStatus: (id, status) => API.patch(`/suppliers/${id}/status`, null, { params: { status } }),
+    updateStatus: (id, status) => API.patch(`/suppliers/${id}/status?status=${status}`, { status }),
     delete: (id) => API.delete(`/suppliers/${id}`),
 };
 
