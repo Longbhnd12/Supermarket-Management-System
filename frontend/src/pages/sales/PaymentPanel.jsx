@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import SaleCompletionStatus from './SaleCompletionStatus';
 import PaymentService from '../../services/paymentService';
 import { getPOSErrorMessage as getErrorMessage } from './posErrorMessage';
@@ -257,7 +256,7 @@ export default function PaymentPanel({ sale, busy, runAction, onLock, onComplete
                     catch (err) { setError(getErrorMessage(err)); }
                     finally { setVersion((value) => value + 1); }
                 })}>Reconcile VNPay</button>}</div>
-        {confirmModal && typeof document !== 'undefined' && createPortal(
+        {confirmModal && (
             <div className="pos-confirm-overlay" role="dialog" aria-modal="true" onClick={() => setConfirmModal(null)}>
                 <div className="pos-confirm-modal" onClick={(e) => e.stopPropagation()}>
                     <div className="pos-confirm-header">
@@ -322,8 +321,7 @@ export default function PaymentPanel({ sale, busy, runAction, onLock, onComplete
                         </button>
                     </div>
                 </div>
-            </div>,
-            document.body
+            </div>
         )}
     </section>;
 }
