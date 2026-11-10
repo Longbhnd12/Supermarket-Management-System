@@ -10,6 +10,7 @@ import { useAuth } from '../../context/authContext';
 import PromotionService from '../../services/promotionService';
 import ProductService from '../../services/productService';
 import CategoryService from '../../services/categoryService';
+import Pagination from '../../components/ui/Pagination';
 import './CreatePromotionPage.css';
 
 const formatDateTimeLocal = (date) => {
@@ -32,6 +33,8 @@ export default function CreatePromotionPage() {
     const [categories, setCategories] = useState([]);
     const [catalogSearch, setCatalogSearch] = useState('');
     const [selectedDeptFilter, setSelectedDeptFilter] = useState('ALL');
+    const [catalogPage, setCatalogPage] = useState(0);
+    const [catalogPageSize, setCatalogPageSize] = useState(10);
 
     // Min selectable datetime (start of today)
     const minDateTimeString = useMemo(() => {
@@ -136,6 +139,33 @@ export default function CreatePromotionPage() {
             return matchesSearch && matchesDept;
         });
     }, [products, catalogSearch, selectedDeptFilter]);
+
+    // Reset to page 0 when search query or department filter changes
+    useEffect(() => {
+        setCatalogPage(0);
+    }, [catalogSearch, selectedDeptFilter]);
+
+    // Paginated catalog for table display
+    const paginatedCatalog = useMemo(() => {
+        const start = catalogPage * catalogPageSize;
+        return filteredCatalog.slice(start, start + catalogPageSize);
+    }, [filteredCatalog, catalogPage, catalogPageSize]);
+
+    // Check if all items on current page are selected
+    const isCurrentPageAllSelected = useMemo(() => {
+        return (
+            paginatedCatalog.length > 0 &&
+            paginatedCatalog.every(p => formData.selectedProductIds.includes(p.productId))
+        );
+    }, [paginatedCatalog, formData.selectedProductIds]);
+
+    // Check if all filtered items across all pages are selected
+    const isAllFilteredSelected = useMemo(() => {
+        return (
+            filteredCatalog.length > 0 &&
+            filteredCatalog.every(p => formData.selectedProductIds.includes(p.productId))
+        );
+    }, [filteredCatalog, formData.selectedProductIds]);
 
     // Selected products full objects
     const selectedProductObjects = useMemo(() => {
@@ -264,13 +294,46 @@ export default function CreatePromotionPage() {
         }));
     };
 
-    const handleSelectAllToggle = () => {
-        if (formData.selectedProductIds.length === filteredCatalog.length) {
-            setFormData(prev => ({ ...prev, selectedProductIds: [] }));
-        } else {
-            const allIds = filteredCatalog.map(p => p.productId);
-            setFormData(prev => ({ ...prev, selectedProductIds: allIds }));
+    const handleSelectCurrentPageToggle = () => {
+        const pageIds = paginatedCatalog.map(p => p.productId);
+        if (pageIds.length === 0) return;
+        const allPageSelected = pageIds.every(id => formData.selectedProductIds.includes(id));
+        setFormData(prev => {
+            let nextIds;
+            if (allPageSelected) {
+                nextIds = prev.selectedProductIds.filter(id => !pageIds.includes(id));
+            } else {
+                const toAdd = pageIds.filter(id => !prev.selectedProductIds.includes(id));
+                nextIds = [...prev.selectedProductIds, ...toAdd];
+            }
+            return { ...prev, selectedProductIds: nextIds };
+        });
+        if (formErrors.scope) {
+            setFormErrors(prev => ({ ...prev, scope: null }));
         }
+    };
+
+    const handleSelectAllFilteredToggle = () => {
+        const filteredIds = filteredCatalog.map(p => p.productId);
+        if (filteredIds.length === 0) return;
+        const allFilteredSelected = filteredIds.every(id => formData.selectedProductIds.includes(id));
+        setFormData(prev => {
+            let nextIds;
+            if (allFilteredSelected) {
+                nextIds = prev.selectedProductIds.filter(id => !filteredIds.includes(id));
+            } else {
+                const toAdd = filteredIds.filter(id => !prev.selectedProductIds.includes(id));
+                nextIds = [...prev.selectedProductIds, ...toAdd];
+            }
+            return { ...prev, selectedProductIds: nextIds };
+        });
+        if (formErrors.scope) {
+            setFormErrors(prev => ({ ...prev, scope: null }));
+        }
+    };
+
+    const handleClearAllSelected = () => {
+        setFormData(prev => ({ ...prev, selectedProductIds: [] }));
     };
 
     const validateForm = () => {
@@ -608,7 +671,20 @@ export default function CreatePromotionPage() {
 
                                     {/* Currently Selected Items Pills */}
                                     <div className="cpp-selected-pills-box">
-                                        <div className="selected-box-label">CURRENTLY SELECTED ITEMS:</div>
+                                        <div className="selected-box-header">
+                                            <div className="selected-box-label">
+                                                CURRENTLY SELECTED ITEMS ({formData.selectedProductIds.length}):
+                                            </div>
+                                            {formData.selectedProductIds.length > 0 && (
+                                                <button
+                                                    type="button"
+                                                    className="btn-clear-all-pills"
+                                                    onClick={handleClearAllSelected}
+                                                >
+                                                    Clear all ({formData.selectedProductIds.length})
+                                                </button>
+                                            )}
+                                        </div>
                                         <div className="selected-pills-wrap">
                                             {selectedProductObjects.length === 0 ? (
                                                 <span className="no-pills">Chưa chọn sản phẩm nào. Chọn từ danh sách bên dưới.</span>
@@ -623,6 +699,7 @@ export default function CreatePromotionPage() {
                                                             type="button"
                                                             className="pill-remove"
                                                             onClick={() => handleRemoveProduct(p.productId)}
+                                                            title="Remove product"
                                                         >
                                                             <X size={12} />
                                                         </button>
@@ -633,7 +710,33 @@ export default function CreatePromotionPage() {
                                     </div>
 
                                     {/* Quick Selection Table */}
-                                    <div className="cpp-table-label">Quick Selection from Catalog:</div>
+                                    <div className="cpp-table-header-row">
+                                        <div className="cpp-table-label">
+                                            Quick Selection from Catalog:
+                                            <span className="cpp-table-total-count">
+                                                ({filteredCatalog.length.toLocaleString()} products available)
+                                            </span>
+                                        </div>
+                                        {filteredCatalog.length > 0 && (
+                                            <div className="cpp-table-quick-actions">
+                                                <button
+                                                    type="button"
+                                                    className="btn-quick-select"
+                                                    onClick={handleSelectCurrentPageToggle}
+                                                >
+                                                    {isCurrentPageAllSelected ? 'Deselect this page' : 'Select this page'}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="btn-quick-select"
+                                                    onClick={handleSelectAllFilteredToggle}
+                                                >
+                                                    {isAllFilteredSelected ? 'Deselect all results' : `Select all (${filteredCatalog.length})`}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
                                     <div className="cpp-catalog-table-wrap">
                                         <table className="cpp-catalog-table">
                                             <thead>
@@ -641,11 +744,9 @@ export default function CreatePromotionPage() {
                                                     <th className="th-check">
                                                         <input
                                                             type="checkbox"
-                                                            checked={
-                                                                filteredCatalog.length > 0 &&
-                                                                filteredCatalog.every(p => formData.selectedProductIds.includes(p.productId))
-                                                            }
-                                                            onChange={handleSelectAllToggle}
+                                                            checked={isCurrentPageAllSelected}
+                                                            onChange={handleSelectCurrentPageToggle}
+                                                            title={isCurrentPageAllSelected ? "Deselect all products on this page" : "Select all products on this page"}
                                                         />
                                                     </th>
                                                     <th>SKU &amp; PRODUCT NAME</th>
@@ -655,41 +756,67 @@ export default function CreatePromotionPage() {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {filteredCatalog.map(p => {
-                                                    const isChecked = formData.selectedProductIds.includes(p.productId);
-                                                    return (
-                                                        <tr
-                                                            key={p.productId}
-                                                            className={isChecked ? 'row-selected' : ''}
-                                                            onClick={() => handleToggleProduct(p.productId)}
-                                                        >
-                                                            <td className="td-check" onClick={(e) => e.stopPropagation()}>
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={isChecked}
-                                                                    onChange={() => handleToggleProduct(p.productId)}
-                                                                />
-                                                            </td>
-                                                            <td className="td-product">
-                                                                <div className="prod-name">{p.productName}</div>
-                                                                <div className="prod-meta font-mono">
-                                                                    {p.productCode} • {p.barcode}
-                                                                </div>
-                                                            </td>
-                                                            <td className="td-cat">
-                                                                <span className="cat-tag">{p.category}</span>
-                                                            </td>
-                                                            <td className="td-price font-mono">
-                                                                {formatVND(p.sellingPrice)}
-                                                            </td>
-                                                            <td className="td-status">
-                                                                <span className="status-pill-green">Active</span>
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })}
+                                                {paginatedCatalog.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan={5} className="td-empty">
+                                                            <div className="cpp-empty-catalog">
+                                                                <Package size={24} className="empty-icon" />
+                                                                <span>Không tìm thấy sản phẩm nào phù hợp với từ khóa hoặc bộ lọc.</span>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    paginatedCatalog.map(p => {
+                                                        const isChecked = formData.selectedProductIds.includes(p.productId);
+                                                        return (
+                                                            <tr
+                                                                key={p.productId}
+                                                                className={isChecked ? 'row-selected' : ''}
+                                                                onClick={() => handleToggleProduct(p.productId)}
+                                                            >
+                                                                <td className="td-check" onClick={(e) => e.stopPropagation()}>
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={isChecked}
+                                                                        onChange={() => handleToggleProduct(p.productId)}
+                                                                    />
+                                                                </td>
+                                                                <td className="td-product">
+                                                                    <div className="prod-name">{p.productName}</div>
+                                                                    <div className="prod-meta font-mono">
+                                                                        {p.productCode} • {p.barcode}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="td-cat">
+                                                                    <span className="cat-tag">{p.category}</span>
+                                                                </td>
+                                                                <td className="td-price font-mono">
+                                                                    {formatVND(p.sellingPrice)}
+                                                                </td>
+                                                                <td className="td-status">
+                                                                    <span className="status-pill-green">Active</span>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })
+                                                )}
                                             </tbody>
                                         </table>
+
+                                        <Pagination
+                                            page={catalogPage}
+                                            size={catalogPageSize}
+                                            totalElements={filteredCatalog.length}
+                                            totalPages={Math.ceil(filteredCatalog.length / catalogPageSize) || 0}
+                                            pageSizeOptions={[5, 10, 20, 50]}
+                                            onPageChange={(newPage) => setCatalogPage(newPage)}
+                                            onSizeChange={(newSize) => {
+                                                setCatalogPageSize(newSize);
+                                                setCatalogPage(0);
+                                            }}
+                                            itemLabel="products"
+                                            idPrefix="promo-catalog"
+                                        />
                                     </div>
                                 </div>
                             )}
