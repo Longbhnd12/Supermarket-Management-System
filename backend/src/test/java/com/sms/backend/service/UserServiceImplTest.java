@@ -74,9 +74,14 @@ class UserServiceImplTest {
     }
 
     private Employee employee(Long id) {
+        return employee(id, "Cashier");
+    }
+
+    private Employee employee(Long id, String position) {
         Employee employee = new Employee();
         employee.setEmployeeId(id);
         employee.setFullName("Tran Thi B");
+        employee.setPosition(position);
         employee.setStatus(GeneralStatus.ACTIVE);
         return employee;
     }
@@ -156,6 +161,92 @@ class UserServiceImplTest {
         BadRequestException error = assertThrows(BadRequestException.class,
                 () -> service.createUser(createRequest(3L, 20L, null)));
         assertEquals("Username/Email already exists", error.getMessage());
+    }
+
+    @Test
+    void cashierCannotBeLinkedToSecurityGuardEmployee() {
+        when(roles.findById(3L)).thenReturn(Optional.of(role(3L, RoleName.CASHIER)));
+        when(employees.findById(20L)).thenReturn(Optional.of(employee(20L, "Security Guard")));
+
+        BadRequestException error = assertThrows(BadRequestException.class,
+                () -> service.createUser(createRequest(3L, 20L, null)));
+        assertTrue(error.getMessage().contains("Role CASHIER requires an employee with position 'Cashier'"));
+        assertTrue(error.getMessage().contains("Security Guard"));
+        verify(users, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void cashierCannotBeLinkedToCleanerOrStockHandlerEmployee() {
+        when(roles.findById(3L)).thenReturn(Optional.of(role(3L, RoleName.CASHIER)));
+        when(employees.findById(21L)).thenReturn(Optional.of(employee(21L, "Cleaner")));
+        when(employees.findById(22L)).thenReturn(Optional.of(employee(22L, "Stock Handler")));
+
+        BadRequestException err1 = assertThrows(BadRequestException.class,
+                () -> service.createUser(createRequest(3L, 21L, null)));
+        assertTrue(err1.getMessage().contains("Cleaner"));
+
+        BadRequestException err2 = assertThrows(BadRequestException.class,
+                () -> service.createUser(createRequest(3L, 22L, null)));
+        assertTrue(err2.getMessage().contains("Stock Handler"));
+    }
+
+    @Test
+    void adminWithEmployeeMustHaveAdministratorPosition() {
+        when(roles.findById(10L)).thenReturn(Optional.of(role(10L, RoleName.ADMIN)));
+        when(employees.findById(30L)).thenReturn(Optional.of(employee(30L, "Cleaner")));
+
+        BadRequestException error = assertThrows(BadRequestException.class,
+                () -> service.createUser(createRequest(10L, 30L, null)));
+        assertTrue(error.getMessage().contains("Role ADMIN requires an employee with position 'Administrator'"));
+
+        when(employees.findById(31L)).thenReturn(Optional.of(employee(31L, "Administrator")));
+        UserResponse result = service.createUser(createRequest(10L, 31L, null));
+        assertEquals(31L, result.employeeId());
+    }
+
+    @Test
+    void managerRequiresManagerPosition() {
+        when(roles.findById(2L)).thenReturn(Optional.of(role(2L, RoleName.MANAGER)));
+        when(employees.findById(40L)).thenReturn(Optional.of(employee(40L, "Cashier")));
+
+        BadRequestException error = assertThrows(BadRequestException.class,
+                () -> service.createUser(createRequest(2L, 40L, null)));
+        assertTrue(error.getMessage().contains("Role MANAGER requires an employee with position 'Manager'"));
+
+        when(employees.findById(41L)).thenReturn(Optional.of(employee(41L, "Manager")));
+        UserResponse result = service.createUser(createRequest(2L, 41L, null));
+        assertEquals(41L, result.employeeId());
+    }
+
+    @Test
+    void warehouseStaffRequiresInventoryStaffPosition() {
+        when(roles.findById(4L)).thenReturn(Optional.of(role(4L, RoleName.WAREHOUSE_STAFF)));
+        when(employees.findById(50L)).thenReturn(Optional.of(employee(50L, "Shelf Stocker")));
+
+        BadRequestException error = assertThrows(BadRequestException.class,
+                () -> service.createUser(createRequest(4L, 50L, null)));
+        assertTrue(error.getMessage().contains("Role WAREHOUSE_STAFF requires an employee with position 'Inventory Staff'"));
+
+        when(employees.findById(51L)).thenReturn(Optional.of(employee(51L, "Inventory Staff")));
+        UserResponse result = service.createUser(createRequest(4L, 51L, null));
+        assertEquals(51L, result.employeeId());
+    }
+
+    @Test
+    void updatingUserWithIncompatiblePositionIsRejected() {
+        User user = new User();
+        user.setUserId(9L);
+        user.setUsername("cashier09");
+        user.setEmail("c9@sms.vn");
+        user.setStatus(AccountStatus.ACTIVE);
+        when(users.findById(9L)).thenReturn(Optional.of(user));
+        when(roles.findById(3L)).thenReturn(Optional.of(role(3L, RoleName.CASHIER)));
+        when(employees.findById(25L)).thenReturn(Optional.of(employee(25L, "Accounting")));
+
+        BadRequestException error = assertThrows(BadRequestException.class,
+                () -> service.updateUser(9L, new UpdateUserRequest(3L, 25L, null, "cashier09", "c9@sms.vn", AccountStatus.ACTIVE)));
+        assertTrue(error.getMessage().contains("Role CASHIER requires an employee with position 'Cashier'"));
+        assertTrue(error.getMessage().contains("Accounting"));
     }
 
     // ---------- UC05 create: login details email ----------

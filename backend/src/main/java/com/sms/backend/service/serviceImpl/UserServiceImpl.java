@@ -113,6 +113,11 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserFormOptionsResponse getFormOptions(Long editingUserId) {
+        return getFormOptions(editingUserId, null);
+    }
+
+    @Override
+    public UserFormOptionsResponse getFormOptions(Long editingUserId, Long roleId) {
         User editing = editingUserId == null ? null : userRepository.findById(editingUserId).orElse(null);
         Long ownEmployeeId = editing != null && editing.getEmployee() != null ? editing.getEmployee().getEmployeeId() : null;
         Long ownSupplierId = editing != null && editing.getSupplier() != null ? editing.getSupplier().getSupplierId() : null;
@@ -132,6 +137,17 @@ public class UserServiceImpl implements UserService {
                         employee.getFullName(), employee.getPosition()))
                 .toList();
 
+        if (editing != null && editing.getEmployee() != null) {
+            Employee ownEmp = editing.getEmployee();
+            boolean alreadyInList = employees.stream().anyMatch(e -> Objects.equals(e.employeeId(), ownEmp.getEmployeeId()));
+            if (!alreadyInList) {
+                employees = new java.util.ArrayList<>(employees);
+                employees.add(new EmployeeOption(ownEmp.getEmployeeId(), ownEmp.getEmployeeCode(),
+                        ownEmp.getFullName(), ownEmp.getPosition()));
+                employees.sort(Comparator.comparing(EmployeeOption::fullName, Comparator.nullsLast(String::compareToIgnoreCase)));
+            }
+        }
+
         Set<Long> linkedSuppliers = new HashSet<>(userRepository.findLinkedSupplierIds());
         List<SupplierOption> suppliers = supplierRepository.findByStatus(SupplierStatus.ACTIVE).stream()
                 .filter(supplier -> !linkedSuppliers.contains(supplier.getSupplierId())
@@ -140,6 +156,34 @@ public class UserServiceImpl implements UserService {
                 .map(supplier -> new SupplierOption(supplier.getSupplierId(), supplier.getSupplierCode(),
                         supplier.getSupplierName()))
                 .toList();
+
+        if (editing != null && editing.getSupplier() != null) {
+            Supplier ownSup = editing.getSupplier();
+            boolean alreadyInList = suppliers.stream().anyMatch(s -> Objects.equals(s.supplierId(), ownSup.getSupplierId()));
+            if (!alreadyInList) {
+                suppliers = new java.util.ArrayList<>(suppliers);
+                suppliers.add(new SupplierOption(ownSup.getSupplierId(), ownSup.getSupplierCode(), ownSup.getSupplierName()));
+                suppliers.sort(Comparator.comparing(SupplierOption::supplierName, Comparator.nullsLast(String::compareToIgnoreCase)));
+            }
+        }
+
+        if (roleId != null) {
+            Role role = roleRepository.findById(roleId).orElse(null);
+            if (role != null && role.getRoleName() != null) {
+                RoleName roleName = role.getRoleName();
+                if (roleName == RoleName.SUPPLIER) {
+                    employees = List.of();
+                } else {
+                    String expectedPosition = getExpectedPositionForRole(roleName);
+                    if (expectedPosition != null) {
+                        employees = employees.stream()
+                                .filter(emp -> emp.position() != null && expectedPosition.equalsIgnoreCase(emp.position().trim()))
+                                .toList();
+                    }
+                    suppliers = List.of();
+                }
+            }
+        }
 
         return new UserFormOptionsResponse(roles, employees, suppliers);
     }
@@ -311,12 +355,40 @@ public class UserServiceImpl implements UserService {
                         .ifPresent(other -> {
                             throw new BadRequestException("This employee is already linked to account " + other.getUsername());
                         });
+
+                validateRolePositionCompatibility(roleName, employee);
             }
         }
 
         user.setRole(role);
         user.setEmployee(employee);
         user.setSupplier(supplier);
+    }
+
+    private void validateRolePositionCompatibility(RoleName roleName, Employee employee) {
+        String expectedPosition = getExpectedPositionForRole(roleName);
+        if (expectedPosition != null) {
+            String actualPosition = employee.getPosition() != null ? employee.getPosition().trim() : "";
+            if (!expectedPosition.equalsIgnoreCase(actualPosition)) {
+                throw new BadRequestException(String.format(
+                        "Role %s requires an employee with position '%s', but employee '%s' has position '%s'",
+                        roleName, expectedPosition, employee.getFullName(),
+                        actualPosition.isEmpty() ? "None" : actualPosition));
+            }
+        }
+    }
+
+    private String getExpectedPositionForRole(RoleName roleName) {
+        if (roleName == null) {
+            return null;
+        }
+        return switch (roleName) {
+            case ADMIN -> "Administrator";
+            case MANAGER -> "Manager";
+            case CASHIER -> "Cashier";
+            case WAREHOUSE_STAFF -> "Inventory Staff";
+            case SUPPLIER -> null;
+        };
     }
 
     private void ensureUnique(String username, String email, Long excludeUserId) {
