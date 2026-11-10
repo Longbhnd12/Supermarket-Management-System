@@ -12,6 +12,12 @@ const USERNAME_PATTERN = /^[A-Za-z0-9_.-]+$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,255}$/;
 const STAFF_ROLES = ['MANAGER', 'CASHIER', 'WAREHOUSE_STAFF'];
+const ROLE_POSITION_MAP = {
+    ADMIN: 'Administrator',
+    MANAGER: 'Manager',
+    CASHIER: 'Cashier',
+    WAREHOUSE_STAFF: 'Inventory Staff',
+};
 
 const EMPTY_FORM = { roleId: '', employeeId: '', supplierId: '', username: '', email: '', password: '', status: 'ACTIVE' };
 
@@ -75,6 +81,57 @@ export default function UserFormPage() {
     const isSupplierRole = selectedRole === 'SUPPLIER';
     const employeeRequired = STAFF_ROLES.includes(selectedRole);
 
+    const eligibleEmployees = useMemo(() => {
+        if (!selectedRole || isSupplierRole) return [];
+        const targetPosition = ROLE_POSITION_MAP[selectedRole];
+        if (!targetPosition) return [];
+        return options.employees.filter((emp) => {
+            const pos = (emp.position || '').trim().toLowerCase();
+            return pos === targetPosition.toLowerCase();
+        });
+    }, [options.employees, selectedRole, isSupplierRole]);
+
+    const handleRoleChange = (event) => {
+        const newRoleId = event.target.value;
+        const newRole = options.roles.find((role) => String(role.roleId) === newRoleId)?.roleName || '';
+        const newIsSupplier = newRole === 'SUPPLIER';
+        const targetPosition = ROLE_POSITION_MAP[newRole];
+
+        setForm((current) => {
+            let updatedEmployeeId = current.employeeId;
+            let updatedSupplierId = current.supplierId;
+
+            if (newIsSupplier) {
+                updatedEmployeeId = '';
+            } else {
+                updatedSupplierId = '';
+                if (updatedEmployeeId) {
+                    const currentEmp = options.employees.find(
+                        (emp) => String(emp.employeeId) === String(updatedEmployeeId)
+                    );
+                    const currentPos = (currentEmp?.position || '').trim().toLowerCase();
+                    if (!targetPosition || currentPos !== targetPosition.toLowerCase()) {
+                        updatedEmployeeId = '';
+                    }
+                }
+            }
+
+            return {
+                ...current,
+                roleId: newRoleId,
+                employeeId: updatedEmployeeId,
+                supplierId: updatedSupplierId,
+            };
+        });
+
+        setFieldErrors((current) => ({
+            ...current,
+            roleId: '',
+            employeeId: '',
+            supplierId: '',
+        }));
+    };
+
     const update = (field) => (event) => {
         const value = event.target.value;
         setForm((current) => ({ ...current, [field]: value }));
@@ -92,6 +149,18 @@ export default function UserFormPage() {
         if (!isEdit) required('password', 'Temporary Password');
         if (employeeRequired) required('employeeId', 'Link to Employee');
         if (isSupplierRole) required('supplierId', 'Link to Supplier');
+
+        // Validate role-to-position compatibility
+        if (form.employeeId && !isSupplierRole && selectedRole) {
+            const targetPosition = ROLE_POSITION_MAP[selectedRole];
+            const emp = options.employees.find((e) => String(e.employeeId) === String(form.employeeId));
+            if (emp && targetPosition) {
+                const pos = (emp.position || '').trim().toLowerCase();
+                if (pos !== targetPosition.toLowerCase()) {
+                    errors.employeeId = `Role ${roleLabel(selectedRole)} requires an employee with position '${targetPosition}'.`;
+                }
+            }
+        }
 
         const username = form.username.trim();
         if (!errors.username && (username.length < 3 || username.length > 50)) {
@@ -160,7 +229,7 @@ export default function UserFormPage() {
                 <div className="um-form">
                     <label className="um-field">
                         Role
-                        <select value={form.roleId} onChange={update('roleId')} aria-invalid={Boolean(fieldErrors.roleId)}>
+                        <select value={form.roleId} onChange={handleRoleChange} aria-invalid={Boolean(fieldErrors.roleId)}>
                             <option value="">Select a role</option>
                             {options.roles.map((role) => <option key={role.roleId} value={role.roleId}>{roleLabel(role.roleName)}</option>)}
                         </select>
@@ -183,9 +252,20 @@ export default function UserFormPage() {
                     ) : (
                         <label className="um-field">
                             Link to Employee
-                            <select value={form.employeeId} onChange={update('employeeId')} aria-invalid={Boolean(fieldErrors.employeeId)}>
-                                <option value="">{employeeRequired ? 'Select an employee' : 'None'}</option>
-                                {options.employees.map((employee) => (
+                            <select
+                                value={form.employeeId}
+                                onChange={update('employeeId')}
+                                disabled={!selectedRole}
+                                aria-invalid={Boolean(fieldErrors.employeeId)}
+                            >
+                                <option value="">
+                                    {!selectedRole
+                                        ? 'Select a role first'
+                                        : employeeRequired
+                                        ? (eligibleEmployees.length === 0 ? 'No eligible employees available' : 'Select an employee')
+                                        : 'None'}
+                                </option>
+                                {eligibleEmployees.map((employee) => (
                                     <option key={employee.employeeId} value={employee.employeeId}>
                                         {employee.fullName} ({employee.employeeCode}{employee.position ? ` · ${employee.position}` : ''})
                                     </option>
@@ -193,7 +273,11 @@ export default function UserFormPage() {
                             </select>
                             {fieldError('employeeId') || (
                                 <span className="um-field-hint">
-                                    {selectedRole === 'ADMIN' ? 'Optional for Admin.' : 'Required for Manager, Cashier and Inventory Staff.'}
+                                    {selectedRole === 'ADMIN' && 'Optional for Admin. Only employees with Administrator position can be linked.'}
+                                    {selectedRole === 'MANAGER' && 'Required for Manager. Only active employees with Manager position are eligible.'}
+                                    {selectedRole === 'CASHIER' && 'Required for Cashier. Only active employees with Cashier position are eligible.'}
+                                    {selectedRole === 'WAREHOUSE_STAFF' && 'Required for Warehouse Staff. Only active employees with Inventory Staff position are eligible.'}
+                                    {!selectedRole && 'Select a system role first to view eligible employees.'}
                                 </span>
                             )}
                         </label>

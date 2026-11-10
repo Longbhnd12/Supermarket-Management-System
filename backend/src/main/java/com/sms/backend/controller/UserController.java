@@ -53,8 +53,9 @@ public class UserController {
     /** UC05: dropdown data for the Create/Edit User screen. */
     @GetMapping("/options")
     public ResponseEntity<ApiResponse<UserFormOptionsResponse>> getFormOptions(
-            @RequestParam(required = false) Long userId) {
-        return ResponseEntity.ok(ApiResponse.success("Options retrieved", userService.getFormOptions(userId)));
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) Long roleId) {
+        return ResponseEntity.ok(ApiResponse.success("Options retrieved", userService.getFormOptions(userId, roleId)));
     }
 
     @GetMapping("/{id}")

@@ -27,6 +27,8 @@ public interface UserService {
     /** UC05: roles, free employees and free suppliers for the Create/Edit User form. */
     UserFormOptionsResponse getFormOptions(Long editingUserId);
 
+    UserFormOptionsResponse getFormOptions(Long editingUserId, Long roleId);
+
     UserResponse createUser(CreateUserRequest request);
 
     UserResponse updateUser(Long id, UpdateUserRequest request);
